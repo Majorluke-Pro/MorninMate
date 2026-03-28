@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Typography, Button, TextField, IconButton } from '@mui/material';
+import { Box, Typography, Button, TextField, IconButton, CircularProgress, Alert } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
@@ -39,10 +39,12 @@ const DATA_STEP_IDS = ['name', 'wakeTime', 'morningType', 'game', 'goal'];
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function OnboardingFlow() {
-  const { completeOnboarding } = useApp();
+  const { session, completeOnboarding, setPendingOnboarding, setShowAuthDirectly } = useApp();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [animKey, setAnimKey] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [data, setData] = useState({
     name: '',
     wakeTime: '07:00',
@@ -59,9 +61,20 @@ export default function OnboardingFlow() {
     setStep(s => s + delta);
   }
 
-  function handleNext() {
+  async function handleNext() {
     if (currentId === 'summary') {
-      completeOnboarding(data);
+      if (session) {
+        setSaving(true);
+        setSaveError('');
+        try {
+          await completeOnboarding(data);
+        } catch (e) {
+          setSaveError('Failed to save your profile. Please try again.');
+          setSaving(false);
+        }
+      } else {
+        setPendingOnboarding(data);
+      }
     } else {
       go(1);
     }
@@ -170,12 +183,15 @@ export default function OnboardingFlow() {
 
         {/* CTA */}
         <Box sx={{ px: 3, pb: 5, pt: 1 }}>
+          {saveError && (
+            <Alert severity="error" sx={{ borderRadius: 2, mb: 2 }}>{saveError}</Alert>
+          )}
           <Button
             fullWidth
             variant="contained"
             size="large"
             onClick={handleNext}
-            disabled={!canProceed()}
+            disabled={!canProceed() || saving}
             sx={{
               py: 1.75,
               fontWeight: 700,
@@ -186,10 +202,35 @@ export default function OnboardingFlow() {
               transition: 'all 0.25s',
             }}
           >
-            {currentId === 'welcome' && 'Get Started →'}
-            {currentId === 'summary' && 'Begin My Journey 🚀'}
-            {!['welcome', 'summary'].includes(currentId) && 'Continue →'}
+            {saving
+              ? <CircularProgress size={22} sx={{ color: '#fff' }} />
+              : currentId === 'welcome' ? 'Get Started →'
+              : currentId === 'summary' ? 'Create My Account 🚀'
+              : 'Continue →'}
           </Button>
+
+          {currentId === 'welcome' && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              textAlign="center"
+              sx={{ mt: 2 }}
+            >
+              Already have an account?{' '}
+              <Box
+                component="span"
+                onClick={() => setShowAuthDirectly(true)}
+                sx={{
+                  color: 'primary.main',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                Sign in
+              </Box>
+            </Typography>
+          )}
         </Box>
       </Box>
     </Box>
