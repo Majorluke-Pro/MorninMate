@@ -148,8 +148,8 @@ export default function CreateAlarm() {
             </Typography>
             <TimeDrum
               display={String(m).padStart(2, '0')}
-              onUp={()   => setMin(m >= 55 ? 0  : m + 5)}
-              onDown={()  => setMin(m <= 0  ? 55 : m - 5)}
+              onUp={()   => setMin(m >= 59 ? 0  : m + 1)}
+              onDown={()  => setMin(m <= 0  ? 59 : m - 1)}
             />
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
               {['AM', 'PM'].map(period => {

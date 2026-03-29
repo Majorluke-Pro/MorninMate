@@ -142,7 +142,7 @@ export function AppProvider({ children }) {
       }
     }
 
-    const interval = setInterval(checkAlarms, 15000);
+    const interval = setInterval(checkAlarms, 5000);
     checkAlarms(); // immediate check on mount / login
     return () => clearInterval(interval);
   }, [session]);
@@ -178,7 +178,7 @@ export function AppProvider({ children }) {
     if (alarmsResult.data) {
       setAlarms(alarmsResult.data.map(a => ({
         id: a.id, label: a.label, time: a.time,
-        pulse: a.pulse, active: a.active, days: a.days || [],
+        pulse: a.pulse, active: a.active, days: (a.days || []).map(Number),
       })));
     }
 
@@ -217,7 +217,7 @@ export function AppProvider({ children }) {
     if (alarmsResult.data) {
       setAlarms(alarmsResult.data.map(a => ({
         id: a.id, label: a.label, time: a.time,
-        pulse: a.pulse, active: a.active, days: a.days || [],
+        pulse: a.pulse, active: a.active, days: (a.days || []).map(Number),
       })));
     }
 
