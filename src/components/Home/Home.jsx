@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Box, Typography, Card, IconButton, Switch, LinearProgress,
-  Chip, Fab, BottomNavigation, BottomNavigationAction,
+  Fab, BottomNavigation, BottomNavigationAction,
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
   TextField, Divider, Avatar, Menu, MenuItem,
 } from '@mui/material';
@@ -10,7 +10,6 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
-import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AlarmIcon from '@mui/icons-material/Alarm';
@@ -135,85 +134,181 @@ function AlarmsTab({ onNavigate }) {
       <Box
         sx={{
           background: 'linear-gradient(160deg, #1A0A2E 0%, #16162A 100%)',
-          px: 2.5, pt: 5, pb: 2.5,
+          px: 2.5, pt: 5, pb: 3,
           borderBottom: '1px solid rgba(255,107,53,0.1)',
           position: 'relative',
           overflow: 'hidden',
         }}
       >
-        {/* Ambient orb */}
+        {/* Ambient orbs */}
         <Box sx={{
-          position: 'absolute', width: 280, height: 280, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,107,53,0.11) 0%, transparent 70%)',
-          top: -100, right: -70, filter: 'blur(50px)', pointerEvents: 'none',
-          '@keyframes homeOrb': { '0%,100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.1)' } },
+          position: 'absolute', width: 300, height: 300, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,107,53,0.13) 0%, transparent 70%)',
+          top: -120, right: -80, filter: 'blur(55px)', pointerEvents: 'none',
+          '@keyframes homeOrb': { '0%,100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.12)' } },
           animation: 'homeOrb 9s ease-in-out infinite',
         }} />
+        <Box sx={{
+          position: 'absolute', width: 180, height: 180, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,209,102,0.07) 0%, transparent 70%)',
+          bottom: -40, left: -40, filter: 'blur(40px)', pointerEvents: 'none',
+        }} />
 
-        {/* Brand + clock (no seconds — calmer on mobile) */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        {/* Brand + clock */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <WbSunnyIcon sx={{ color: 'primary.main', fontSize: 16 }} />
-            <Typography variant="caption" fontWeight={800} color="primary.main" letterSpacing={1.5} fontSize="0.65rem">
+            <WbSunnyIcon sx={{ color: 'primary.main', fontSize: 15 }} />
+            <Typography variant="caption" fontWeight={800} color="primary.main" letterSpacing={1.5} fontSize="0.62rem">
               MORNINMATE
             </Typography>
           </Box>
-          <Typography fontWeight={600} sx={{ fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.38)', fontSize: '0.82rem' }}>
+          <Typography fontWeight={600} sx={{ fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.35)', fontSize: '0.82rem' }}>
             {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Typography>
         </Box>
 
-        {/* Greeting row — name + inline countdown pill */}
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
-          <Box sx={{ minWidth: 0 }}>
+        {/* Top row: level ring + greeting + next alarm */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
+          {/* Level ring */}
+          <Box sx={{ position: 'relative', flexShrink: 0, width: 64, height: 64 }}>
+            {/* Spinning ring */}
+            <Box sx={{
+              position: 'absolute', inset: -3,
+              borderRadius: '50%',
+              border: '2px solid transparent',
+              borderTopColor: '#FF6B35',
+              borderRightColor: '#FFD166',
+              '@keyframes spinRing': { to: { transform: 'rotate(360deg)' } },
+              animation: 'spinRing 4s linear infinite',
+            }} />
+            {/* Static track ring */}
+            <Box sx={{
+              position: 'absolute', inset: -3,
+              borderRadius: '50%',
+              border: '2px solid rgba(255,255,255,0.07)',
+            }} />
+            <Avatar sx={{
+              width: 64, height: 64,
+              background: 'linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)',
+              fontWeight: 900, fontSize: '1.35rem',
+              boxShadow: '0 0 20px rgba(255,107,53,0.35)',
+              letterSpacing: '-1px',
+            }}>
+              {user.level}
+            </Avatar>
+            {/* "LVL" label */}
+            <Box sx={{
+              position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
+              px: 0.75, py: 0.1, borderRadius: 0.75,
+              bgcolor: '#FF6B35',
+              fontSize: '0.42rem', fontWeight: 900, letterSpacing: 0.8, color: '#fff',
+              lineHeight: 1.6, whiteSpace: 'nowrap',
+            }}>
+              LEVEL
+            </Box>
+          </Box>
+
+          {/* Greeting */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="h5" fontWeight={800} noWrap>
               {greeting}, {user.name} ☀️
             </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: 'block' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: 'block' }} noWrap>
               {user.wakeGoal ? `"${user.wakeGoal}"` : 'Keep that streak alive!'}
             </Typography>
           </Box>
-          {nextAlarm && msUntilNext != null && (
+
+          {/* Streak badge */}
+          {user.streak > 0 && (
             <Box sx={{
-              flexShrink: 0,
-              px: 1.25, py: 0.5, borderRadius: 2,
-              bgcolor: 'rgba(255,107,53,0.1)',
-              border: '1px solid rgba(255,107,53,0.2)',
-              textAlign: 'center',
+              flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
+              px: 1.25, py: 0.75, borderRadius: 2.5,
+              bgcolor: 'rgba(255,209,102,0.1)',
+              border: '1px solid rgba(255,209,102,0.25)',
             }}>
-              <Typography variant="caption" fontWeight={800} color="primary.main" sx={{ display: 'block', lineHeight: 1.2 }}>
-                {formatCountdown(msUntilNext)}
-              </Typography>
-              <Typography sx={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
-                NEXT
-              </Typography>
+              <Typography sx={{ fontSize: '1.1rem', lineHeight: 1 }}>🔥</Typography>
+              <Typography fontWeight={900} fontSize="0.9rem" color="#FFD166" sx={{ lineHeight: 1.2 }}>{user.streak}</Typography>
+              <Typography sx={{ fontSize: '0.48rem', color: 'rgba(255,209,102,0.65)', fontWeight: 700, letterSpacing: 0.5 }}>STREAK</Typography>
             </Box>
           )}
         </Box>
 
-        {/* Stats + XP */}
-        <Box sx={{ mt: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
-            <StatChip icon={<EmojiEventsIcon sx={{ fontSize: 12 }} />} label={`Lv.${user.level}`}          color="#FF6B35" />
-            <StatChip icon={<LocalFireDepartmentIcon sx={{ fontSize: 12 }} />} label={`${user.streak} streak`} color="#FFD166" />
-            {user.demerits > 0 && (
-              <StatChip icon={<WarningAmberIcon sx={{ fontSize: 12 }} />} label={`${user.demerits} demerits`} color="#EF476F" />
-            )}
-            <Box sx={{ ml: 'auto' }}>
-              <Typography variant="caption" color="primary.main" fontWeight={700} fontSize="0.65rem">
-                {xpInLevel}/{XP_PER_LEVEL} XP
+        {/* XP Progress section */}
+        <Box sx={{
+          p: 2, borderRadius: 3,
+          bgcolor: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.07)',
+        }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.25 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <EmojiEventsIcon sx={{ fontSize: 14, color: '#FFD166' }} />
+              <Typography variant="caption" fontWeight={700} color="rgba(255,255,255,0.7)" fontSize="0.72rem">
+                Level {user.level} → {user.level + 1}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {nextAlarm && msUntilNext != null && (
+                <Box sx={{
+                  px: 1, py: 0.25, borderRadius: 1.5,
+                  bgcolor: 'rgba(255,107,53,0.12)',
+                  border: '1px solid rgba(255,107,53,0.2)',
+                  display: 'flex', alignItems: 'center', gap: 0.5,
+                }}>
+                  <AlarmIcon sx={{ fontSize: 10, color: 'primary.main' }} />
+                  <Typography variant="caption" fontWeight={800} color="primary.main" fontSize="0.6rem">
+                    {formatCountdown(msUntilNext)}
+                  </Typography>
+                </Box>
+              )}
+              <Typography variant="caption" fontWeight={800} color="primary.main" fontSize="0.72rem">
+                {xpInLevel}<Typography component="span" variant="caption" color="text.disabled" fontSize="0.65rem">/{XP_PER_LEVEL} XP</Typography>
               </Typography>
             </Box>
           </Box>
-          <LinearProgress
-            variant="determinate"
-            value={xpProgress * 100}
-            sx={{
-              height: 4, borderRadius: 4,
-              bgcolor: 'rgba(255,255,255,0.07)',
-              '& .MuiLinearProgress-bar': { borderRadius: 4, background: 'linear-gradient(90deg, #FF6B35, #FFD166)' },
-            }}
-          />
+
+          {/* XP Bar with milestone dots */}
+          <Box sx={{ position: 'relative' }}>
+            <LinearProgress
+              variant="determinate"
+              value={xpProgress * 100}
+              sx={{
+                height: 10, borderRadius: 5,
+                bgcolor: 'rgba(255,255,255,0.08)',
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 5,
+                  background: 'linear-gradient(90deg, #FF6B35 0%, #FFD166 100%)',
+                  boxShadow: '0 0 10px rgba(255,107,53,0.4)',
+                },
+              }}
+            />
+            {/* Milestone dots at 25%, 50%, 75% */}
+            {[0.25, 0.5, 0.75].map(pct => (
+              <Box key={pct} sx={{
+                position: 'absolute', top: '50%', left: `${pct * 100}%`,
+                transform: 'translate(-50%, -50%)',
+                width: 4, height: 4, borderRadius: '50%',
+                bgcolor: xpProgress >= pct ? '#fff' : 'rgba(255,255,255,0.2)',
+                boxShadow: xpProgress >= pct ? '0 0 4px rgba(255,255,255,0.6)' : 'none',
+                transition: 'all 0.3s',
+                zIndex: 1,
+                pointerEvents: 'none',
+              }} />
+            ))}
+          </Box>
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+            <Typography variant="caption" color="text.disabled" fontSize="0.62rem">
+              {XP_PER_LEVEL - xpInLevel} XP to level up
+            </Typography>
+            {user.demerits > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
+                <WarningAmberIcon sx={{ fontSize: 10, color: '#EF476F' }} />
+                <Typography variant="caption" color="#EF476F" fontWeight={700} fontSize="0.62rem">
+                  {user.demerits} demerit{user.demerits !== 1 ? 's' : ''}
+                </Typography>
+              </Box>
+            )}
+          </Box>
         </Box>
       </Box>
 
@@ -503,111 +598,206 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
 
 function StatsTab() {
   const { user, alarms, XP_PER_LEVEL } = useApp();
-  const xpInLevel    = user.xp % XP_PER_LEVEL;
-  const xpToNext     = XP_PER_LEVEL - xpInLevel;
-  const activeCount  = alarms.filter(a => a.active).length;
-  const inactiveCount = alarms.length - activeCount;
-  const gameLabels   = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush' };
+  const xpInLevel   = user.xp % XP_PER_LEVEL;
+  const xpToNext    = XP_PER_LEVEL - xpInLevel;
+  const xpPct       = (xpInLevel / XP_PER_LEVEL) * 100;
+  const activeCount = alarms.filter(a => a.active).length;
+
+  // Show 5 levels centred on current
+  const levelNodes  = [-2, -1, 0, 1, 2].map(offset => user.level + offset).filter(l => l >= 1);
+
+  const RANK_LABELS = { 1: 'Newcomer', 2: 'Riser', 3: 'Consistent', 4: 'Dedicated', 5: 'Champion', 6: 'Legend' };
+  const rankLabel   = RANK_LABELS[Math.min(user.level, 6)] || 'Legend';
 
   return (
     <Box>
-      <Box
-        sx={{
-          background: 'linear-gradient(160deg, #1A0A2E 0%, #16162A 100%)',
-          p: 3, pt: 5, pb: 3,
-          borderBottom: '1px solid rgba(255,107,53,0.1)',
-          position: 'relative', overflow: 'hidden',
-        }}
-      >
+      {/* Header hero */}
+      <Box sx={{
+        background: 'linear-gradient(160deg, #1A0A2E 0%, #16162A 100%)',
+        px: 3, pt: 5, pb: 4,
+        borderBottom: '1px solid rgba(255,107,53,0.1)',
+        position: 'relative', overflow: 'hidden',
+      }}>
         <Box sx={{
           position: 'absolute', width: 280, height: 280, borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(255,107,53,0.1) 0%, transparent 70%)',
           top: -100, right: -60, filter: 'blur(45px)', pointerEvents: 'none',
-          '@keyframes statsOrb': { '0%,100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.1)' } },
-          animation: 'statsOrb 10s ease-in-out infinite',
         }} />
-        <Typography variant="h5" fontWeight={800}>Your Stats</Typography>
-        <Typography variant="body2" color="text.secondary">Track your progress</Typography>
-      </Box>
 
-      <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {/* Level card */}
-        <Card sx={{
-          p: 3, bgcolor: 'background.paper',
-          border: '1px solid rgba(255,107,53,0.15)',
-          borderTop: '2px solid rgba(255,107,53,0.5)',
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+        {/* Big level display */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, mb: 3 }}>
+          <Box sx={{ position: 'relative', width: 80, height: 80, flexShrink: 0 }}>
+            <Box sx={{
+              position: 'absolute', inset: -4, borderRadius: '50%',
+              border: '2.5px solid transparent',
+              borderTopColor: '#FF6B35', borderRightColor: '#FFD166',
+              '@keyframes statsRing': { to: { transform: 'rotate(360deg)' } },
+              animation: 'statsRing 5s linear infinite',
+            }} />
+            <Box sx={{ position: 'absolute', inset: -4, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.06)' }} />
             <Avatar sx={{
-              bgcolor: 'primary.main', width: 52, height: 52,
-              fontWeight: 800, fontSize: '1.2rem',
-              boxShadow: '0 4px 16px rgba(255,107,53,0.35)',
+              width: 80, height: 80,
+              background: 'linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)',
+              fontWeight: 900, fontSize: '1.6rem',
+              boxShadow: '0 0 28px rgba(255,107,53,0.4)',
             }}>
               {user.level}
             </Avatar>
-            <Box>
-              <Typography variant="h6" fontWeight={800}>Level {user.level}</Typography>
-              <Typography variant="body2" color="text.secondary">{xpToNext} XP to next level</Typography>
-            </Box>
           </Box>
-          <LinearProgress
-            variant="determinate"
-            value={(xpInLevel / XP_PER_LEVEL) * 100}
-            sx={{
-              height: 8, borderRadius: 4,
-              bgcolor: 'rgba(255,255,255,0.07)',
-              '& .MuiLinearProgress-bar': {
-                borderRadius: 4,
-                background: 'linear-gradient(90deg, #FF6B35, #FFD166)',
-              },
-            }}
-          />
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.75 }}>
-            <Typography variant="caption" color="text.secondary">{xpInLevel} XP</Typography>
-            <Typography variant="caption" color="text.secondary">{XP_PER_LEVEL} XP</Typography>
+          <Box>
+            <Typography variant="caption" color="primary.main" fontWeight={800} letterSpacing={1.5} fontSize="0.6rem">
+              CURRENT RANK
+            </Typography>
+            <Typography variant="h4" fontWeight={900} sx={{ lineHeight: 1.1 }}>{rankLabel}</Typography>
+            <Typography variant="body2" color="text.secondary">{user.xp} total XP earned</Typography>
+          </Box>
+        </Box>
+
+        {/* XP bar */}
+        <Box sx={{ p: 2, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="caption" fontWeight={700} color="rgba(255,255,255,0.7)">
+              Level {user.level} → {user.level + 1}
+            </Typography>
+            <Typography variant="caption" fontWeight={800} color="primary.main">
+              {xpInLevel}/{XP_PER_LEVEL} XP
+            </Typography>
+          </Box>
+          <Box sx={{ position: 'relative' }}>
+            <LinearProgress
+              variant="determinate"
+              value={xpPct}
+              sx={{
+                height: 12, borderRadius: 6,
+                bgcolor: 'rgba(255,255,255,0.08)',
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 6,
+                  background: 'linear-gradient(90deg, #FF6B35 0%, #FFD166 100%)',
+                  boxShadow: '0 0 12px rgba(255,107,53,0.45)',
+                },
+              }}
+            />
+            {[0.25, 0.5, 0.75].map(pct => (
+              <Box key={pct} sx={{
+                position: 'absolute', top: '50%', left: `${pct * 100}%`,
+                transform: 'translate(-50%, -50%)',
+                width: 4, height: 4, borderRadius: '50%', zIndex: 1, pointerEvents: 'none',
+                bgcolor: xpPct / 100 >= pct ? '#fff' : 'rgba(255,255,255,0.2)',
+                boxShadow: xpPct / 100 >= pct ? '0 0 5px rgba(255,255,255,0.7)' : 'none',
+              }} />
+            ))}
+          </Box>
+          <Typography variant="caption" color="text.disabled" fontSize="0.65rem" sx={{ mt: 0.75, display: 'block' }}>
+            {xpToNext} XP needed to reach Level {user.level + 1}
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+
+        {/* Level journey */}
+        <Card sx={{ p: 2.5, bgcolor: 'background.paper', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <Typography variant="caption" color="text.secondary" fontWeight={700} letterSpacing={1} fontSize="0.62rem" sx={{ mb: 2, display: 'block' }}>
+            LEVEL JOURNEY
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            {levelNodes.map((lvl, i) => {
+              const isCurrent = lvl === user.level;
+              const isPast    = lvl < user.level;
+              return (
+                <Box key={lvl} sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                    <Box sx={{
+                      width: isCurrent ? 44 : 32, height: isCurrent ? 44 : 32,
+                      borderRadius: '50%',
+                      background: isCurrent
+                        ? 'linear-gradient(135deg, #FF6B35, #FFD166)'
+                        : isPast ? 'rgba(255,107,53,0.25)' : 'rgba(255,255,255,0.06)',
+                      border: isCurrent ? 'none' : isPast ? '1.5px solid rgba(255,107,53,0.4)' : '1.5px solid rgba(255,255,255,0.12)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontWeight: 900, fontSize: isCurrent ? '0.9rem' : '0.7rem',
+                      color: isCurrent ? '#fff' : isPast ? '#FF6B35' : 'rgba(255,255,255,0.3)',
+                      boxShadow: isCurrent ? '0 0 16px rgba(255,107,53,0.5)' : 'none',
+                      transition: 'all 0.3s',
+                    }}>
+                      {isPast ? '✓' : lvl}
+                    </Box>
+                    <Typography variant="caption" fontSize="0.55rem" fontWeight={isCurrent ? 800 : 500}
+                      color={isCurrent ? 'primary.main' : 'text.disabled'}>
+                      {isCurrent ? 'YOU' : `Lv.${lvl}`}
+                    </Typography>
+                  </Box>
+                  {i < levelNodes.length - 1 && (
+                    <Box sx={{
+                      flex: 1, height: 2, mx: 0.5,
+                      bgcolor: lvl < user.level ? 'rgba(255,107,53,0.35)' : 'rgba(255,255,255,0.07)',
+                      borderRadius: 1,
+                    }} />
+                  )}
+                </Box>
+              );
+            })}
           </Box>
         </Card>
 
         {/* Metric grid */}
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-          <MetricCard icon="🔥" label="Current Streak" value={user.streak}   unit="days" color="#FFD166" />
-          <MetricCard icon="⭐" label="Total XP"        value={user.xp}                  color="#FF6B35" />
-          <MetricCard icon="⚠️" label="Demerits"        value={user.demerits}            color="#EF476F" />
-          <MetricCard icon="⏰" label="Total Alarms"    value={alarms.length}            color="#06D6A0" />
+          <MetricCard icon="🔥" label="Day Streak"   value={user.streak}        unit={user.streak === 1 ? 'day' : 'days'} color="#FFD166" />
+          <MetricCard icon="⭐" label="Total XP"      value={user.xp}            color="#FF6B35" />
+          <MetricCard icon="⏰" label="Alarms Set"    value={alarms.length}      color="#06D6A0" />
+          <MetricCard icon="✅" label="Active"        value={activeCount}        color="#8B5CF6" />
         </Box>
 
-        {/* Alarm breakdown */}
-        <Card sx={{ p: 2.5, bgcolor: 'background.paper', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2 }}>Alarm Breakdown</Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Box sx={{
-              flex: 1, textAlign: 'center', p: 1.5, borderRadius: 2,
-              bgcolor: 'rgba(6,214,160,0.07)', border: '1px solid rgba(6,214,160,0.18)',
-            }}>
-              <Typography variant="h4" fontWeight={800} color="#06D6A0">{activeCount}</Typography>
-              <Typography variant="caption" color="text.secondary">Active</Typography>
+        {/* Demerit warning — only shown if relevant */}
+        {user.demerits > 0 && (
+          <Card sx={{
+            p: 2.5, bgcolor: 'rgba(239,71,111,0.07)',
+            border: '1px solid rgba(239,71,111,0.25)',
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography sx={{ fontSize: '1.6rem' }}>⚠️</Typography>
+              <Box>
+                <Typography fontWeight={800} color="#EF476F">{user.demerits} Demerit{user.demerits !== 1 ? 's' : ''}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Wake up on time to clear these and protect your XP.
+                </Typography>
+              </Box>
             </Box>
+          </Card>
+        )}
+
+        {/* Next reward teaser */}
+        <Card sx={{ p: 2.5, bgcolor: 'background.paper', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <Typography variant="caption" color="text.secondary" fontWeight={700} letterSpacing={1} fontSize="0.62rem" sx={{ mb: 1.5, display: 'block' }}>
+            NEXT MILESTONE
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box sx={{
-              flex: 1, textAlign: 'center', p: 1.5, borderRadius: 2,
-              bgcolor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+              width: 44, height: 44, borderRadius: 2.5, flexShrink: 0,
+              bgcolor: 'rgba(255,107,53,0.1)', border: '1px dashed rgba(255,107,53,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem',
             }}>
-              <Typography variant="h4" fontWeight={800} color="text.secondary">{inactiveCount}</Typography>
-              <Typography variant="caption" color="text.secondary">Inactive</Typography>
+              🏆
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography fontWeight={800}>Reach Level {user.level + 1}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                <LinearProgress
+                  variant="determinate"
+                  value={xpPct}
+                  sx={{
+                    flex: 1, height: 5, borderRadius: 3,
+                    bgcolor: 'rgba(255,255,255,0.07)',
+                    '& .MuiLinearProgress-bar': { borderRadius: 3, background: 'linear-gradient(90deg, #FF6B35, #FFD166)' },
+                  }}
+                />
+                <Typography variant="caption" color="primary.main" fontWeight={700} fontSize="0.65rem" sx={{ flexShrink: 0 }}>
+                  {Math.round(xpPct)}%
+                </Typography>
+              </Box>
             </Box>
           </Box>
         </Card>
-
-        {/* Preferred game */}
-        {user.favoriteGame && (
-          <Card sx={{ p: 2.5, bgcolor: 'background.paper', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
-              Preferred Wake-Up Game
-            </Typography>
-            <Typography variant="body1" fontWeight={700} color="primary.main">
-              {gameLabels[user.favoriteGame] || user.favoriteGame}
-            </Typography>
-          </Card>
-        )}
       </Box>
     </Box>
   );
@@ -616,16 +806,20 @@ function StatsTab() {
 function MetricCard({ icon, label, value, unit, color }) {
   return (
     <Card sx={{
-      p: 2, bgcolor: 'background.paper',
+      p: 2.5, bgcolor: 'background.paper',
       border: '1px solid rgba(255,255,255,0.06)',
-      borderTop: `2px solid ${color}45`,
+      position: 'relative', overflow: 'hidden',
     }}>
-      <Typography sx={{ fontSize: '1.3rem', mb: 0.5 }}>{icon}</Typography>
-      <Typography variant="h5" fontWeight={800} sx={{ color, lineHeight: 1 }}>
+      <Box sx={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+        background: `linear-gradient(90deg, ${color}, ${color}00)`,
+      }} />
+      <Typography sx={{ fontSize: '1.4rem', mb: 0.75 }}>{icon}</Typography>
+      <Typography variant="h4" fontWeight={900} sx={{ color, lineHeight: 1 }}>
         {value}
-        {unit && <Typography component="span" variant="caption" color="text.secondary"> {unit}</Typography>}
       </Typography>
-      <Typography variant="caption" color="text.secondary">{label}</Typography>
+      {unit && <Typography variant="caption" color="text.secondary"> {unit}</Typography>}
+      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.25 }}>{label}</Typography>
     </Card>
   );
 }
@@ -920,19 +1114,6 @@ function ConfirmDialog({ open = true, title, body, confirmLabel, confirmColor = 
   );
 }
 
-function StatChip({ icon, label, color }) {
-  return (
-    <Box sx={{
-      display: 'flex', alignItems: 'center', gap: 0.5,
-      px: 1.5, py: 0.5, borderRadius: 10,
-      bgcolor: 'rgba(255,255,255,0.05)',
-      border: '1px solid rgba(255,255,255,0.08)',
-    }}>
-      <Box sx={{ color, display: 'flex', alignItems: 'center' }}>{icon}</Box>
-      <Typography variant="caption" fontWeight={600} sx={{ color }}>{label}</Typography>
-    </Box>
-  );
-}
 
 function EmptyState({ onAdd }) {
   return (

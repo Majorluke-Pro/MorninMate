@@ -65,7 +65,12 @@ export function AppProvider({ children }) {
 
   // Lets a returning user skip onboarding and go straight to the auth screen
   const [showAuthDirectly, setShowAuthDirectly] = useState(false);
-  const loadingData = useRef(false);
+  const loadingData  = useRef(false);
+  const lastFiredRef = useRef(null); // "alarmId-HH:MM" — prevents double-fire
+  const alarmsRef    = useRef(alarms);
+  const activeRef    = useRef(activeAlarm);
+  alarmsRef.current  = alarms;
+  activeRef.current  = activeAlarm;
 
   // ─── Auth listener ──────────────────────────────────────────────────────────
 
@@ -94,6 +99,64 @@ export function AppProvider({ children }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // ─── Alarm scheduler ────────────────────────────────────────────────────────
+  // Checks every 15 s whether any active alarm matches the current time.
+  // Uses refs so the interval never needs to be recreated when alarms change.
+
+  useEffect(() => {
+    if (!session) return;
+
+    function checkAlarms() {
+      if (activeRef.current) return; // already in wake-up flow
+
+      const now  = new Date();
+      const hh   = String(now.getHours()).padStart(2, '0');
+      const mm   = String(now.getMinutes()).padStart(2, '0');
+      const time = `${hh}:${mm}`;
+      const day  = now.getDay();
+
+      for (const alarm of alarmsRef.current) {
+        if (!alarm.active) continue;
+        if (alarm.time !== time) continue;
+        if (alarm.days?.length > 0 && !alarm.days.includes(day)) continue;
+
+        const key = `${alarm.id}-${time}`;
+        if (lastFiredRef.current === key) continue; // already fired this minute
+
+        lastFiredRef.current = key;
+        setActiveAlarm(alarm);
+
+        // Browser notification (works when tab is in background)
+        if (Notification.permission === 'granted') {
+          try {
+            new Notification('MorninMate ⏰', {
+              body: alarm.label ? `${alarm.label} — Time to wake up!` : 'Time to wake up!',
+              icon: '/icon-192.png',
+              tag: 'morninmate-alarm',
+              requireInteraction: true,
+            });
+          } catch (_) {}
+        }
+        break;
+      }
+    }
+
+    const interval = setInterval(checkAlarms, 15000);
+    checkAlarms(); // immediate check on mount / login
+    return () => clearInterval(interval);
+  }, [session]);
+
+  // ─── Notification permission ─────────────────────────────────────────────────
+  // Ask once, 4 s after the user logs in, so it doesn't feel intrusive.
+
+  useEffect(() => {
+    if (!session) return;
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission !== 'default') return;
+    const t = setTimeout(() => Notification.requestPermission(), 4000);
+    return () => clearTimeout(t);
+  }, [session]);
 
   // ─── Data loading ───────────────────────────────────────────────────────────
 
