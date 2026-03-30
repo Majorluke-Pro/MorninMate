@@ -1,5 +1,14 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import {
+  isNative,
+  requestNotificationPermission,
+  scheduleAlarm,
+  cancelAlarmNotifications,
+  syncAllAlarms,
+  vibrateAlarm,
+  onNotificationTap,
+} from '../lib/nativeAlarms';
 
 const AppContext = createContext(null);
 
@@ -126,12 +135,13 @@ export function AppProvider({ children }) {
 
         lastFiredRef.current = key;
         setActiveAlarm(alarm);
+        vibrateAlarm();
 
-        // Browser notification (works when tab is in background)
-        if (Notification.permission === 'granted') {
+        // Web fallback notification (browser only)
+        if (!isNative && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
           try {
-            new Notification('MorninMate ⏰', {
-              body: alarm.label ? `${alarm.label} — Time to wake up!` : 'Time to wake up!',
+            new Notification('MorninMate 🐨', {
+              body: alarm.label ? `${alarm.label} — Rise & Shine, Legend!` : 'Rise & Shine, Legend!',
               icon: '/icon-192.png',
               tag: 'morninmate-alarm',
               requireInteraction: true,
@@ -152,10 +162,22 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (!session) return;
-    if (typeof Notification === 'undefined') return;
-    if (Notification.permission !== 'default') return;
-    const t = setTimeout(() => Notification.requestPermission(), 4000);
+    const t = setTimeout(() => requestNotificationPermission(), 4000);
     return () => clearTimeout(t);
+  }, [session]);
+
+  // ─── Notification tap → trigger alarm (native only) ─────────────────────────
+
+  useEffect(() => {
+    if (!session) return;
+    const unsub = onNotificationTap(alarmId => {
+      const alarm = alarmsRef.current.find(a => a.id === alarmId);
+      if (alarm && !activeRef.current) {
+        vibrateAlarm();
+        setActiveAlarm(alarm);
+      }
+    });
+    return unsub;
   }, [session]);
 
   // ─── Data loading ───────────────────────────────────────────────────────────
@@ -176,10 +198,12 @@ export function AppProvider({ children }) {
     if (profileResult.data) setUser(rowToUser(profileResult.data));
 
     if (alarmsResult.data) {
-      setAlarms(alarmsResult.data.map(a => ({
+      const mapped = alarmsResult.data.map(a => ({
         id: a.id, label: a.label, time: a.time,
         pulse: a.pulse, active: a.active, days: (a.days || []).map(Number),
-      })));
+      }));
+      setAlarms(mapped);
+      syncAllAlarms(mapped);
     }
 
     loadingData.current = false;
@@ -215,10 +239,12 @@ export function AppProvider({ children }) {
 
     if (profileResult.data) setUser(rowToUser(profileResult.data));
     if (alarmsResult.data) {
-      setAlarms(alarmsResult.data.map(a => ({
+      const mapped = alarmsResult.data.map(a => ({
         id: a.id, label: a.label, time: a.time,
         pulse: a.pulse, active: a.active, days: (a.days || []).map(Number),
-      })));
+      }));
+      setAlarms(mapped);
+      syncAllAlarms(mapped);
     }
 
     loadingData.current = false;
@@ -276,26 +302,32 @@ export function AppProvider({ children }) {
       console.error('Failed to save alarm:', error);
       return;
     }
-    setAlarms(prev => [...prev, {
+    const newAlarm = {
       id: data.id,
       label: data.label,
       time: data.time,
       pulse: data.pulse,
       active: data.active,
       days: data.days || [],
-    }]);
+    };
+    setAlarms(prev => [...prev, newAlarm]);
+    scheduleAlarm(newAlarm);
   }
 
   async function toggleAlarm(id) {
     const alarm = alarms.find(a => a.id === id);
     if (!alarm) return;
-    await supabase.from('alarms').update({ active: !alarm.active }).eq('id', id);
-    setAlarms(prev => prev.map(a => a.id === id ? { ...a, active: !a.active } : a));
+    const updated = { ...alarm, active: !alarm.active };
+    await supabase.from('alarms').update({ active: updated.active }).eq('id', id);
+    setAlarms(prev => prev.map(a => a.id === id ? updated : a));
+    if (updated.active) scheduleAlarm(updated);
+    else cancelAlarmNotifications(id);
   }
 
   async function deleteAlarm(id) {
     await supabase.from('alarms').delete().eq('id', id);
     setAlarms(prev => prev.filter(a => a.id !== id));
+    cancelAlarmNotifications(id);
   }
 
   async function editAlarm(id, updates) {
@@ -307,7 +339,12 @@ export function AppProvider({ children }) {
     if (updates.days   !== undefined) dbUpdates.days   = updates.days;
 
     await supabase.from('alarms').update(dbUpdates).eq('id', id);
-    setAlarms(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
+    setAlarms(prev => {
+      const updated = prev.map(a => a.id === id ? { ...a, ...updates } : a);
+      const alarm = updated.find(a => a.id === id);
+      if (alarm) scheduleAlarm(alarm);
+      return updated;
+    });
   }
 
   // ─── User / profile actions ─────────────────────────────────────────────────

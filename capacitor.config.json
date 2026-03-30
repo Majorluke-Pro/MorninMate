@@ -1,0 +1,16 @@
+{
+  "appId": "com.morninmate.app",
+  "appName": "MorninMate",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon_config_sample",
+      "iconColor": "#FF6B35",
+      "sound": "beep.wav"
+    },
+    "SplashScreen": {
+      "launchShowDuration": 0
+    }
+  }
+}
