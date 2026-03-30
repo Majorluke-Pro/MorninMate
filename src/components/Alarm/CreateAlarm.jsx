@@ -2,10 +2,9 @@ import { useState } from 'react';
 import { Box, Typography, Button, TextField, IconButton } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckIcon from '@mui/icons-material/Check';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import ScrollDrum, { HOURS, MINUTES, PERIODS } from '../common/ScrollDrum';
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -45,20 +44,21 @@ export default function CreateAlarm() {
   // ── Time helpers ──────────────────────────────────────────────────────────
 
   const [h, m] = form.time.split(':').map(Number);
-  const isPM = h >= 12;
+  const isPM   = h >= 12;
   const hour12 = h % 12 || 12;
 
-  function setHour(newH12) {
-    const h24 = isPM ? (newH12 % 12) + 12 : newH12 % 12;
+  function onHourChange(h12Str) {
+    const h12 = parseInt(h12Str, 10);
+    const h24 = isPM ? (h12 % 12) + 12 : h12 % 12;
     setForm(f => ({ ...f, time: `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}` }));
   }
 
-  function setMin(newM) {
-    setForm(f => ({ ...f, time: `${String(h).padStart(2, '0')}:${String(newM).padStart(2, '0')}` }));
+  function onMinuteChange(mmStr) {
+    setForm(f => ({ ...f, time: `${String(h).padStart(2, '0')}:${mmStr}` }));
   }
 
-  function togglePeriod() {
-    const newH = isPM ? h - 12 : h + 12;
+  function onPeriodChange(period) {
+    const newH = period === 'PM' ? (hour12 % 12) + 12 : hour12 % 12;
     setForm(f => ({ ...f, time: `${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')}` }));
   }
 
@@ -137,47 +137,36 @@ export default function CreateAlarm() {
         {/* ── Time ─────────────────────────────────────────────────────────── */}
         <Section delay={0.04}>
           <SectionLabel>Time</SectionLabel>
-          <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-            <TimeDrum
-              display={String(hour12).padStart(2, '0')}
-              onUp={()   => setHour(hour12 === 12 ? 1  : hour12 + 1)}
-              onDown={()  => setHour(hour12 === 1  ? 12 : hour12 - 1)}
+          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
+            <ScrollDrum
+              items={HOURS}
+              value={String(hour12).padStart(2, '0')}
+              onChange={onHourChange}
+              width={88}
             />
-            <Typography variant="h3" fontWeight={900} color="primary.main" sx={{ mb: 2, userSelect: 'none' }}>
+            <Typography variant="h3" fontWeight={900} color="primary.main"
+              sx={{ userSelect: 'none', mb: 1, mx: 0.5, lineHeight: 1 }}>
               :
             </Typography>
-            <TimeDrum
-              display={String(m).padStart(2, '0')}
-              onUp={()   => setMin(m >= 59 ? 0  : m + 1)}
-              onDown={()  => setMin(m <= 0  ? 59 : m - 1)}
+            <ScrollDrum
+              items={MINUTES}
+              value={String(m).padStart(2, '0')}
+              onChange={onMinuteChange}
+              width={88}
             />
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
-              {['AM', 'PM'].map(period => {
-                const active = (period === 'PM') === isPM;
-                return (
-                  <Box
-                    key={period}
-                    onClick={() => !active && togglePeriod()}
-                    sx={{
-                      px: 1.75, py: 0.75, borderRadius: 2, userSelect: 'none',
-                      cursor: active ? 'default' : 'pointer',
-                      bgcolor: active ? 'primary.main' : 'rgba(255,255,255,0.07)',
-                      fontWeight: 700, fontSize: '0.8rem',
-                      transition: 'all 0.2s',
-                      '&:hover': { bgcolor: active ? 'primary.dark' : 'rgba(255,255,255,0.14)' },
-                    }}
-                  >
-                    {period}
-                  </Box>
-                );
-              })}
-            </Box>
+            <Box sx={{ width: 16 }} />
+            <ScrollDrum
+              items={PERIODS}
+              value={isPM ? 'PM' : 'AM'}
+              onChange={onPeriodChange}
+              width={64}
+            />
           </Box>
           <Typography
             variant="body2"
             fontWeight={600}
             textAlign="center"
-            sx={{ color: timeCtx.color, transition: 'color 0.3s', mt: 0.5 }}
+            sx={{ color: timeCtx.color, transition: 'color 0.3s', mt: 1 }}
           >
             {timeCtx.label}
           </Typography>
@@ -472,39 +461,6 @@ function Background() {
         },
         animation: 'caOrb2 16s ease-in-out infinite',
       }} />
-    </Box>
-  );
-}
-
-// ─── TimeDrum ─────────────────────────────────────────────────────────────────
-
-function TimeDrum({ display, onUp, onDown }) {
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-      <IconButton
-        onClick={onUp}
-        sx={{ color: 'primary.main', bgcolor: 'rgba(255,107,53,0.08)', '&:hover': { bgcolor: 'rgba(255,107,53,0.16)' } }}
-      >
-        <KeyboardArrowUpIcon />
-      </IconButton>
-      <Box
-        sx={{
-          width: 76, height: 76, borderRadius: 3,
-          bgcolor: 'rgba(255,107,53,0.07)',
-          border: '1px solid rgba(255,107,53,0.2)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
-      >
-        <Typography variant="h4" fontWeight={800} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-          {display}
-        </Typography>
-      </Box>
-      <IconButton
-        onClick={onDown}
-        sx={{ color: 'primary.main', bgcolor: 'rgba(255,107,53,0.08)', '&:hover': { bgcolor: 'rgba(255,107,53,0.16)' } }}
-      >
-        <KeyboardArrowDownIcon />
-      </IconButton>
     </Box>
   );
 }
