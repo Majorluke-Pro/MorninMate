@@ -4,13 +4,18 @@ import { startAlarm, stopAlarm } from '../../lib/sounds';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import CalculateIcon from '@mui/icons-material/Calculate';
+import StyleIcon from '@mui/icons-material/Style';
+import BoltIcon from '@mui/icons-material/Bolt';
 import { useApp } from '../../context/AppContext';
 import MathGame from '../Games/MathGame';
 import MemoryGame from '../Games/MemoryGame';
 import ReactionGame from '../Games/ReactionGame';
 
-const GAME_MAP = { math: MathGame, memory: MemoryGame, reaction: ReactionGame };
+const GAME_MAP    = { math: MathGame, memory: MemoryGame, reaction: ReactionGame };
 const GAME_LABELS = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush' };
+const GAME_ICONS  = { math: CalculateIcon, memory: StyleIcon, reaction: BoltIcon };
+const GAME_COLORS = { math: '#FF6B35', memory: '#FFD166', reaction: '#06D6A0' };
 const DIFFICULTY_MAP = { gentle: 'easy', moderate: 'normal', intense: 'hard' };
 const XP_REWARD = { gentle: 20, moderate: 35, intense: 60 };
 
@@ -151,31 +156,44 @@ function IntroScreen({ alarm, games, intensity, xpReward, onStart }) {
       p: 3, textAlign: 'center',
     }}>
       <Typography variant="h1" sx={{ mb: 2 }}>⏰</Typography>
-      <Typography variant="h4" fontWeight={800} gutterBottom>Rise & Grind!</Typography>
+      <Typography variant="h4" fontWeight={800} gutterBottom>Rise & Shine, Legend! 🐨</Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>{alarm?.label || 'Alarm'}</Typography>
       <Typography variant="h6" color="primary.main" fontWeight={700} sx={{ mb: 1 }}>
         {intensityEmoji} {intensity.charAt(0).toUpperCase() + intensity.slice(1)} Pulse
       </Typography>
       <Typography variant="caption" color="text.disabled" sx={{ mb: 4 }}>
-        You must complete all games to dismiss the alarm.
+        No dodging it, mate — finish all games to dismiss.
       </Typography>
 
       <Card sx={{ p: 3, bgcolor: 'background.paper', width: '100%', maxWidth: 340, mb: 4 }}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Complete these games to wake up:
         </Typography>
-        {games.map((g, i) => (
-          <Box key={g} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1 }}>
-            <Box sx={{
-              width: 28, height: 28, borderRadius: '50%', bgcolor: 'primary.main',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '0.75rem', fontWeight: 800,
-            }}>
-              {i + 1}
+        {games.map((g, i) => {
+          const GameIcon = GAME_ICONS[g];
+          const color = GAME_COLORS[g];
+          return (
+            <Box key={g} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1 }}>
+              <Box sx={{
+                width: 36, height: 36, borderRadius: 2, flexShrink: 0,
+                bgcolor: `${color}18`, border: `1px solid ${color}35`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <GameIcon sx={{ fontSize: '1.2rem', color }} />
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography fontWeight={700} variant="body2">{GAME_LABELS[g]}</Typography>
+              </Box>
+              <Box sx={{
+                width: 22, height: 22, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '0.65rem', fontWeight: 800, color: 'text.disabled',
+              }}>
+                {i + 1}
+              </Box>
             </Box>
-            <Typography fontWeight={600}>{GAME_LABELS[g]}</Typography>
-          </Box>
-        ))}
+          );
+        })}
         <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           <EmojiEventsIcon sx={{ color: 'secondary.main', fontSize: 18 }} />
           <Typography variant="body2" color="secondary.main" fontWeight={700}>+{xpReward} XP on success</Typography>
@@ -198,14 +216,14 @@ function ResultScreen({ results, xpReward, totalFails, onDone }) {
       p: 3, textAlign: 'center',
     }}>
       <CheckCircleIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
-      <Typography variant="h4" fontWeight={800} gutterBottom>You're Awake! 🎉</Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>Morning routine complete</Typography>
+      <Typography variant="h4" fontWeight={800} gutterBottom>Bonzer, you're up! 🎉</Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>Ripper morning routine, mate</Typography>
 
       <Card sx={{ px: 4, py: 2, bgcolor: 'rgba(6,214,160,0.1)', border: '1px solid rgba(6,214,160,0.3)', mb: 3 }}>
         <Typography variant="h5" color="success.main" fontWeight={800}>+{xpReward} XP earned!</Typography>
         {totalFails > 0 && (
           <Typography variant="caption" color="text.secondary">
-            ({totalFails} restart{totalFails > 1 ? 's' : ''} — keep practising!)
+            ({totalFails} restart{totalFails > 1 ? 's' : ''} — no worries, keep at it!)
           </Typography>
         )}
       </Card>
@@ -215,7 +233,7 @@ function ResultScreen({ results, xpReward, totalFails, onDone }) {
           <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}>
             <Typography variant="body2">{GAME_LABELS[r.game]}</Typography>
             <Typography variant="body2" color={r.retries === 0 ? 'success.main' : 'warning.main'} fontWeight={700}>
-              {r.retries === 0 ? '✓ First try' : `✓ ${r.retries} restart${r.retries > 1 ? 's' : ''}`}
+              {r.retries === 0 ? '✓ First crack!' : `✓ ${r.retries} restart${r.retries > 1 ? 's' : ''}`}
             </Typography>
           </Box>
         ))}

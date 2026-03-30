@@ -1,5 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { Box, Typography, Button, LinearProgress, TextField, Card } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Box, Typography, Card, LinearProgress } from '@mui/material';
+import BackspaceIcon from '@mui/icons-material/Backspace';
+import CheckIcon from '@mui/icons-material/Check';
 import { playSuccess, playError, playWarningTick } from '../../lib/sounds';
 
 function generateQuestion(difficulty) {
@@ -22,7 +24,6 @@ function generateQuestion(difficulty) {
     return { question: `${big} − ${small}`, answer: big - small };
   }
 
-  // Hard: occasionally 3-operand
   if (difficulty === 'hard' && Math.random() < 0.4) {
     const c = Math.floor(Math.random() * 20) + 2;
     const subOp = Math.random() < 0.5 ? '+' : '-';
@@ -33,6 +34,8 @@ function generateQuestion(difficulty) {
 
   return { question: `${a} + ${b}`, answer: a + b };
 }
+
+const PAD_KEYS = ['7','8','9','4','5','6','1','2','3','⌫','0','✓'];
 
 export default function MathGame({ difficulty = 'normal', onComplete, onFail }) {
   const totalQuestions = difficulty === 'easy' ? 3 : difficulty === 'hard' ? 6 : 4;
@@ -48,9 +51,8 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail }) 
   const [timeLeft, setTimeLeft] = useState(totalTime);
   const [flash,    setFlash]    = useState(null); // 'success' | 'error'
   const [shake,    setShake]    = useState(false);
-  const inputRef = useRef(null);
+  const [animKey,  setAnimKey]  = useState(0);
 
-  // Single countdown timer for all questions
   useEffect(() => {
     if (timeLeft <= 0) { onFail(); return; }
     if (timeLeft <= 10) playWarningTick();
@@ -74,7 +76,7 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail }) 
           setCurrent(next);
           setInput('');
           setFlash(null);
-          inputRef.current?.focus();
+          setAnimKey(k => k + 1);
         }
       }, 350);
     } else {
@@ -84,12 +86,23 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail }) 
       setInput('');
       const newWrong = wrong + 1;
       setWrong(newWrong);
-      // Wrong answer penalty: lose 8 seconds
       setTimeLeft(t => Math.max(t - 8, 1));
       setTimeout(() => { setShake(false); setFlash(null); }, 600);
       if (newWrong >= maxWrong) {
         setTimeout(() => onFail(), 500);
       }
+    }
+  }
+
+  function handlePad(key) {
+    if (flash === 'success') return;
+    if (key === '⌫') {
+      setInput(p => p.slice(0, -1));
+    } else if (key === '✓') {
+      handleSubmit();
+    } else {
+      if (input.length >= 5) return;
+      setInput(p => p + key);
     }
   }
 
@@ -99,23 +112,37 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail }) 
 
   return (
     <Box sx={{ textAlign: 'center' }}>
-      <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
-        Math Blitz
-      </Typography>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
+          Math Blitz
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {Array.from({ length: maxWrong }).map((_, i) => (
+            <Box key={i} sx={{
+              width: 10, height: 10, borderRadius: '50%',
+              bgcolor: i < (maxWrong - wrong) ? '#EF476F' : 'rgba(255,255,255,0.12)',
+              transition: 'background-color 0.3s',
+              boxShadow: i < (maxWrong - wrong) ? '0 0 6px rgba(239,71,111,0.6)' : 'none',
+            }} />
+          ))}
+        </Box>
+      </Box>
 
-      {/* Timer bar — spans the whole game */}
-      <Box sx={{ mt: 1, mb: 3 }}>
+      {/* Timer bar */}
+      <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
           <Typography variant="caption" color="text.secondary">
             {current + 1} / {totalQuestions}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-            {wrong > 0 && (
+            {flash === 'error' && (
               <Typography variant="caption" color="error.main" fontWeight={700}>
-                {'💔'.repeat(wrong)} {maxWrong - wrong} left
+                −8s
               </Typography>
             )}
-            <Typography variant="caption" fontWeight={700} color={`${timerColor}.main`}>
+            <Typography variant="caption" fontWeight={800} color={`${timerColor}.main`}
+              sx={{ fontVariantNumeric: 'tabular-nums', minWidth: 28 }}>
               {timeLeft}s
             </Typography>
           </Box>
@@ -124,78 +151,136 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail }) 
           variant="determinate"
           value={timerPct}
           color={timerColor}
-          sx={{ height: 8, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.08)' }}
+          sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.06)' }}
         />
-        {flash === 'error' && (
-          <Typography variant="caption" color="error.main" sx={{ display: 'block', mt: 0.5 }} fontWeight={700}>
-            Wrong! −8 seconds
-          </Typography>
-        )}
       </Box>
 
-      {/* Question card */}
-      <Card sx={{
-        p: 4, mb: 3,
-        bgcolor: flash === 'success'
-          ? 'rgba(6,214,160,0.12)'
-          : flash === 'error'
-          ? 'rgba(239,71,111,0.12)'
-          : 'background.paper',
-        border: '1px solid',
-        borderColor: flash === 'success' ? '#06D6A0' : flash === 'error' ? '#EF476F' : 'rgba(255,255,255,0.08)',
-        transition: 'all 0.18s',
-        animation: shake ? 'shake 0.4s ease' : 'none',
-        '@keyframes shake': {
-          '0%,100%': { transform: 'translateX(0)' },
-          '20%': { transform: 'translateX(-10px)' },
-          '40%': { transform: 'translateX(10px)' },
-          '60%': { transform: 'translateX(-7px)' },
-          '80%': { transform: 'translateX(7px)' },
-        },
-      }}>
-        <Typography variant="h2" fontWeight={800} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-          {q.question} = ?
-        </Typography>
-
-        {/* Mini question dots */}
-        <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', mt: 2 }}>
-          {questions.map((_, i) => (
-            <Box key={i} sx={{
-              width: 8, height: 8, borderRadius: '50%',
-              bgcolor: i < current ? '#06D6A0' : i === current ? '#FF6B35' : 'rgba(255,255,255,0.12)',
-              transition: 'background-color 0.2s',
-            }} />
-          ))}
-        </Box>
-      </Card>
-
-      {/* Input */}
-      <TextField
-        inputRef={inputRef}
-        fullWidth
-        type="number"
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-        placeholder="Your answer"
-        autoFocus
+      {/* Question card — animKey forces re-mount animation on question change */}
+      <Box
+        key={animKey}
         sx={{
-          mb: 2,
-          '& input': { fontSize: '1.6rem', fontWeight: 700, textAlign: 'center' },
-          '& input::-webkit-inner-spin-button, & input::-webkit-outer-spin-button': { display: 'none' },
+          animation: 'slideDown 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+          '@keyframes slideDown': {
+            from: { opacity: 0, transform: 'translateY(-20px) scale(0.96)' },
+            to:   { opacity: 1, transform: 'none' },
+          },
         }}
-      />
-
-      <Button
-        variant="contained"
-        fullWidth
-        size="large"
-        onClick={handleSubmit}
-        disabled={!input.trim() || flash === 'success'}
-        sx={{ py: 1.5, fontWeight: 800 }}
       >
-        Submit
-      </Button>
+        <Card sx={{
+          p: 3, mb: 2.5,
+          bgcolor: flash === 'success'
+            ? 'rgba(6,214,160,0.12)'
+            : flash === 'error'
+            ? 'rgba(239,71,111,0.10)'
+            : 'background.paper',
+          border: '1.5px solid',
+          borderColor: flash === 'success' ? '#06D6A0' : flash === 'error' ? '#EF476F' : 'rgba(255,255,255,0.07)',
+          transition: 'background-color 0.18s, border-color 0.18s',
+          animation: shake ? 'shake 0.4s ease' : 'none',
+          '@keyframes shake': {
+            '0%,100%': { transform: 'translateX(0)' },
+            '20%':     { transform: 'translateX(-10px)' },
+            '40%':     { transform: 'translateX(10px)' },
+            '60%':     { transform: 'translateX(-7px)' },
+            '80%':     { transform: 'translateX(7px)' },
+          },
+        }}>
+          {/* Question */}
+          <Typography variant="h2" fontWeight={800} sx={{ fontVariantNumeric: 'tabular-nums', mb: 2 }}>
+            {q.question} = ?
+          </Typography>
+
+          {/* Answer display */}
+          <Box sx={{
+            mx: 'auto',
+            width: '70%',
+            py: 1.25,
+            borderRadius: 2.5,
+            bgcolor: 'rgba(255,255,255,0.05)',
+            border: '1.5px solid',
+            borderColor: flash === 'success'
+              ? '#06D6A0'
+              : flash === 'error'
+              ? '#EF476F'
+              : input
+              ? 'rgba(255,107,53,0.5)'
+              : 'rgba(255,255,255,0.1)',
+            transition: 'border-color 0.2s',
+          }}>
+            <Typography variant="h4" fontWeight={800} sx={{
+              fontVariantNumeric: 'tabular-nums',
+              color: flash === 'success' ? '#06D6A0' : flash === 'error' ? '#EF476F' : input ? 'text.primary' : 'text.disabled',
+              letterSpacing: 4,
+            }}>
+              {flash === 'success' ? '✓' : flash === 'error' ? '✗' : input || '—'}
+            </Typography>
+          </Box>
+
+          {/* Progress dots */}
+          <Box sx={{ display: 'flex', gap: 0.75, justifyContent: 'center', mt: 2.5 }}>
+            {questions.map((_, i) => (
+              <Box key={i} sx={{
+                width: 8, height: 8, borderRadius: '50%',
+                bgcolor: i < current ? '#06D6A0' : i === current ? '#FF6B35' : 'rgba(255,255,255,0.12)',
+                boxShadow: i === current ? '0 0 8px rgba(255,107,53,0.6)' : 'none',
+                transition: 'background-color 0.25s, box-shadow 0.25s',
+              }} />
+            ))}
+          </Box>
+        </Card>
+      </Box>
+
+      {/* Numpad */}
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 1.25,
+      }}>
+        {PAD_KEYS.map(key => {
+          const isSubmit    = key === '✓';
+          const isBackspace = key === '⌫';
+          const disabled    = (isSubmit && (!input || flash === 'success')) || flash === 'success';
+
+          return (
+            <Box
+              key={key}
+              onClick={() => !disabled && handlePad(key)}
+              sx={{
+                py: 1.75,
+                borderRadius: 3,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: disabled ? 'default' : 'pointer',
+                userSelect: 'none',
+                bgcolor: isSubmit
+                  ? disabled ? 'rgba(255,107,53,0.08)' : 'primary.main'
+                  : isBackspace
+                  ? 'rgba(255,255,255,0.05)'
+                  : 'rgba(255,255,255,0.06)',
+                border: '1.5px solid',
+                borderColor: isSubmit
+                  ? disabled ? 'rgba(255,107,53,0.15)' : 'primary.main'
+                  : 'rgba(255,255,255,0.07)',
+                opacity: disabled ? 0.4 : 1,
+                transition: 'background-color 0.12s, transform 0.08s, opacity 0.2s',
+                '&:active': disabled ? {} : {
+                  transform: 'scale(0.93)',
+                  bgcolor: isSubmit ? 'primary.dark' : 'rgba(255,255,255,0.12)',
+                },
+                boxShadow: isSubmit && !disabled ? '0 4px 20px rgba(255,107,53,0.3)' : 'none',
+              }}
+            >
+              {isBackspace
+                ? <BackspaceIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
+                : isSubmit
+                ? <CheckIcon sx={{ fontSize: 22, color: disabled ? 'text.disabled' : '#fff', fontWeight: 900 }} />
+                : <Typography variant="h6" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {key}
+                  </Typography>
+              }
+            </Box>
+          );
+        })}
+      </Box>
     </Box>
   );
 }

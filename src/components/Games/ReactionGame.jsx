@@ -2,21 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import { Box, Typography, LinearProgress } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
+import BoltIcon from '@mui/icons-material/Bolt';
 import { playReactionGo, playEarlyTap, playMiss, playSuccess } from '../../lib/sounds';
 
-// Red-light / green-light mechanic:
-// - Screen turns RED first (random 1–2.5s) — tapping during red = lose a life
-// - Then turns GREEN — must tap within the window
-// - Missing the green = lose a life
-// - Window shrinks 40ms per successful hit (adaptive)
-// - 3 lives — if lives reach 0, onFail (which restarts the game in WakeUpFlow)
-
 export default function ReactionGame({ difficulty = 'normal', onComplete, onFail }) {
-  const totalRounds  = difficulty === 'easy' ? 4 : difficulty === 'hard' ? 7 : 5;
-  const baseWindow   = difficulty === 'easy' ? 1100 : difficulty === 'hard' ? 650 : 850;
-  const maxLives     = 3;
+  const totalRounds = difficulty === 'easy' ? 4 : difficulty === 'hard' ? 7 : 5;
+  const baseWindow  = difficulty === 'easy' ? 1100 : difficulty === 'hard' ? 650 : 850;
+  const maxLives    = 3;
 
-  const [phase,     setPhase]     = useState('countdown');  // countdown|red|green|tapped|missed|early
+  const [phase,     setPhase]     = useState('countdown');
   const [countdown, setCountdown] = useState(3);
   const [round,     setRound]     = useState(0);
   const [lives,     setLives]     = useState(maxLives);
@@ -39,13 +33,11 @@ export default function ReactionGame({ difficulty = 'normal', onComplete, onFail
 
   function scheduleRound() {
     setPhase('red');
-    // Red phase: random 1000–2800ms
     const redDuration = 1000 + Math.random() * 1800;
     goRef.current = setTimeout(() => {
       setPhase('green');
       playReactionGo();
       startRef.current = Date.now();
-      // Green window — tap within this time
       goRef.current = setTimeout(() => {
         loseLife('missed');
       }, window_ms);
@@ -69,13 +61,11 @@ export default function ReactionGame({ difficulty = 'normal', onComplete, onFail
 
   function handleTap() {
     if (phase === 'countdown') return;
-
     if (phase === 'red') {
       playEarlyTap();
       loseLife('early');
       return;
     }
-
     if (phase !== 'green') return;
 
     clearTimeout(goRef.current);
@@ -85,8 +75,6 @@ export default function ReactionGame({ difficulty = 'normal', onComplete, onFail
     setTimes(newTimes);
     setPhase('tapped');
     playSuccess();
-
-    // Shrink window slightly each success (gets harder)
     setWindowMs(w => Math.max(w - 40, 350));
 
     const nextRound = round + 1;
@@ -102,76 +90,86 @@ export default function ReactionGame({ difficulty = 'normal', onComplete, onFail
     ? Math.round(times.reduce((a, b) => a + b, 0) / times.length)
     : null;
 
-  const bgColor = {
-    countdown: '#16162A',
-    red:       '#3D0A0A',
-    green:     '#06D6A0',
-    tapped:    '#0A2A3D',
-    missed:    '#3D0A0A',
-    early:     '#3D1F0A',
-  }[phase] || '#16162A';
+  // Phase-specific styles
+  const phaseConfig = {
+    countdown: {
+      bg: 'radial-gradient(ellipse at center, #1a1a3a 0%, #0D0D1A 70%)',
+      border: 'rgba(255,255,255,0.08)',
+      glow: 'none',
+      label: countdown > 0 ? String(countdown) : '⚡',
+      labelColor: countdown > 0 ? '#FFD166' : '#FF6B35',
+      sub: 'Wait for green — tap on red = penalty',
+    },
+    red: {
+      bg: 'radial-gradient(ellipse at center, #3D0A0A 0%, #1a0505 70%)',
+      border: '#EF476F',
+      glow: '0 0 60px rgba(239,71,111,0.25)',
+      label: 'WAIT',
+      labelColor: '#EF476F',
+      sub: "Don't tap yet!",
+    },
+    green: {
+      bg: 'radial-gradient(ellipse at center, #063d2a 0%, #021a12 70%)',
+      border: '#06D6A0',
+      glow: '0 0 80px rgba(6,214,160,0.4)',
+      label: 'TAP!',
+      labelColor: '#06D6A0',
+      sub: '',
+    },
+    tapped: {
+      bg: 'radial-gradient(ellipse at center, #0A1E3D 0%, #060e1f 70%)',
+      border: '#118AB2',
+      glow: '0 0 40px rgba(17,138,178,0.3)',
+      label: lastTime ? `${lastTime}ms` : '⚡',
+      labelColor: '#118AB2',
+      sub: avgTime ? `avg ${avgTime}ms` : '',
+    },
+    missed: {
+      bg: 'radial-gradient(ellipse at center, #2a0a0a 0%, #130505 70%)',
+      border: '#EF476F',
+      glow: '0 0 40px rgba(239,71,111,0.2)',
+      label: 'SLOW!',
+      labelColor: '#EF476F',
+      sub: 'Missed the window',
+    },
+    early: {
+      bg: 'radial-gradient(ellipse at center, #2a1500 0%, #120a00 70%)',
+      border: '#FF8C5A',
+      glow: '0 0 40px rgba(255,140,90,0.2)',
+      label: 'EARLY',
+      labelColor: '#FF8C5A',
+      sub: 'Wait for green!',
+    },
+  };
 
-  const borderColor = {
-    red:    '#EF476F',
-    green:  '#06D6A0',
-    tapped: '#118AB2',
-    missed: '#EF476F',
-    early:  '#FF8C5A',
-  }[phase] || 'rgba(255,255,255,0.08)';
-
-  const mainEmoji = {
-    countdown: '⏳',
-    red:       '🔴',
-    green:     '🟢',
-    tapped:    '⚡',
-    missed:    '💨',
-    early:     '⛔',
-  }[phase];
-
-  const mainText = {
-    countdown: `Get ready... ${countdown > 0 ? countdown : ''}`,
-    red:       'WAIT...',
-    green:     'TAP NOW!',
-    tapped:    lastTime ? `${lastTime}ms` : 'Hit!',
-    missed:    'Too slow!',
-    early:     'Too early!',
-  }[phase];
-
-  const subText = {
-    red:    'Don\'t tap yet!',
-    green:  '',
-    tapped: avgTime ? `Avg: ${avgTime}ms` : '',
-    missed: 'Missed the window',
-    early:  'Penalty — wait for green',
-  }[phase] || '';
-
-  const textColor = phase === 'green' ? '#0D0D1A' : 'text.primary';
+  const cfg = phaseConfig[phase] || phaseConfig.countdown;
 
   return (
     <Box sx={{ textAlign: 'center' }}>
+      {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
           Reaction Rush
         </Typography>
         {/* Lives */}
         <Box sx={{ display: 'flex', gap: 0.5 }}>
-          {Array.from({ length: maxLives }).map((_, i) => (
+          {Array.from({ length: maxLives }).map((_, i) =>
             i < lives
-              ? <FavoriteIcon key={i} sx={{ fontSize: 18, color: '#EF476F' }} />
-              : <FavoriteBorderIcon key={i} sx={{ fontSize: 18, color: 'rgba(255,255,255,0.2)' }} />
-          ))}
+              ? <FavoriteIcon    key={i} sx={{ fontSize: 20, color: '#EF476F', filter: 'drop-shadow(0 0 4px rgba(239,71,111,0.6))' }} />
+              : <FavoriteBorderIcon key={i} sx={{ fontSize: 20, color: 'rgba(255,255,255,0.18)' }} />
+          )}
         </Box>
       </Box>
 
       {/* Round progress */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 2.5 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
           <Typography variant="caption" color="text.secondary">
             Round {Math.min(round + 1, totalRounds)} / {totalRounds}
           </Typography>
           {avgTime && (
             <Typography variant="caption" color="secondary.main" fontWeight={700}>
-              Best avg: {avgTime}ms
+              avg {avgTime}ms
             </Typography>
           )}
         </Box>
@@ -179,81 +177,102 @@ export default function ReactionGame({ difficulty = 'normal', onComplete, onFail
           variant="determinate"
           value={(round / totalRounds) * 100}
           color="secondary"
-          sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.08)' }}
+          sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.06)' }}
         />
       </Box>
 
-      {/* Tap area */}
+      {/* Main tap area */}
       <Box
         onClick={handleTap}
         sx={{
-          height: 280,
-          borderRadius: 4,
+          height: 300,
+          borderRadius: '50%',
+          mx: 'auto',
+          maxWidth: 300,
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', userSelect: 'none',
-          bgcolor: bgColor,
-          border: `2.5px solid ${borderColor}`,
-          transition: 'background-color 0.08s, border-color 0.1s',
-          gap: 1.5,
-          boxShadow: phase === 'green'
-            ? '0 0 40px rgba(6,214,160,0.35)'
-            : phase === 'red'
-            ? '0 0 20px rgba(239,71,111,0.2)'
+          background: cfg.bg,
+          border: `3px solid ${cfg.border}`,
+          boxShadow: cfg.glow,
+          transition: 'background 0.1s, border-color 0.1s, box-shadow 0.15s',
+          gap: 1,
+          animation: phase === 'green'
+            ? 'greenPulse 0.5s ease-in-out infinite'
+            : phase === 'countdown' && countdown > 0
+            ? 'countdownPop 0.5s cubic-bezier(0.34,1.56,0.64,1)'
             : 'none',
-          '@keyframes pulse': {
+          '@keyframes greenPulse': {
             '0%,100%': { transform: 'scale(1)' },
-            '50%': { transform: 'scale(1.015)' },
+            '50%':     { transform: 'scale(1.03)' },
           },
-          animation: phase === 'green' ? 'pulse 0.4s ease-in-out infinite' : 'none',
+          '@keyframes countdownPop': {
+            from: { transform: 'scale(1.2)', opacity: 0.5 },
+            to:   { transform: 'scale(1)',   opacity: 1 },
+          },
         }}
       >
-        <Typography variant="h1" sx={{ lineHeight: 1 }}>{mainEmoji}</Typography>
-        <Typography variant="h4" fontWeight={900} sx={{ color: textColor }}>{mainText}</Typography>
-        {subText && (
-          <Typography variant="body2" sx={{ color: textColor, opacity: 0.75 }}>{subText}</Typography>
-        )}
+        {/* Big label */}
+        <Typography
+          key={`${phase}-${countdown}`}
+          variant="h3"
+          fontWeight={900}
+          sx={{
+            color: cfg.labelColor,
+            letterSpacing: phase === 'tapped' ? 0 : 3,
+            fontVariantNumeric: 'tabular-nums',
+            lineHeight: 1,
+            animation: 'labelPop 0.25s cubic-bezier(0.34,1.56,0.64,1)',
+            '@keyframes labelPop': {
+              from: { transform: 'scale(0.7)', opacity: 0 },
+              to:   { transform: 'scale(1)',   opacity: 1 },
+            },
+          }}
+        >
+          {cfg.label}
+        </Typography>
 
-        {phase === 'red' && (
-          <Box sx={{
-            mt: 1, px: 2, py: 0.75, borderRadius: 2,
-            bgcolor: 'rgba(239,71,111,0.15)',
-            border: '1px solid rgba(239,71,111,0.3)',
+        {cfg.sub && (
+          <Typography variant="body2" sx={{
+            color: cfg.labelColor,
+            opacity: 0.65,
+            mt: 0.5,
           }}>
-            <Typography variant="caption" color="#EF476F" fontWeight={700}>
-              Tapping now costs a life
-            </Typography>
-          </Box>
+            {cfg.sub}
+          </Typography>
         )}
 
-        {phase === 'countdown' && countdown === 0 && (
-          <Typography variant="caption" color="text.secondary">
-            Wait for green, tap on red = penalty
-          </Typography>
+        {phase === 'green' && (
+          <BoltIcon sx={{ fontSize: 28, color: '#06D6A0', mt: 0.5, filter: 'drop-shadow(0 0 8px rgba(6,214,160,0.8))' }} />
         )}
       </Box>
 
-      {/* Reaction time dots */}
+      {/* Reaction time history */}
       {times.length > 0 && (
         <Box sx={{ display: 'flex', gap: 1, mt: 2.5, flexWrap: 'wrap', justifyContent: 'center' }}>
           {times.map((t, i) => {
-            const speed = t < 300 ? '#06D6A0' : t < 600 ? '#FFD166' : '#FF6B35';
+            const color = t < 300 ? '#06D6A0' : t < 600 ? '#FFD166' : '#FF6B35';
             return (
               <Box key={i} sx={{
                 px: 1.5, py: 0.4, borderRadius: 10,
-                bgcolor: `${speed}18`, border: `1px solid ${speed}40`,
+                bgcolor: `${color}15`,
+                border: `1px solid ${color}35`,
+                animation: i === times.length - 1 ? 'fadeIn 0.3s ease' : 'none',
+                '@keyframes fadeIn': {
+                  from: { opacity: 0, transform: 'scale(0.8)' },
+                  to:   { opacity: 1, transform: 'scale(1)' },
+                },
               }}>
-                <Typography variant="caption" fontWeight={700} sx={{ color: speed }}>{t}ms</Typography>
+                <Typography variant="caption" fontWeight={700} sx={{ color }}>{t}ms</Typography>
               </Box>
             );
           })}
         </Box>
       )}
 
-      {/* Window shrink indicator */}
-      {round > 0 && (
+      {round > 0 && phase !== 'green' && (
         <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 1.5 }}>
-          Tap window: {window_ms}ms — gets shorter each round
+          window: {window_ms}ms
         </Typography>
       )}
     </Box>

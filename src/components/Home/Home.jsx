@@ -12,6 +12,18 @@ import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
+import NightsStayIcon from '@mui/icons-material/NightsStay';
+import SnoozeIcon from '@mui/icons-material/Snooze';
+import DragHandleIcon from '@mui/icons-material/DragHandle';
+import WbTwilightIcon from '@mui/icons-material/WbTwilight';
+import FlashOnIcon from '@mui/icons-material/FlashOn';
+import CalculateIcon from '@mui/icons-material/Calculate';
+import StyleIcon from '@mui/icons-material/Style';
+import BoltIcon from '@mui/icons-material/Bolt';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AlarmIcon from '@mui/icons-material/Alarm';
 import HomeIcon from '@mui/icons-material/Home';
@@ -59,10 +71,11 @@ function formatCountdown(ms) {
 }
 
 function getGreeting(hour) {
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  if (hour < 21) return 'Good evening';
-  return 'Good night';
+  if (hour < 5)  return "G'night";
+  if (hour < 12) return "G'day";
+  if (hour < 17) return 'Arvo';
+  if (hour < 21) return "G'evening";
+  return "G'night";
 }
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
@@ -211,9 +224,12 @@ function AlarmsTab({ onNavigate }) {
 
           {/* Greeting */}
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="h5" fontWeight={800} noWrap>
-              {greeting}, {user.name} ☀️
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Typography variant="h5" fontWeight={800} noWrap>
+                {greeting}, {user.name}
+              </Typography>
+              <WbSunnyIcon sx={{ fontSize: '1.3rem', color: '#FFD166', flexShrink: 0, filter: 'drop-shadow(0 0 6px rgba(255,209,102,0.5))' }} />
+            </Box>
             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: 'block' }} noWrap>
               {user.wakeGoal ? `"${user.wakeGoal}"` : 'Keep that streak alive!'}
             </Typography>
@@ -227,7 +243,7 @@ function AlarmsTab({ onNavigate }) {
               bgcolor: 'rgba(255,209,102,0.1)',
               border: '1px solid rgba(255,209,102,0.25)',
             }}>
-              <Typography sx={{ fontSize: '1.1rem', lineHeight: 1 }}>🔥</Typography>
+              <LocalFireDepartmentIcon sx={{ fontSize: '1.2rem', color: '#FFD166', filter: 'drop-shadow(0 0 4px rgba(255,209,102,0.5))' }} />
               <Typography fontWeight={900} fontSize="0.9rem" color="#FFD166" sx={{ lineHeight: 1.2 }}>{user.streak}</Typography>
               <Typography sx={{ fontSize: '0.48rem', color: 'rgba(255,209,102,0.65)', fontWeight: 700, letterSpacing: 0.5 }}>STREAK</Typography>
             </Box>
@@ -750,7 +766,9 @@ function StatsTab() {
                       boxShadow: isCurrent ? '0 0 16px rgba(255,107,53,0.5)' : 'none',
                       transition: 'all 0.3s',
                     }}>
-                      {isPast ? '✓' : lvl}
+                      {isPast
+                        ? <CheckCircleOutlineIcon sx={{ fontSize: isCurrent ? '1.2rem' : '0.9rem', color: '#FF6B35' }} />
+                        : lvl}
                     </Box>
                     <Typography variant="caption" fontSize="0.55rem" fontWeight={isCurrent ? 800 : 500}
                       color={isCurrent ? 'primary.main' : 'text.disabled'}>
@@ -772,10 +790,10 @@ function StatsTab() {
 
         {/* Metric grid */}
         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-          <MetricCard icon="🔥" label="Day Streak"   value={user.streak}        unit={user.streak === 1 ? 'day' : 'days'} color="#FFD166" />
-          <MetricCard icon="⭐" label="Total XP"      value={user.xp}            color="#FF6B35" />
-          <MetricCard icon="⏰" label="Alarms Set"    value={alarms.length}      color="#06D6A0" />
-          <MetricCard icon="✅" label="Active"        value={activeCount}        color="#8B5CF6" />
+          <MetricCard Icon={LocalFireDepartmentIcon} label="Day Streak"  value={user.streak}   unit={user.streak === 1 ? 'day' : 'days'} color="#FFD166" />
+          <MetricCard Icon={EmojiEventsIcon}         label="Total XP"    value={user.xp}       color="#FF6B35" />
+          <MetricCard Icon={AlarmIcon}               label="Alarms Set"  value={alarms.length} color="#06D6A0" />
+          <MetricCard Icon={NotificationsActiveIcon} label="Active"      value={activeCount}   color="#8B5CF6" />
         </Box>
 
         {/* Demerit warning — only shown if relevant */}
@@ -785,7 +803,9 @@ function StatsTab() {
             border: '1px solid rgba(239,71,111,0.25)',
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Typography sx={{ fontSize: '1.6rem' }}>⚠️</Typography>
+              <Box sx={{ width: 40, height: 40, borderRadius: 2.5, bgcolor: 'rgba(239,71,111,0.12)', border: '1px solid rgba(239,71,111,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <WarningAmberIcon sx={{ fontSize: '1.4rem', color: '#EF476F' }} />
+              </Box>
               <Box>
                 <Typography fontWeight={800} color="#EF476F">{user.demerits} Demerit{user.demerits !== 1 ? 's' : ''}</Typography>
                 <Typography variant="caption" color="text.secondary">
@@ -805,9 +825,9 @@ function StatsTab() {
             <Box sx={{
               width: 44, height: 44, borderRadius: 2.5, flexShrink: 0,
               bgcolor: 'rgba(255,107,53,0.1)', border: '1px dashed rgba(255,107,53,0.3)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              🏆
+              <EmojiEventsIcon sx={{ fontSize: '1.5rem', color: '#FFD166' }} />
             </Box>
             <Box sx={{ flex: 1 }}>
               <Typography fontWeight={800}>Reach Level {user.level + 1}</Typography>
@@ -833,7 +853,7 @@ function StatsTab() {
   );
 }
 
-function MetricCard({ icon, label, value, unit, color }) {
+function MetricCard({ Icon, label, value, unit, color }) {
   return (
     <Card sx={{
       p: 2.5, bgcolor: 'background.paper',
@@ -844,7 +864,13 @@ function MetricCard({ icon, label, value, unit, color }) {
         position: 'absolute', top: 0, left: 0, right: 0, height: 2,
         background: `linear-gradient(90deg, ${color}, ${color}00)`,
       }} />
-      <Typography sx={{ fontSize: '1.4rem', mb: 0.75 }}>{icon}</Typography>
+      <Box sx={{
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        width: 34, height: 34, borderRadius: 2, mb: 1.25,
+        bgcolor: `${color}18`, border: `1px solid ${color}30`,
+      }}>
+        <Icon sx={{ fontSize: '1.2rem', color }} />
+      </Box>
       <Typography variant="h4" fontWeight={900} sx={{ color, lineHeight: 1 }}>
         {value}
       </Typography>
@@ -857,17 +883,17 @@ function MetricCard({ icon, label, value, unit, color }) {
 // ─── Profile Tab ──────────────────────────────────────────────────────────────
 
 const MORNING_TYPES_PROFILE = [
-  { value: 1, emoji: '🦇', label: 'Night Owl' },
-  { value: 2, emoji: '😴', label: 'Slow Starter' },
-  { value: 3, emoji: '😐', label: 'In Between' },
-  { value: 4, emoji: '🌅', label: 'Early Bird' },
-  { value: 5, emoji: '⚡', label: 'Morning Person' },
+  { value: 1, Icon: NightsStayIcon, label: 'Night Owl' },
+  { value: 2, Icon: SnoozeIcon,     label: 'Slow Starter' },
+  { value: 3, Icon: DragHandleIcon, label: 'In Between' },
+  { value: 4, Icon: WbTwilightIcon, label: 'Early Bird' },
+  { value: 5, Icon: FlashOnIcon,    label: 'Morning Person' },
 ];
 
 const GAMES_PROFILE = [
-  { value: 'math',     emoji: '🧮', label: 'Math Blitz' },
-  { value: 'memory',   emoji: '🃏', label: 'Memory Match' },
-  { value: 'reaction', emoji: '⚡', label: 'Reaction Rush' },
+  { value: 'math',     Icon: CalculateIcon, label: 'Math Blitz' },
+  { value: 'memory',   Icon: StyleIcon,     label: 'Memory Match' },
+  { value: 'reaction', Icon: BoltIcon,      label: 'Reaction Rush' },
 ];
 
 function ProfileTab() {
@@ -999,7 +1025,9 @@ function ProfileTab() {
                         transition: 'all 0.18s',
                       }}
                     >
-                      <Typography sx={{ fontSize: '1.15rem', lineHeight: 1 }}>{type.emoji}</Typography>
+                      <Box sx={{ width: 28, height: 28, borderRadius: 1.5, bgcolor: sel ? 'rgba(255,107,53,0.15)' : 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <type.Icon sx={{ fontSize: '1rem', color: sel ? 'primary.main' : 'text.secondary' }} />
+                      </Box>
                       <Typography variant="body2" fontWeight={sel ? 700 : 400}
                         sx={{ color: sel ? 'primary.main' : 'text.primary' }}>
                         {type.label}
@@ -1028,7 +1056,9 @@ function ProfileTab() {
                         transition: 'all 0.18s',
                       }}
                     >
-                      <Typography sx={{ fontSize: '1.15rem', lineHeight: 1 }}>{game.emoji}</Typography>
+                      <Box sx={{ width: 28, height: 28, borderRadius: 1.5, bgcolor: sel ? 'rgba(255,107,53,0.15)' : 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <game.Icon sx={{ fontSize: '1rem', color: sel ? 'primary.main' : 'text.secondary' }} />
+                      </Box>
                       <Typography variant="body2" fontWeight={sel ? 700 : 400}
                         sx={{ color: sel ? 'primary.main' : 'text.primary' }}>
                         {game.label}
@@ -1157,12 +1187,12 @@ function EmptyState({ onAdd }) {
         },
       }}
     >
-      <Box sx={{ animation: 'emptyFloat 3s ease-in-out infinite', display: 'inline-block', mb: 2 }}>
-        <Typography variant="h2">⏰</Typography>
+      <Box sx={{ animation: 'emptyFloat 3s ease-in-out infinite', display: 'inline-flex', mb: 2, p: 2.5, borderRadius: '50%', bgcolor: 'rgba(255,107,53,0.08)', border: '1px solid rgba(255,107,53,0.18)' }}>
+        <AlarmIcon sx={{ fontSize: '3rem', color: 'primary.main', opacity: 0.7 }} />
       </Box>
-      <Typography variant="h6" fontWeight={700} gutterBottom>No alarms yet</Typography>
+      <Typography variant="h6" fontWeight={700} gutterBottom>No alarms yet, mate</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Create your first alarm and start your morning routine
+        Chuck in your first alarm and get your morning sorted
       </Typography>
       <Button variant="contained" startIcon={<AddIcon />} onClick={onAdd}>Create Alarm</Button>
     </Card>

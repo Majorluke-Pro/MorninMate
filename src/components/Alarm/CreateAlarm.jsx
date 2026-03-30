@@ -2,6 +2,12 @@ import { useState } from 'react';
 import { Box, Typography, Button, TextField, IconButton } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckIcon from '@mui/icons-material/Check';
+import CalculateIcon from '@mui/icons-material/Calculate';
+import StyleIcon from '@mui/icons-material/Style';
+import BoltIcon from '@mui/icons-material/Bolt';
+import SpaIcon from '@mui/icons-material/Spa';
+import WhatshotIcon from '@mui/icons-material/Whatshot';
+import FlashOnIcon from '@mui/icons-material/FlashOn';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import ScrollDrum, { HOURS, MINUTES, PERIODS } from '../common/ScrollDrum';
@@ -9,15 +15,15 @@ import ScrollDrum, { HOURS, MINUTES, PERIODS } from '../common/ScrollDrum';
 // ─── Static data ──────────────────────────────────────────────────────────────
 
 const INTENSITY = [
-  { value: 'gentle',   emoji: '🌱', label: 'Gentle',   desc: '1 game · Easy mode',   xp: 20, color: '#06D6A0' },
-  { value: 'moderate', emoji: '🔥', label: 'Moderate', desc: '2 games · Normal mode', xp: 35, color: '#FFD166' },
-  { value: 'intense',  emoji: '⚡', label: 'Intense',  desc: '3 games · Hard mode',  xp: 60, color: '#EF476F' },
+  { value: 'gentle',   Icon: SpaIcon,      label: 'Gentle',   desc: '1 game · Easy mode',   xp: 20, color: '#06D6A0' },
+  { value: 'moderate', Icon: WhatshotIcon,  label: 'Moderate', desc: '2 games · Normal mode', xp: 35, color: '#FFD166' },
+  { value: 'intense',  Icon: FlashOnIcon,   label: 'Intense',  desc: '3 games · Hard mode',  xp: 60, color: '#EF476F' },
 ];
 
 const GAMES = [
-  { value: 'math',     emoji: '🧮', label: 'Math Blitz',    desc: 'Arithmetic to dismiss',  color: '#FF6B35' },
-  { value: 'memory',   emoji: '🃏', label: 'Memory Match',  desc: 'Flip and match pairs',    color: '#FFD166' },
-  { value: 'reaction', emoji: '⚡', label: 'Reaction Rush', desc: 'Tap right on cue',        color: '#06D6A0' },
+  { value: 'math',     Icon: CalculateIcon, label: 'Math Blitz',    desc: 'Arithmetic to dismiss',  color: '#FF6B35' },
+  { value: 'memory',   Icon: StyleIcon,     label: 'Memory Match',  desc: 'Flip and match pairs',    color: '#FFD166' },
+  { value: 'reaction', Icon: BoltIcon,      label: 'Reaction Rush', desc: 'Tap right on cue',        color: '#06D6A0' },
 ];
 
 const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
@@ -309,10 +315,9 @@ export default function CreateAlarm() {
                       width: 50, height: 50, borderRadius: 3, flexShrink: 0,
                       bgcolor: `${opt.color}18`, border: `1px solid ${opt.color}30`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '1.4rem',
                     }}
                   >
-                    {opt.emoji}
+                    <opt.Icon sx={{ fontSize: '1.9rem', color: opt.color }} />
                   </Box>
                   <Box sx={{ flex: 1 }}>
                     <Typography fontWeight={700} sx={{ color: selected ? opt.color : 'text.primary' }}>
@@ -374,10 +379,9 @@ export default function CreateAlarm() {
                       width: 52, height: 52, borderRadius: 3, flexShrink: 0,
                       bgcolor: `${game.color}18`, border: `1px solid ${game.color}30`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '1.5rem',
                     }}
                   >
-                    {game.emoji}
+                    <game.Icon sx={{ fontSize: '1.9rem', color: game.color }} />
                   </Box>
                   <Box sx={{ flex: 1 }}>
                     <Typography fontWeight={700}>{game.label}</Typography>
