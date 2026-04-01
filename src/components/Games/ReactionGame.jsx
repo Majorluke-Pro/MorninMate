@@ -5,7 +5,7 @@ import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import BoltIcon from '@mui/icons-material/Bolt';
 import { playReactionGo, playEarlyTap, playMiss, playSuccess } from '../../lib/sounds';
 
-export default function ReactionGame({ difficulty = 'normal', onComplete, onFail }) {
+export default function ReactionGame({ difficulty = 'normal', onComplete, onFail, onActivity }) {
   const totalRounds = difficulty === 'easy' ? 4 : difficulty === 'hard' ? 7 : 5;
   const baseWindow  = difficulty === 'easy' ? 1100 : difficulty === 'hard' ? 650 : 850;
   const maxLives    = 3;
@@ -61,6 +61,7 @@ export default function ReactionGame({ difficulty = 'normal', onComplete, onFail
 
   function handleTap() {
     if (phase === 'countdown') return;
+    onActivity?.();
     if (phase === 'red') {
       playEarlyTap();
       loseLife('early');

@@ -89,7 +89,7 @@ function FlipCard({ card, onClick, previewing, selected }) {
   );
 }
 
-export default function MemoryGame({ difficulty = 'normal', onComplete, onFail }) {
+export default function MemoryGame({ difficulty = 'normal', onComplete, onFail, onActivity }) {
   const totalTime = difficulty === 'easy' ? 90 : difficulty === 'hard' ? 70 : 80;
   const maxMoves  = difficulty === 'easy' ? 14 : difficulty === 'hard' ? 28 : 20;
   const previewMs = difficulty === 'easy' ? 2000 : difficulty === 'hard' ? 1000 : 1500;
@@ -140,6 +140,7 @@ export default function MemoryGame({ difficulty = 'normal', onComplete, onFail }
   function handleFlip(card) {
     if (locked || card.flipped || card.matched || selected.length === 2) return;
 
+    onActivity?.();
     playCardFlip();
     const next = [...selected, card];
     setCards(prev => prev.map(c => c.id === card.id ? { ...c, flipped: true } : c));

@@ -37,7 +37,7 @@ function generateQuestion(difficulty) {
 
 const PAD_KEYS = ['7','8','9','4','5','6','1','2','3','⌫','0','✓'];
 
-export default function MathGame({ difficulty = 'normal', onComplete, onFail }) {
+export default function MathGame({ difficulty = 'normal', onComplete, onFail, onActivity }) {
   const totalQuestions = difficulty === 'easy' ? 3 : difficulty === 'hard' ? 6 : 4;
   const totalTime      = difficulty === 'easy' ? 75 : difficulty === 'hard' ? 60 : 70;
   const maxWrong       = difficulty === 'hard' ? 1 : 2;
@@ -96,6 +96,7 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail }) 
 
   function handlePad(key) {
     if (flash === 'success') return;
+    onActivity?.();
     if (key === '⌫') {
       setInput(p => p.slice(0, -1));
     } else if (key === '✓') {

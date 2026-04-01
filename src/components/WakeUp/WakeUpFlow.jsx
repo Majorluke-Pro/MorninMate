@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Box, Typography, Card, Button, LinearProgress, Fade } from '@mui/material';
 import { startAlarm, stopAlarm } from '../../lib/sounds';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -13,6 +13,7 @@ import MemoryGame from '../Games/MemoryGame';
 import ReactionGame from '../Games/ReactionGame';
 
 const GAME_MAP    = { math: MathGame, memory: MemoryGame, reaction: ReactionGame };
+const INACTIVITY_LIMIT = 30; // seconds before alarm restarts
 const GAME_LABELS = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush' };
 const GAME_ICONS  = { math: CalculateIcon, memory: StyleIcon, reaction: BoltIcon };
 const GAME_COLORS = { math: '#FF6B35', memory: '#FFD166', reaction: '#06D6A0' };
@@ -39,6 +40,39 @@ export default function WakeUpFlow() {
   const [totalFails, setTotalFails] = useState(0);   // across all games
   const [results,    setResults]    = useState([]);
   const [phase,      setPhase]      = useState('intro');
+
+  // Inactivity tracking
+  const lastActivityRef      = useRef(Date.now());
+  const [inactivityLeft, setInactivityLeft] = useState(INACTIVITY_LIMIT);
+
+  const resetInactivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+  }, []);
+
+  // Inactivity countdown — only runs during 'playing' phase
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    lastActivityRef.current = Date.now(); // reset when game starts
+
+    const interval = setInterval(() => {
+      const elapsed    = Math.floor((Date.now() - lastActivityRef.current) / 1000);
+      const remaining  = Math.max(0, INACTIVITY_LIMIT - elapsed);
+      setInactivityLeft(remaining);
+
+      if (remaining === 0) {
+        // User ignored the game — restart everything
+        startAlarm();
+        setGameIndex(0);
+        setGameKey(k => k + 1);
+        setFailCount(0);
+        setTotalFails(0);
+        setResults([]);
+        setPhase('intro');
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [phase]);
 
   const currentGame  = games[gameIndex];
   const GameComponent = GAME_MAP[currentGame];
@@ -129,6 +163,33 @@ export default function WakeUpFlow() {
         </Box>
       </Box>
 
+      {/* Inactivity warning */}
+      {inactivityLeft <= 10 && (
+        <Box sx={{
+          mb: 2,
+          px: 2, py: 1.25,
+          borderRadius: 2.5,
+          bgcolor: inactivityLeft <= 5 ? 'rgba(239,71,111,0.15)' : 'rgba(255,140,0,0.12)',
+          border: `1.5px solid ${inactivityLeft <= 5 ? '#EF476F' : '#FF8C00'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          animation: 'warningPulse 0.8s ease-in-out infinite',
+          '@keyframes warningPulse': {
+            '0%,100%': { opacity: 1 },
+            '50%':     { opacity: 0.7 },
+          },
+        }}>
+          <Typography variant="body2" fontWeight={700}
+            color={inactivityLeft <= 5 ? 'error.main' : '#FF8C00'}>
+            ⚠️ Still there? Alarm restarts in…
+          </Typography>
+          <Typography variant="h6" fontWeight={900}
+            color={inactivityLeft <= 5 ? 'error.main' : '#FF8C00'}
+            sx={{ fontVariantNumeric: 'tabular-nums', minWidth: 32, textAlign: 'right' }}>
+            {inactivityLeft}s
+          </Typography>
+        </Box>
+      )}
+
       <Fade in key={`${gameIndex}-${gameKey}`}>
         <Box sx={{ flex: 1 }}>
           {GameComponent && (
@@ -137,6 +198,7 @@ export default function WakeUpFlow() {
               difficulty={difficulty}
               onComplete={handleGameComplete}
               onFail={handleGameFail}
+              onActivity={resetInactivity}
             />
           )}
         </Box>
