@@ -26,3 +26,6 @@ dist-ssr
 *.sln
 *.sw?
 .claude/
+google-services.json
+android/app/google-services.json
+android/app/google-services.json
