@@ -1014,11 +1014,15 @@ function WakeTimeStep({ value, onChange }) {
     <Box>
       <StepHeader Icon={AlarmIcon} title="When do you want to wake up?" subtitle="Scroll to set your wake-up time."/>
 
-      <Box sx={{ mt:3, mx:'auto', maxWidth:280,
-        borderRadius:4, overflow:'hidden',
-        bgcolor:'rgba(255,255,255,0.04)',
-        border:'1px solid rgba(255,255,255,0.08)',
-      }}>
+      <Box
+        onTouchMove={e => e.stopPropagation()}
+        onWheel={e => e.stopPropagation()}
+        sx={{ mt:3, mx:'auto', maxWidth:280,
+          borderRadius:4, overflow:'hidden',
+          bgcolor:'rgba(255,255,255,0.04)',
+          border:'1px solid rgba(255,255,255,0.08)',
+        }}
+      >
         <style>{`
           .mbsc-picker .mbsc-scroller-wheel-item { color: rgba(248,249,250,0.35); font-weight:600; }
           .mbsc-picker .mbsc-scroller-wheel-item.mbsc-selected,

@@ -181,11 +181,15 @@ export default function CreateAlarm() {
         {/* ── Time ─────────────────────────────────────────────────────────── */}
         <Section delay={0.04}>
           <SectionLabel>Time</SectionLabel>
-          <Box sx={{ mt: 2, mx: 'auto', maxWidth: 300,
-            borderRadius: 4, overflow: 'hidden',
-            bgcolor: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
-          }}>
+          <Box
+            onTouchMove={e => e.stopPropagation()}
+            onWheel={e => e.stopPropagation()}
+            sx={{ mt: 2, mx: 'auto', maxWidth: 300,
+              borderRadius: 4, overflow: 'hidden',
+              bgcolor: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
             <Picker
               value={pickerVal}
               onChange={handlePickerChange}
