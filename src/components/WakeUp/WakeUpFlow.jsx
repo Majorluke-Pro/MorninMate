@@ -30,7 +30,7 @@ export default function WakeUpFlow() {
 
   // Start alarm sound immediately; stop when the flow is dismissed
   useEffect(() => {
-    startAlarm();
+    startAlarm(activeAlarm?.sound ?? 'classic');
     return () => stopAlarm();
   }, []);
 

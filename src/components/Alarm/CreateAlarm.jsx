@@ -8,8 +8,19 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import SpaIcon from '@mui/icons-material/Spa';
 import WhatshotIcon from '@mui/icons-material/Whatshot';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import MusicNoteIcon            from '@mui/icons-material/MusicNote';
+import TuneIcon                 from '@mui/icons-material/Tune';
+import GraphicEqIcon            from '@mui/icons-material/GraphicEq';
+import TrendingUpIcon           from '@mui/icons-material/TrendingUp';
+import RadioButtonCheckedIcon   from '@mui/icons-material/RadioButtonChecked';
+import SportsEsportsIcon        from '@mui/icons-material/SportsEsports';
+import CampaignIcon             from '@mui/icons-material/Campaign';
+import WavesIcon                from '@mui/icons-material/Waves';
+import PlayArrowIcon            from '@mui/icons-material/PlayArrow';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { ALARM_SOUNDS, previewAlarmSound } from '../../lib/sounds';
 import ScrollDrum, { HOURS, MINUTES, PERIODS } from '../common/ScrollDrum';
 
 // ─── Static data ──────────────────────────────────────────────────────────────
@@ -28,6 +39,19 @@ const GAMES = [
 
 const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
+const SOUND_META = {
+  classic: { Icon: NotificationsActiveIcon, color: '#EF476F' },
+  chime:   { Icon: MusicNoteIcon,           color: '#FFD166' },
+  digital: { Icon: TuneIcon,               color: '#06D6A0' },
+  pulse:   { Icon: GraphicEqIcon,           color: '#FF6B35' },
+  rise:    { Icon: TrendingUpIcon,          color: '#8B5CF6' },
+  ping:    { Icon: RadioButtonCheckedIcon,  color: '#06D6A0' },
+  arcade:  { Icon: SportsEsportsIcon,       color: '#FF9F35' },
+  bell:    { Icon: CampaignIcon,            color: '#FFD166' },
+  warble:  { Icon: WavesIcon,              color: '#C97BE8' },
+  buzz:    { Icon: BoltIcon,               color: '#EF476F' },
+};
+
 const QUICK_PRESETS = [
   { label: 'Every day', days: [0, 1, 2, 3, 4, 5, 6] },
   { label: 'Weekdays',  days: [1, 2, 3, 4, 5] },
@@ -44,6 +68,7 @@ export default function CreateAlarm() {
     label: '',
     time: '07:00',
     days: [1, 2, 3, 4, 5],
+    sound: 'classic',
     pulse: { intensity: 'moderate', games: ['math', 'memory'] },
   });
 
@@ -210,6 +235,87 @@ export default function CreateAlarm() {
           >
             {form.label.length}/40
           </Typography>
+        </Section>
+
+        <Separator />
+
+        {/* ── Sound ────────────────────────────────────────────────────────── */}
+        <Section delay={0.12}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <SectionLabel>Alarm Sound</SectionLabel>
+            <Typography variant="caption" color="text.disabled">
+              {ALARM_SOUNDS.find(s => s.id === form.sound)?.label}
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(5, 1fr)',
+              gap: 1.5,
+            }}
+          >
+            {ALARM_SOUNDS.map(sound => {
+              const meta     = SOUND_META[sound.id];
+              const selected = form.sound === sound.id;
+              return (
+                <Box
+                  key={sound.id}
+                  onClick={() => setForm(f => ({ ...f, sound: sound.id }))}
+                  sx={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
+                    cursor: 'pointer', userSelect: 'none',
+                  }}
+                >
+                  {/* Icon circle */}
+                  <Box
+                    sx={{
+                      width: 52, height: 52, borderRadius: '50%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      position: 'relative',
+                      border: selected
+                        ? `2px solid ${meta.color}`
+                        : '2px solid rgba(255,255,255,0.08)',
+                      bgcolor: selected ? `${meta.color}18` : 'rgba(255,255,255,0.04)',
+                      boxShadow: selected ? `0 0 14px ${meta.color}44` : 'none',
+                      transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                      transform: selected ? 'scale(1.1)' : 'scale(1)',
+                    }}
+                  >
+                    <meta.Icon sx={{ fontSize: '1.4rem', color: selected ? meta.color : 'rgba(255,255,255,0.3)' }} />
+                    {/* Preview play button — shown on selected */}
+                    {selected && (
+                      <Box
+                        onClick={e => { e.stopPropagation(); previewAlarmSound(sound.id); }}
+                        sx={{
+                          position: 'absolute', bottom: -4, right: -4,
+                          width: 20, height: 20, borderRadius: '50%',
+                          bgcolor: meta.color,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          boxShadow: `0 2px 8px ${meta.color}66`,
+                          transition: 'transform 0.15s',
+                          '&:active': { transform: 'scale(0.88)' },
+                        }}
+                      >
+                        <PlayArrowIcon sx={{ fontSize: '0.75rem', color: '#fff' }} />
+                      </Box>
+                    )}
+                  </Box>
+                  {/* Label */}
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontSize: '0.6rem', fontWeight: selected ? 700 : 500,
+                      color: selected ? meta.color : 'rgba(255,255,255,0.35)',
+                      textAlign: 'center', letterSpacing: 0.2,
+                      transition: 'color 0.2s',
+                    }}
+                  >
+                    {sound.label}
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Box>
         </Section>
 
         <Separator />

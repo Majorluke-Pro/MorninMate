@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { AVATAR_OPTIONS } from '../../lib/avatars';
 import {
   Box, Typography, Card, IconButton, Switch, LinearProgress,
   Fab, BottomNavigation, BottomNavigationAction,
@@ -902,7 +903,7 @@ function ProfileTab() {
   const [draft,        setDraft]        = useState(null);
   const [confirmReset, setConfirmReset] = useState(false);
 
-  const displayInitials = name => (name || 'MM').slice(0, 2).toUpperCase();
+  const avatarOpt = AVATAR_OPTIONS.find(a => a.value === user.profileIcon) ?? AVATAR_OPTIONS[0];
 
   const morningLabel = MORNING_TYPES_PROFILE.find(t => t.value === user.morningRating)?.label || '—';
   const gameLabel    = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush' }[user.favoriteGame] || '—';
@@ -924,8 +925,6 @@ function ProfileTab() {
     setDraft(null);
   }
 
-  const avatarName = editing ? draft.name : user.name;
-
   return (
     <Box>
       {/* Header */}
@@ -946,14 +945,16 @@ function ProfileTab() {
         }} />
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Avatar sx={{
-              width: 64, height: 64, bgcolor: 'primary.main',
-              fontWeight: 800, fontSize: '1.3rem',
-              boxShadow: '0 0 0 3px rgba(255,107,53,0.25), 0 0 28px rgba(255,107,53,0.2)',
+            <Box sx={{
+              width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
+              bgcolor: `${avatarOpt.color}20`,
+              border: `2.5px solid ${avatarOpt.color}`,
+              boxShadow: `0 0 0 3px ${avatarOpt.color}22, 0 0 28px ${avatarOpt.color}44`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'all 0.3s',
             }}>
-              {displayInitials(avatarName)}
-            </Avatar>
+              <avatarOpt.Icon sx={{ fontSize: '1.9rem', color: avatarOpt.color }} />
+            </Box>
             <Box>
               <Typography variant="h5" fontWeight={800}>
                 {editing ? (draft.name || 'Your Name') : user.name}

@@ -18,6 +18,7 @@ const INITIAL_USER = {
   morningRating: 3,
   favoriteGame: 'math',
   wakeGoal: '',
+  profileIcon: localStorage.getItem('mm_profile_icon') || 'bolt',
   onboardingComplete: false,
   level: 1,
   xp: 0,
@@ -28,6 +29,7 @@ const INITIAL_USER = {
 const XP_PER_LEVEL = 100;
 
 function newProfilePayload(userId, data) {
+  if (data.profileIcon) localStorage.setItem('mm_profile_icon', data.profileIcon);
   return {
     id: userId,
     name: data.name,
@@ -35,6 +37,7 @@ function newProfilePayload(userId, data) {
     morning_rating: data.morningRating,
     favorite_game: data.favoriteGame,
     wake_goal: data.wakeGoal,
+    profile_icon: data.profileIcon || 'bolt',
     onboarding_complete: true,
     level: 1,
     xp: 0,
@@ -45,12 +48,14 @@ function newProfilePayload(userId, data) {
 }
 
 function rowToUser(row) {
+  const profileIcon = row.profile_icon || localStorage.getItem('mm_profile_icon') || 'bolt';
   return {
     name: row.name || '',
     wakeTime: row.wake_time || '07:00',
     morningRating: row.morning_rating ?? 3,
     favoriteGame: row.favorite_game || 'math',
     wakeGoal: row.wake_goal || '',
+    profileIcon,
     onboardingComplete: row.onboarding_complete ?? false,
     level: row.level ?? 1,
     xp: row.xp ?? 0,
@@ -356,6 +361,10 @@ export function AppProvider({ children }) {
     if (updates.morningRating      !== undefined) dbUpdates.morning_rating    = updates.morningRating;
     if (updates.favoriteGame       !== undefined) dbUpdates.favorite_game     = updates.favoriteGame;
     if (updates.wakeGoal           !== undefined) dbUpdates.wake_goal         = updates.wakeGoal;
+    if (updates.profileIcon        !== undefined) {
+      dbUpdates.profile_icon = updates.profileIcon;
+      localStorage.setItem('mm_profile_icon', updates.profileIcon);
+    }
     if (updates.level              !== undefined) dbUpdates.level             = updates.level;
     if (updates.xp                 !== undefined) dbUpdates.xp                = updates.xp;
     if (updates.demerits           !== undefined) dbUpdates.demerits          = updates.demerits;
@@ -368,6 +377,7 @@ export function AppProvider({ children }) {
 
   async function resetAll() {
     const userId = session.user.id;
+    localStorage.removeItem('mm_profile_icon');
     await Promise.all([
       supabase.from('profiles').update({
         name: '',
@@ -375,6 +385,7 @@ export function AppProvider({ children }) {
         morning_rating: 3,
         favorite_game: 'math',
         wake_goal: '',
+        profile_icon: 'bolt',
         onboarding_complete: false,
         level: 1,
         xp: 0,

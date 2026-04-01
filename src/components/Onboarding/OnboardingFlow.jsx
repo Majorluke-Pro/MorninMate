@@ -22,6 +22,10 @@ import SnoozeIcon        from '@mui/icons-material/Snooze';
 import DragHandleIcon    from '@mui/icons-material/DragHandle';
 import WbTwilightIcon    from '@mui/icons-material/WbTwilight';
 import FlashOnIcon       from '@mui/icons-material/FlashOn';
+import LightModeIcon     from '@mui/icons-material/LightMode';
+import WbCloudyIcon      from '@mui/icons-material/WbCloudy';
+import Brightness4Icon   from '@mui/icons-material/Brightness4';
+import HotelIcon         from '@mui/icons-material/Hotel';
 import FitnessCenterIcon   from '@mui/icons-material/FitnessCenter';
 import MenuBookIcon        from '@mui/icons-material/MenuBook';
 import SelfImprovementIcon from '@mui/icons-material/SelfImprovement';
@@ -29,7 +33,10 @@ import LocalCafeIcon       from '@mui/icons-material/LocalCafe';
 import DirectionsRunIcon   from '@mui/icons-material/DirectionsRun';
 import HistoryEduIcon      from '@mui/icons-material/HistoryEdu';
 import TrackChangesIcon    from '@mui/icons-material/TrackChanges';
+import EmojiEventsIcon     from '@mui/icons-material/EmojiEvents';
+import FaceIcon            from '@mui/icons-material/Face';
 import { useApp } from '../../context/AppContext';
+import { AVATAR_OPTIONS } from '../../lib/avatars';
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -56,17 +63,18 @@ const GOAL_PRESETS = [
 const STEP_CONFIG = {
   welcome:     { mood:'wave',      speech:"G'day mate! Ready to crush those mornings? 🌿" },
   name:        { mood:'happy',     speech:"Crikey, who are ya? Introduce yourself! 🐨" },
+  avatar:      { mood:'excited',   speech:"Pick your vibe, legend! Which one screams YOU?" },
   wakeTime:    { mood:'sleepy',    speech:"When d'ya wanna drag yourself outta the swag?" },
   morningType: { mood:'thinking',  speech:"No worries, be honest! Which one are ya, mate?" },
   game:        { mood:'excited',   speech:"Bonzer! Pick your wake-up weapon, legend!" },
   goal:        { mood:'cool',      speech:"What gets ya outta bed each arvo... I mean morning?" },
   summary:     { mood:'celebrate', speech:"You're a fair dinkum legend! Let's go! 🎉" },
 };
-const STEP_IDS = ['welcome','name','wakeTime','morningType','game','goal','summary'];
+const STEP_IDS = ['welcome','name','avatar','wakeTime','morningType','game','goal','summary'];
 
 const STEP_ACCENT = {
-  welcome:'#5A8A50', name:'#FF6B35', wakeTime:'#6B8FD4',
-  morningType:'#C97BE8', game:'#06D6A0', goal:'#FFD166', summary:'#FF9F35',
+  welcome:'#5A8A50', name:'#FF6B35', avatar:'#C97BE8', wakeTime:'#6B8FD4',
+  morningType:'#A78BFA', game:'#06D6A0', goal:'#FFD166', summary:'#FF9F35',
 };
 
 // ─── Framer Motion variants ───────────────────────────────────────────────────
@@ -191,7 +199,7 @@ function WalkingKoala({ size = 68 }) {
 
 // ─── Koala progress track ─────────────────────────────────────────────────────
 
-const TRACK_ICONS = ['🌅','👤','⏰','🌙','🎮','🎯','🏆'];
+const TRACK_ICONS = [WbSunnyIcon, PersonIcon, FaceIcon, AlarmIcon, EmojiPeopleIcon, SportsEsportsIcon, TrackChangesIcon, EmojiEventsIcon];
 const KW = 58; // koala container width px
 
 function KoalaProgressTrack({ step, totalSteps, stepId }) {
@@ -308,15 +316,18 @@ function KoalaProgressTrack({ step, totalSteps, stepId }) {
         </motion.div>
       </motion.div>
 
-      {/* Step emoji labels */}
+      {/* Step icon labels */}
       <Box sx={{ display:'flex', justifyContent:'space-between', px:`${KW/2 - 8}px`, mt:0.5 }}>
-        {Array.from({ length:totalSteps }).map((_,i) => (
-          <motion.span key={i} animate={{ opacity: i <= step ? 0.85 : 0.2 }}
-            transition={{ duration:0.3 }}
-            style={{ fontSize:9, lineHeight:1 }}>
-            {TRACK_ICONS[i]}
-          </motion.span>
-        ))}
+        {Array.from({ length:totalSteps }).map((_,i) => {
+          const StepIcon = TRACK_ICONS[i];
+          return (
+            <motion.div key={i}
+              animate={{ opacity: i <= step ? 0.85 : 0.18 }}
+              transition={{ duration:0.3 }}>
+              <StepIcon sx={{ fontSize:11, display:'block', color:'rgba(255,255,255,0.9)' }} />
+            </motion.div>
+          );
+        })}
       </Box>
     </Box>
   );
@@ -453,7 +464,7 @@ const MOOD_IDLE_TRANS = {
 
 function KoalaHeader({ mood, speech, animKey }) {
   return (
-    <Box sx={{ display:'flex', alignItems:'flex-start', gap:2, mb:3 }}>
+    <Box sx={{ display:'flex', alignItems:'flex-start', gap:2, mb:2.5 }}>
       <motion.div
         key={animKey}
         initial={{ opacity:0, scale:0.4, y:32, rotate:-12 }}
@@ -625,7 +636,7 @@ export default function OnboardingFlow() {
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState('');
   const [data, setData] = useState({
-    name:'', wakeTime:'07:00', morningRating:3, favoriteGame:'math', wakeGoal:'',
+    name:'', wakeTime:'07:00', morningRating:3, favoriteGame:'math', wakeGoal:'', profileIcon:'bolt',
   });
 
   const currentId = STEP_IDS[step];
@@ -663,14 +674,14 @@ export default function OnboardingFlow() {
   function patch(u) { setData(d => ({ ...d, ...u })); }
 
   return (
-    <Box sx={{ minHeight:'100vh', display:'flex', flexDirection:'column', position:'relative', overflow:'hidden' }}>
+    <Box sx={{ height:'100dvh', minHeight:'-webkit-fill-available', display:'flex', flexDirection:'column', position:'relative', overflow:'hidden' }}>
       <Background stepId={currentId} />
       <FloatingLeaves />
       {isSummary && <Confetti />}
 
       <Box sx={{ position:'relative', zIndex:1, flex:1, display:'flex', flexDirection:'column' }}>
         {/* Top bar */}
-        <Box sx={{ px:3, pt:5, pb:1, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <Box sx={{ px:3, pt:3.5, pb:1, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <AnimatePresence mode="popLayout">
             {step > 0 && (
               <motion.div
@@ -736,6 +747,7 @@ export default function OnboardingFlow() {
             >
               {currentId === 'welcome'     && <WelcomeStep />}
               {currentId === 'name'        && <><KoalaHeader mood={cfg.mood} speech={cfg.speech} animKey={animKey}/><NameStep value={data.name} onChange={v=>patch({name:v})} onSubmit={() => canProceed() && handleNext()}/></>}
+              {currentId === 'avatar'      && <><KoalaHeader mood={cfg.mood} speech={cfg.speech} animKey={animKey}/><AvatarStep value={data.profileIcon} onChange={v=>patch({profileIcon:v})}/></>}
               {currentId === 'wakeTime'    && <><KoalaHeader mood={cfg.mood} speech={cfg.speech} animKey={animKey}/><WakeTimeStep value={data.wakeTime} onChange={v=>patch({wakeTime:v})}/></>}
               {currentId === 'morningType' && <><KoalaHeader mood={cfg.mood} speech={cfg.speech} animKey={animKey}/><MorningTypeStep value={data.morningRating} onChange={v=>patch({morningRating:v})}/></>}
               {currentId === 'game'        && <><KoalaHeader mood={cfg.mood} speech={cfg.speech} animKey={animKey}/><GameStep value={data.favoriteGame} onChange={v=>patch({favoriteGame:v})}/></>}
@@ -746,7 +758,7 @@ export default function OnboardingFlow() {
         </Box>
 
         {/* CTA */}
-        <Box sx={{ px:3, pb:5, pt:1, position:'relative', zIndex:2 }}>
+        <Box sx={{ px:3, pt:1, pb:'max(24px, env(safe-area-inset-bottom))', position:'relative', zIndex:2 }}>
           {saveError && <Alert severity="error" sx={{ borderRadius:2, mb:2 }}>{saveError}</Alert>}
           <motion.div
             whileHover={canProceed() ? { scale:1.02 } : {}}
@@ -818,16 +830,18 @@ function WelcomeStep() {
       <motion.div
         animate={{ rotate:[-1.5, 1.5] }}
         transition={{ duration:4.5, repeat:Infinity, repeatType:'mirror', ease:'easeInOut' }}
-        style={{ transformOrigin:'left center', position:'relative', marginBottom:4 }}
+        style={{ transformOrigin:'left center', marginBottom:4 }}
       >
-        <EucalyptusBranch />
-        <motion.div
-          animate={{ rotate:[-4, 4] }}
-          transition={{ duration:4.5, repeat:Infinity, repeatType:'mirror', ease:'easeInOut' }}
-          style={{ position:'absolute', top:68, left:'50%', translateX:'-50%', transformOrigin:'top center' }}
-        >
-          <Koala mood="wave" size={128} />
-        </motion.div>
+        <div style={{ transform:'scale(0.78)', transformOrigin:'top center', display:'inline-block', position:'relative' }}>
+          <EucalyptusBranch />
+          <motion.div
+            animate={{ rotate:[-4, 4] }}
+            transition={{ duration:4.5, repeat:Infinity, repeatType:'mirror', ease:'easeInOut' }}
+            style={{ position:'absolute', top:68, left:'50%', translateX:'-50%', transformOrigin:'top center' }}
+          >
+            <Koala mood="wave" size={96} />
+          </motion.div>
+        </div>
       </motion.div>
 
       {/* Title */}
@@ -837,7 +851,7 @@ function WelcomeStep() {
         transition={{ type:'spring', stiffness:280, damping:26, delay:0.1 }}
       >
         <Typography variant="h2" fontWeight={900} letterSpacing="-1px" sx={{
-          mt:14, mb:0.5,
+          mt:2, mb:0.5,
           background:'linear-gradient(135deg,#ffffff 0%,#c8f5b8 50%,#90d080 100%)',
           WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text',
         }}>
@@ -888,22 +902,54 @@ function WelcomeStep() {
 // ─── Name step ────────────────────────────────────────────────────────────────
 
 function NameStep({ value, onChange, onSubmit }) {
+  const [focused, setFocused] = useState(false);
+
   return (
     <Box>
       <StepHeader Icon={PersonIcon} title="First things first —" subtitle="What should we call you, mate?" />
-      <Box sx={{ mt:5 }}>
-        <TextField fullWidth autoFocus autoComplete="off"
-          placeholder="Your name" value={value}
-          onChange={e => onChange(e.target.value)}
-          inputProps={{ maxLength:30 }}
-          onKeyDown={e => e.key==='Enter' && onSubmit()}
-          variant="standard"
-          sx={{
-            '& .MuiInput-input':{ fontSize:'2rem', fontWeight:700, textAlign:'center', py:1 },
-            '& .MuiInput-underline:before':{ borderBottomColor:'rgba(255,255,255,0.1)' },
-            '& .MuiInput-underline:after' :{ borderBottomColor:'#FF6B35' },
+      <Box sx={{ mt:4 }}>
+        <motion.div
+          animate={{
+            boxShadow: focused
+              ? '0 0 0 2px #FF6B35, 0 8px 32px rgba(255,107,53,0.2)'
+              : '0 0 0 1.5px rgba(255,255,255,0.1), 0 4px 16px rgba(0,0,0,0.2)',
           }}
-        />
+          transition={{ duration:0.2 }}
+          style={{ borderRadius:16 }}
+        >
+          <Box
+            sx={{
+              borderRadius:'16px',
+              bgcolor: focused ? 'rgba(255,107,53,0.06)' : 'rgba(255,255,255,0.04)',
+              transition:'background 0.2s',
+              px:3, py:2,
+              display:'flex', alignItems:'center', gap:1.5,
+            }}
+          >
+            <PersonIcon sx={{ color: focused ? 'primary.main' : 'rgba(255,255,255,0.25)', fontSize:'1.4rem', transition:'color 0.2s', flexShrink:0 }} />
+            <Box
+              component="input"
+              autoFocus
+              autoComplete="off"
+              placeholder="Your name"
+              value={value}
+              maxLength={30}
+              onChange={e => onChange(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onKeyDown={e => e.key === 'Enter' && onSubmit()}
+              sx={{
+                flex:1,
+                background:'none', border:'none', outline:'none',
+                color:'#fff', caretColor:'#FF6B35',
+                fontSize:'1.5rem', fontWeight:700,
+                fontFamily:'inherit',
+                '&::placeholder':{ color:'rgba(255,255,255,0.2)', fontWeight:500 },
+              }}
+            />
+          </Box>
+        </motion.div>
+
         <AnimatePresence>
           {value.trim().length >= 2 && (
             <motion.div
@@ -932,12 +978,21 @@ function WakeTimeStep({ value, onChange }) {
   const setH  = (h12) => { const h24=isPM?(h12%12)+12:h12%12; onChange(`${String(h24).padStart(2,'0')}:${String(m).padStart(2,'0')}`); };
   const setM  = (nm)  => onChange(`${String(h).padStart(2,'0')}:${String(nm).padStart(2,'0')}`);
   const toggle= () => { const nh=isPM?h-12:h+12; onChange(`${String(nh).padStart(2,'0')}:${String(m).padStart(2,'0')}`); };
-  const ctx   = h<4?{l:'Deep night 🌙',c:'#8B5CF6'}:h<6?{l:'Before dawn 💪',c:'#EF476F'}:h<8?{l:'Early riser 🌅',c:'#FF6B35'}:h<10?{l:'Morning sweet spot ☀️',c:'#FFD166'}:h<12?{l:'Late morning 🌤️',c:'#06D6A0'}:h<14?{l:'Midday 🌞',c:'#FFD166'}:h<17?{l:'Afternoon ⛅',c:'#FF8C5A'}:h<20?{l:'Evening 🌆',c:'#FF6B35'}:h<22?{l:'Night 🌙',c:'#8B5CF6'}:{l:'Late night 🦉',c:'#A0A0B8'};
+  const ctx   = h<4 ?{l:'Deep night',   c:'#8B5CF6', Icon:NightsStayIcon }
+               :h<6 ?{l:'Before dawn',  c:'#EF476F', Icon:WbTwilightIcon }
+               :h<8 ?{l:'Early riser',  c:'#FF6B35', Icon:WbTwilightIcon }
+               :h<10?{l:'Sweet spot',   c:'#FFD166', Icon:WbSunnyIcon    }
+               :h<12?{l:'Late morning', c:'#06D6A0', Icon:WbSunnyIcon    }
+               :h<14?{l:'Midday',       c:'#FFD166', Icon:LightModeIcon  }
+               :h<17?{l:'Afternoon',    c:'#FF8C5A', Icon:WbCloudyIcon   }
+               :h<20?{l:'Evening',      c:'#FF6B35', Icon:Brightness4Icon}
+               :h<22?{l:'Night',        c:'#8B5CF6', Icon:NightsStayIcon }
+               :     {l:'Late night',   c:'#A0A0B8', Icon:HotelIcon      };
 
   return (
     <Box>
       <StepHeader Icon={AlarmIcon} title="When do you want to wake up?" subtitle="Set your default alarm time."/>
-      <Box sx={{ mt:5, display:'flex', alignItems:'center', justifyContent:'center', gap:2 }}>
+      <Box sx={{ mt:4, display:'flex', alignItems:'center', justifyContent:'center', gap:2 }}>
         <TimeDrum display={String(hour12).padStart(2,'0')} onUp={() => setH(hour12===12?1:hour12+1)} onDown={() => setH(hour12===1?12:hour12-1)}/>
         <Typography variant="h3" fontWeight={900} color="primary.main" sx={{ mb:2, userSelect:'none' }}>:</Typography>
         <TimeDrum display={String(m).padStart(2,'0')} onUp={() => setM(m>=55?0:m+5)} onDown={() => setM(m<=0?55:m-5)}/>
@@ -951,13 +1006,28 @@ function WakeTimeStep({ value, onChange }) {
           );})}
         </Box>
       </Box>
-      <motion.p
-        animate={{ color:ctx.c }}
-        transition={{ duration:0.4 }}
-        style={{ textAlign:'center', fontWeight:600, fontSize:'0.875rem', margin:'4px 0 0' }}
-      >
-        {ctx.l}
-      </motion.p>
+      <Box sx={{ display:'flex', justifyContent:'center', mt:1.5 }}>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={ctx.l}
+            initial={{ opacity:0, y:6, scale:0.9 }}
+            animate={{ opacity:1, y:0, scale:1 }}
+            exit={{    opacity:0, y:-6, scale:0.9 }}
+            transition={{ type:'spring', stiffness:400, damping:26 }}
+            style={{
+              display:'inline-flex', alignItems:'center', gap:6,
+              padding:'6px 14px', borderRadius:100,
+              background:`${ctx.c}18`,
+              border:`1px solid ${ctx.c}40`,
+            }}
+          >
+            <ctx.Icon sx={{ fontSize:'1rem', color:ctx.c }} />
+            <Typography variant="caption" fontWeight={700} sx={{ color:ctx.c, letterSpacing:0.3 }}>
+              {ctx.l}
+            </Typography>
+          </motion.div>
+        </AnimatePresence>
+      </Box>
     </Box>
   );
 }
@@ -996,7 +1066,7 @@ function MorningTypeStep({ value, onChange }) {
     <Box>
       <StepHeader Icon={EmojiPeopleIcon} title="What kind of morning person are you?" subtitle="Be honest — this shapes your experience."/>
       <motion.div variants={listContainer} initial="hidden" animate="show"
-        style={{ display:'flex', flexDirection:'column', gap:12, marginTop:24 }}>
+        style={{ display:'flex', flexDirection:'column', gap:11, marginTop:20 }}>
         {MORNING_TYPES.map(type => {
           const sel = value === type.value;
           return (
@@ -1048,7 +1118,7 @@ function GameStep({ value, onChange }) {
     <Box>
       <StepHeader Icon={SportsEsportsIcon} title="Pick your wake-up game" subtitle="This is how you'll prove you're actually awake."/>
       <motion.div variants={listContainer} initial="hidden" animate="show"
-        style={{ display:'flex', flexDirection:'column', gap:16, marginTop:24 }}>
+        style={{ display:'flex', flexDirection:'column', gap:14, marginTop:20 }}>
         {GAMES.map(game => {
           const sel = value === game.value;
           return (
@@ -1109,7 +1179,7 @@ function GoalStep({ value, onChange }) {
       <StepHeader Icon={TrackChangesIcon} title="What's your morning goal?" subtitle="What gets you out of bed? It shows on your home screen."/>
       <motion.div
         variants={listContainer} initial="hidden" animate="show"
-        style={{ display:'flex', flexWrap:'wrap', gap:10, marginTop:24, marginBottom:24 }}
+        style={{ display:'flex', flexWrap:'wrap', gap:10, marginTop:20, marginBottom:20 }}
       >
         {GOAL_PRESETS.map(preset => {
           const sel = value === preset.label;
@@ -1144,14 +1214,63 @@ function GoalStep({ value, onChange }) {
   );
 }
 
+// ─── Avatar step ─────────────────────────────────────────────────────────────
+
+function AvatarStep({ value, onChange }) {
+  return (
+    <Box>
+      <StepHeader Icon={FaceIcon} title="Pick your profile icon" subtitle="This shows up on your home screen." />
+      <motion.div
+        variants={listContainer} initial="hidden" animate="show"
+        style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:12, marginTop:20 }}
+      >
+        {AVATAR_OPTIONS.map(opt => {
+          const sel = value === opt.value;
+          return (
+            <motion.div
+              key={opt.value}
+              variants={fadeUpItem}
+              whileTap={{ scale:0.88 }}
+              onClick={() => onChange(opt.value)}
+              style={{ cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}
+            >
+              <motion.div
+                animate={{
+                  boxShadow: sel
+                    ? `0 0 0 2.5px ${opt.color}, 0 4px 18px ${opt.color}44`
+                    : '0 0 0 1.5px rgba(255,255,255,0.08)',
+                  backgroundColor: sel ? `${opt.color}20` : 'rgba(255,255,255,0.05)',
+                  scale: sel ? 1.1 : 1,
+                }}
+                transition={{ type:'spring', stiffness:420, damping:24 }}
+                style={{ width:58, height:58, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', willChange:'transform' }}
+              >
+                <opt.Icon sx={{ fontSize:'1.6rem', color: sel ? opt.color : 'rgba(255,255,255,0.35)', transition:'color 0.15s' }} />
+              </motion.div>
+              <Typography
+                variant="caption"
+                sx={{ fontSize:'0.62rem', fontWeight: sel ? 700 : 500, color: sel ? opt.color : 'rgba(255,255,255,0.35)', letterSpacing:0.3, transition:'color 0.15s', textAlign:'center' }}
+              >
+                {opt.label}
+              </Typography>
+            </motion.div>
+          );
+        })}
+      </motion.div>
+    </Box>
+  );
+}
+
 // ─── Summary step ─────────────────────────────────────────────────────────────
 
 function SummaryStep({ data, speech, animKey }) {
   const morningType = MORNING_TYPES.find(t => t.value === data.morningRating);
   const game        = GAMES.find(g => g.value === data.favoriteGame);
+  const avatar      = AVATAR_OPTIONS.find(a => a.value === data.profileIcon);
   const [h,m]       = data.wakeTime.split(':').map(Number);
   const fmtTime     = `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`;
   const items = [
+    { Icon:avatar?.Icon,     label:'Profile icon', value:avatar?.label,       iconColor:avatar?.color },
     { Icon:PersonIcon,       label:'Name',         value:data.name },
     { Icon:AlarmIcon,        label:'Wake time',    value:fmtTime },
     { Icon:morningType?.Icon,label:'Morning type', value:morningType?.label },
@@ -1166,13 +1285,13 @@ function SummaryStep({ data, speech, animKey }) {
         initial={{ opacity:0, scale:0.3, y:40, rotate:-15 }}
         animate={{ opacity:1, scale:1,   y:0,  rotate:0  }}
         transition={{ type:'spring', stiffness:280, damping:18 }}
-        style={{ display:'flex', justifyContent:'center', marginBottom:8 }}
+        style={{ display:'flex', justifyContent:'center', marginBottom:4 }}
       >
         <motion.div
-          animate={{ y:[0,-18,0], rotate:[-7,7,-7] }}
+          animate={{ y:[0,-14,0], rotate:[-6,6,-6] }}
           transition={{ duration:0.85, repeat:Infinity, ease:'easeInOut' }}
         >
-          <Koala mood="celebrate" size={120} />
+          <Koala mood="celebrate" size={100} />
         </motion.div>
       </motion.div>
 
@@ -1193,7 +1312,7 @@ function SummaryStep({ data, speech, animKey }) {
         <Typography variant="h5" fontWeight={800} sx={{ mb:0.5 }}>
           You're all set, {data.name}!
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb:3 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb:2 }}>
           Here's your morning profile
         </Typography>
       </motion.div>
@@ -1206,8 +1325,8 @@ function SummaryStep({ data, speech, animKey }) {
           <motion.div key={item.label} variants={fadeUpItem}
             whileHover={{ x:4 }} transition={{ type:'spring', stiffness:400, damping:22 }}>
             <Box sx={{ display:'flex', alignItems:'center', gap:2, p:1.75, borderRadius:2.5, bgcolor:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.07)' }}>
-              <Box sx={{ width:28, height:28, borderRadius:1.5, bgcolor:'rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                {item.Icon && <item.Icon sx={{ fontSize:'1rem', color:'text.secondary' }}/>}
+              <Box sx={{ width:28, height:28, borderRadius:1.5, bgcolor: item.iconColor ? `${item.iconColor}20` : 'rgba(255,255,255,0.06)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                {item.Icon && <item.Icon sx={{ fontSize:'1rem', color: item.iconColor ?? 'text.secondary' }}/>}
               </Box>
               <Box sx={{ flex:1, display:'flex', justifyContent:'space-between', alignItems:'center', gap:2 }}>
                 <Typography variant="caption" color="text.secondary">{item.label}</Typography>
@@ -1235,7 +1354,7 @@ function StepHeader({ Icon, title, subtitle }) {
           whileHover={{ rotate:[0,-8,8,0], scale:1.08 }}
           transition={{ duration:0.4, type:'spring' }}
           style={{ display:'inline-flex', alignItems:'center', justifyContent:'center',
-            width:52, height:52, borderRadius:12, marginBottom:20,
+            width:50, height:50, borderRadius:12, marginBottom:16,
             background:'linear-gradient(135deg,rgba(255,107,53,0.18),rgba(255,107,53,0.08))',
             border:'1px solid rgba(255,107,53,0.25)' }}
         >
