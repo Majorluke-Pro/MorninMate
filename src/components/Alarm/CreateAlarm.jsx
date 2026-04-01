@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Box, Typography, Button, TextField, IconButton } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckIcon from '@mui/icons-material/Check';
@@ -181,15 +181,7 @@ export default function CreateAlarm() {
         {/* ── Time ─────────────────────────────────────────────────────────── */}
         <Section delay={0.04}>
           <SectionLabel>Time</SectionLabel>
-          <Box
-            onTouchMove={e => e.stopPropagation()}
-            onWheel={e => e.stopPropagation()}
-            sx={{ mt: 2, mx: 'auto', maxWidth: 300,
-              borderRadius: 4, overflow: 'hidden',
-              bgcolor: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          >
+          <PickerWrapper>
             <Picker
               value={pickerVal}
               onChange={handlePickerChange}
@@ -217,7 +209,7 @@ export default function CreateAlarm() {
                 </Picker.Column>
               ))}
             </Picker>
-          </Box>
+          </PickerWrapper>
           <Box sx={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0.75, mt:1.5 }}>
             <timeCtx.Icon sx={{ fontSize:'1rem', color: timeCtx.color, transition:'color 0.3s' }}/>
             <Typography variant="body2" fontWeight={600} sx={{ color: timeCtx.color, transition:'color 0.3s' }}>
@@ -564,6 +556,29 @@ export default function CreateAlarm() {
           <CheckIcon sx={{ mr:0.75, fontSize:'1.1rem' }}/> Set Alarm
         </Button>
       </Box>
+    </Box>
+  );
+}
+
+// ─── Picker Wrapper ───────────────────────────────────────────────────────────
+
+function PickerWrapper({ children }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const prevent = e => e.preventDefault();
+    el.addEventListener('touchmove', prevent, { passive: false });
+    return () => el.removeEventListener('touchmove', prevent);
+  }, []);
+  return (
+    <Box ref={ref} sx={{ mt: 2, mx: 'auto', maxWidth: 300,
+      borderRadius: 4, overflow: 'hidden',
+      bgcolor: 'rgba(255,255,255,0.04)',
+      border: '1px solid rgba(255,255,255,0.08)',
+      touchAction: 'none',
+    }}>
+      {children}
     </Box>
   );
 }
