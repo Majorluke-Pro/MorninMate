@@ -73,35 +73,33 @@ const STEP_ACCENT = {
 
 const pageVariants = {
   enter: (dir) => ({
-    x: dir >= 0 ? 56 : -56,
+    x: dir >= 0 ? 48 : -48,
     opacity: 0,
-    filter: 'blur(8px)',
     scale: 0.97,
   }),
   center: {
-    x: 0, opacity: 1, filter: 'blur(0px)', scale: 1,
-    transition: { type:'spring', stiffness:300, damping:30, mass:0.8 },
+    x: 0, opacity: 1, scale: 1,
+    transition: { type:'spring', stiffness:320, damping:32, mass:0.8 },
   },
   exit: (dir) => ({
-    x: dir >= 0 ? -56 : 56,
+    x: dir >= 0 ? -48 : 48,
     opacity: 0,
-    filter: 'blur(8px)',
     scale: 0.97,
-    transition: { type:'spring', stiffness:300, damping:30, mass:0.8 },
+    transition: { type:'spring', stiffness:320, damping:32, mass:0.8 },
   }),
 };
 
 const listContainer = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.08, delayChildren: 0.05 } },
+  show: { transition: { staggerChildren: 0.06, delayChildren: 0.04 } },
 };
 const listItem = {
-  hidden: { opacity:0, x:-22, filter:'blur(4px)' },
-  show:   { opacity:1, x:0, filter:'blur(0px)', transition:{ type:'spring', stiffness:320, damping:26 } },
+  hidden: { opacity:0, x:-16 },
+  show:   { opacity:1, x:0, transition:{ type:'spring', stiffness:340, damping:28 } },
 };
 const fadeUpItem = {
-  hidden: { opacity:0, y:18, filter:'blur(4px)' },
-  show:   { opacity:1, y:0, filter:'blur(0px)', transition:{ type:'spring', stiffness:300, damping:26 } },
+  hidden: { opacity:0, y:14 },
+  show:   { opacity:1, y:0, transition:{ type:'spring', stiffness:320, damping:28 } },
 };
 
 // ─── Walking Koala SVG (CSS walk cycle + Framer hop) ─────────────────────────
@@ -302,10 +300,10 @@ function KoalaProgressTrack({ step, totalSteps, stepId }) {
             width:KW * 0.55, height:5, borderRadius:'50%',
             background:'rgba(0,0,0,0.35)', filter:'blur(3px)',
           }}
-          animate={{ scaleX:[1, 0.65, 1], opacity:[0.35, 0.15, 0.35] }}
-          transition={{ duration:0.5, repeat:Infinity, ease:'easeInOut' }}
+          animate={{ scaleX:[1, 0.7, 1], opacity:[0.3, 0.12, 0.3] }}
+          transition={{ duration:0.5, repeat:Infinity, ease:'easeInOut', repeatType:'loop' }}
         />
-        <motion.div ref={koalaScope} style={{ transformOrigin:'50% 90%' }}>
+        <motion.div ref={koalaScope} style={{ transformOrigin:'50% 90%', willChange:'transform' }}>
           <WalkingKoala size={KW} />
         </motion.div>
       </motion.div>
@@ -338,9 +336,9 @@ function SpeechBubble({ text, animKey }) {
         i++;
         setShown(text.slice(0, i));
         if (i >= text.length) { setDone(true); clearInterval(iv); }
-      }, 22);
+      }, 18);
       return () => clearInterval(iv);
-    }, 220);
+    }, 160);
     return () => clearTimeout(t0);
   }, [animKey]);
 
@@ -352,12 +350,12 @@ function SpeechBubble({ text, animKey }) {
       transition={{ type:'spring', stiffness:440, damping:24 }}
       style={{
         position:'relative',
-        background:'rgba(255,255,255,0.09)',
-        border:'1px solid rgba(255,255,255,0.16)',
+        background:'rgba(30,30,55,0.88)',
+        border:'1px solid rgba(255,255,255,0.14)',
         borderRadius:'16px 16px 16px 4px',
         padding:'12px 20px',
         maxWidth:260,
-        backdropFilter:'blur(14px)',
+        willChange:'transform, opacity',
       }}
     >
       <Typography variant="body2" fontWeight={600}
@@ -461,11 +459,12 @@ function KoalaHeader({ mood, speech, animKey }) {
         initial={{ opacity:0, scale:0.4, y:32, rotate:-12 }}
         animate={{ opacity:1, scale:1,   y:0,  rotate:0 }}
         transition={{ type:'spring', stiffness:380, damping:22 }}
-        style={{ flexShrink:0 }}
+        style={{ flexShrink:0, willChange:'transform, opacity' }}
       >
         <motion.div
           animate={MOOD_IDLE_ANIMATE[mood]}
           transition={MOOD_IDLE_TRANS[mood]}
+          style={{ willChange:'transform' }}
         >
           <Koala mood={mood} size={92} />
         </motion.div>
@@ -513,6 +512,7 @@ function Confetti() {
             width:c.s, height:c.r,
             borderRadius: c.s === c.r ? '50%' : 2,
             background: c.c,
+            willChange: 'transform, opacity',
           }}
         />
       ))}
@@ -523,10 +523,7 @@ function Confetti() {
 // ─── Floating eucalyptus leaves ───────────────────────────────────────────────
 
 const LEAVES = [
-  {l:'7%', d:9, s:22,r:20},{l:'21%',d:11,s:16,r:-35},{l:'38%',d:9, s:20,r:55},
-  {l:'57%',d:13,s:14,r:-20},{l:'71%',d:10,s:18,r:40},{l:'84%',d:8, s:12,r:-60},
-  {l:'91%',d:12,s:16,r:15},{l:'14%',d:14,s:13,r:-45},{l:'49%',d:9, s:19,r:30},
-  {l:'67%',d:11,s:15,r:-10},
+  {l:'7%', d:9, s:22,r:20},{l:'57%',d:13,s:14,r:-20},{l:'91%',d:12,s:16,r:15},
 ];
 function FloatingLeaves() {
   return (
@@ -542,6 +539,8 @@ function FloatingLeaves() {
             width:l.s, height:l.s * 0.55,
             borderRadius:'50% 50% 50% 50% / 30% 30% 70% 70%',
             background:'linear-gradient(135deg,#5A8A50,#3D6B34)',
+            willChange:'transform, opacity',
+            transform:'translateZ(0)',
           }}
         />
       ))}
@@ -551,54 +550,45 @@ function FloatingLeaves() {
 
 // ─── Dynamic background ───────────────────────────────────────────────────────
 
+const STARS = [...Array(10)].map((_,i) => ({
+  left: `${(i*37+i*i*3)%100}%`,
+  top:  `${(i*53+i*7)%80}%`,
+  size: i%3===0 ? 2.5 : 1.8,
+  dur:  `${2.5 + (i%5)*0.7}s`,
+  delay:`${(i*0.28)%3.5}s`,
+}));
+
 function Background({ stepId }) {
   const color = STEP_ACCENT[stepId] ?? '#5A8A50';
   return (
-    <Box sx={{ position:'fixed', inset:0, zIndex:0, pointerEvents:'none', overflow:'hidden' }}>
+    <Box sx={{
+      position:'fixed', inset:0, zIndex:0, pointerEvents:'none', overflow:'hidden',
+      '@keyframes twinkle': { '0%,100%': { opacity: 0.06 }, '50%': { opacity: 0.45 } },
+    }}>
       <Box sx={{ position:'absolute', inset:0, background:'linear-gradient(165deg,#050C07 0%,#0A1510 50%,#070718 100%)' }}/>
 
-      {/* Primary orb — shifts color per step */}
-      <motion.div
-        animate={{
-          background:[
-            `radial-gradient(circle, ${color}26 0%, transparent 68%)`,
-            `radial-gradient(circle, ${color}32 0%, transparent 68%)`,
-            `radial-gradient(circle, ${color}26 0%, transparent 68%)`,
-          ],
-          x:[-30, 30, -30], y:[20, -20, 20], scale:[1, 1.07, 1],
-        }}
-        transition={{ duration:16, repeat:Infinity, ease:'easeInOut' }}
-        style={{
-          position:'absolute', width:580, height:580, borderRadius:'50%',
-          top:-210, right:-210, filter:'blur(80px)',
-        }}
-      />
+      {/* Primary orb — static, no animation to avoid compositing costs */}
+      <Box sx={{
+        position:'absolute', width:500, height:500, borderRadius:'50%',
+        background:`radial-gradient(circle, ${color}22 0%, transparent 68%)`,
+        top:-180, right:-180, filter:'blur(72px)',
+        transition:'background 0.5s ease',
+      }}/>
       {/* Secondary warm orb */}
-      <motion.div
-        animate={{ x:[0,48,0], y:[0,-32,0], scale:[1,1.1,1] }}
-        transition={{ duration:20, repeat:Infinity, ease:'easeInOut' }}
-        style={{
-          position:'absolute', width:420, height:420, borderRadius:'50%',
-          background:'radial-gradient(circle,rgba(255,107,53,0.1) 0%,transparent 70%)',
-          bottom:-90, left:-130, filter:'blur(72px)',
-        }}
-      />
-      {/* Twinkling stars */}
-      {[...Array(24)].map((_,i) => (
-        <motion.div
-          key={i}
-          animate={{ opacity:[ 0.04 + (i%4)*0.1, 0.55, 0.04 + (i%4)*0.1 ] }}
-          transition={{ duration: 2.5 + (i%5)*0.7, delay:(i*0.28)%3.5, repeat:Infinity, ease:'easeInOut' }}
-          style={{
-            position:'absolute',
-            left:`${(i*37+i*i*3)%100}%`,
-            top:`${(i*53+i*7)%80}%`,
-            width: i%3===0 ? 2.5 : 1.8,
-            height: i%3===0 ? 2.5 : 1.8,
-            borderRadius:'50%',
-            background:'rgba(255,255,255,0.8)',
-          }}
-        />
+      <Box sx={{
+        position:'absolute', width:380, height:380, borderRadius:'50%',
+        background:'radial-gradient(circle,rgba(255,107,53,0.08) 0%,transparent 70%)',
+        bottom:-80, left:-110, filter:'blur(64px)',
+      }}/>
+      {/* Twinkling stars — CSS-only, off JS thread */}
+      {STARS.map((s,i) => (
+        <Box key={i} sx={{
+          position:'absolute', left:s.left, top:s.top,
+          width:s.size, height:s.size, borderRadius:'50%',
+          background:'rgba(255,255,255,0.8)',
+          animation:`twinkle ${s.dur} ease-in-out infinite`,
+          animationDelay: s.delay,
+        }}/>
       ))}
     </Box>
   );
@@ -741,6 +731,7 @@ export default function OnboardingFlow() {
                 justifyContent: isWelcome ? 'center' : 'flex-start',
                 padding: isWelcome ? '0 24px' : '8px 24px 16px',
                 overflowY:'auto',
+                willChange:'transform, opacity',
               }}
             >
               {currentId === 'welcome'     && <WelcomeStep />}
@@ -761,38 +752,40 @@ export default function OnboardingFlow() {
             whileHover={canProceed() ? { scale:1.02 } : {}}
             whileTap={canProceed()   ? { scale:0.96 } : {}}
             transition={{ type:'spring', stiffness:500, damping:28 }}
+            style={{ position:'relative', borderRadius:14, willChange:'transform' }}
           >
-            <motion.div
-              animate={canProceed() ? {
-                boxShadow:[
-                  `0 10px 36px ${accent}44`,
-                  `0 14px 48px ${accent}70`,
-                  `0 10px 36px ${accent}44`,
-                ],
-              } : { boxShadow:'none' }}
-              transition={{ duration:2.2, repeat:Infinity, ease:'easeInOut' }}
-              style={{ borderRadius:14 }}
-            >
-              <Button
-                fullWidth variant="contained" size="large"
-                onClick={handleNext}
-                disabled={!canProceed() || saving}
-                sx={{
-                  py:1.75, fontWeight:800, borderRadius:'14px', fontSize:'1rem', letterSpacing:0.3,
-                  background: canProceed()
-                    ? `linear-gradient(135deg, ${accent} 0%, #FF8C5A 100%)`
-                    : undefined,
-                  boxShadow:'none',
-                  transition:'background 0.4s ease',
+            {/* Glow pulse — opacity only, GPU-composited */}
+            {canProceed() && (
+              <motion.div
+                animate={{ opacity:[0.35, 0.7, 0.35] }}
+                transition={{ duration:2.2, repeat:Infinity, ease:'easeInOut' }}
+                style={{
+                  position:'absolute', inset:-4, borderRadius:18,
+                  background:`radial-gradient(ellipse at 50% 100%, ${accent}55 0%, transparent 70%)`,
+                  willChange:'opacity', pointerEvents:'none',
                 }}
-              >
-                {saving
-                  ? <CircularProgress size={22} sx={{ color:'#fff' }}/>
-                  : currentId==='welcome' ? "Let's go, mate! →"
-                  : currentId==='summary' ? 'Create My Account 🚀'
-                  : 'Continue →'}
-              </Button>
-            </motion.div>
+              />
+            )}
+            <Button
+              fullWidth variant="contained" size="large"
+              onClick={handleNext}
+              disabled={!canProceed() || saving}
+              sx={{
+                py:1.75, fontWeight:800, borderRadius:'14px', fontSize:'1rem', letterSpacing:0.3,
+                position:'relative', zIndex:1,
+                background: canProceed()
+                  ? `linear-gradient(135deg, ${accent} 0%, #FF8C5A 100%)`
+                  : undefined,
+                boxShadow:'none',
+                transition:'background 0.4s ease',
+              }}
+            >
+              {saving
+                ? <CircularProgress size={22} sx={{ color:'#fff' }}/>
+                : currentId==='welcome' ? "Let's go, mate! →"
+                : currentId==='summary' ? 'Create My Account 🚀'
+                : 'Continue →'}
+            </Button>
           </motion.div>
 
           {currentId === 'welcome' && (
@@ -839,9 +832,9 @@ function WelcomeStep() {
 
       {/* Title */}
       <motion.div
-        initial={{ opacity:0, y:26, filter:'blur(6px)' }}
-        animate={{ opacity:1, y:0, filter:'blur(0px)' }}
-        transition={{ type:'spring', stiffness:260, damping:24, delay:0.1 }}
+        initial={{ opacity:0, y:24 }}
+        animate={{ opacity:1, y:0 }}
+        transition={{ type:'spring', stiffness:280, damping:26, delay:0.1 }}
       >
         <Typography variant="h2" fontWeight={900} letterSpacing="-1px" sx={{
           mt:14, mb:0.5,
@@ -853,9 +846,9 @@ function WelcomeStep() {
       </motion.div>
 
       <motion.div
-        initial={{ opacity:0, y:22, filter:'blur(5px)' }}
-        animate={{ opacity:1, y:0, filter:'blur(0px)' }}
-        transition={{ type:'spring', stiffness:260, damping:24, delay:0.22 }}
+        initial={{ opacity:0, y:20 }}
+        animate={{ opacity:1, y:0 }}
+        transition={{ type:'spring', stiffness:280, damping:26, delay:0.22 }}
       >
         <Typography variant="h5" fontWeight={700} color="primary.main" sx={{ mb:2 }}>
           Wake up. Level up. No worries.
