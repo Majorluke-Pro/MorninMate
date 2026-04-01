@@ -35,7 +35,7 @@ import HistoryEduIcon      from '@mui/icons-material/HistoryEdu';
 import TrackChangesIcon    from '@mui/icons-material/TrackChanges';
 import EmojiEventsIcon     from '@mui/icons-material/EmojiEvents';
 import FaceIcon            from '@mui/icons-material/Face';
-import Picker from 'react-mobile-picker';
+import TimePicker from '../common/TimePicker';
 import { useApp } from '../../context/AppContext';
 import { AVATAR_OPTIONS } from '../../lib/avatars';
 
@@ -972,32 +972,8 @@ function NameStep({ value, onChange, onSubmit }) {
 
 // ─── Wake time step ───────────────────────────────────────────────────────────
 
-const PICKER_SELECTIONS = {
-  hour:   ['01','02','03','04','05','06','07','08','09','10','11','12'],
-  minute: ['00','05','10','15','20','25','30','35','40','45','50','55'],
-  period: ['AM','PM'],
-};
-
 function WakeTimeStep({ value, onChange }) {
-  const [h, m] = value.split(':').map(Number);
-  const isPM   = h >= 12;
-  const hour12 = String(h % 12 || 12).padStart(2, '0');
-  const minStr = String(Math.round(m / 5) * 5).padStart(2, '0');
-
-  const [pickerVal, setPickerVal] = useState({
-    hour:   hour12,
-    minute: minStr,
-    period: isPM ? 'PM' : 'AM',
-  });
-
-  function handlePickerChange(newVal) {
-    setPickerVal(newVal);
-    const h12  = parseInt(newVal.hour, 10);
-    const min  = parseInt(newVal.minute, 10);
-    const pm   = newVal.period === 'PM';
-    const h24  = pm ? (h12 % 12) + 12 : h12 % 12;
-    onChange(`${String(h24).padStart(2,'0')}:${String(min).padStart(2,'0')}`);
-  }
+  const [h] = value.split(':').map(Number);
 
   const ctx = h<4  ?{l:'Deep night',   c:'#8B5CF6', Icon:NightsStayIcon }
              :h<6  ?{l:'Before dawn',  c:'#EF476F', Icon:WbTwilightIcon }
@@ -1012,50 +988,9 @@ function WakeTimeStep({ value, onChange }) {
 
   return (
     <Box>
-      <StepHeader Icon={AlarmIcon} title="When do you want to wake up?" subtitle="Scroll to set your wake-up time."/>
+      <StepHeader Icon={AlarmIcon} title="When do you want to wake up?" subtitle="Tap to set your wake-up time."/>
 
-      <Box
-        onTouchMove={e => e.stopPropagation()}
-        onWheel={e => e.stopPropagation()}
-        sx={{ mt:3, mx:'auto', maxWidth:280,
-          borderRadius:4, overflow:'hidden',
-          bgcolor:'rgba(255,255,255,0.04)',
-          border:'1px solid rgba(255,255,255,0.08)',
-        }}
-      >
-        <style>{`
-          .mbsc-picker .mbsc-scroller-wheel-item { color: rgba(248,249,250,0.35); font-weight:600; }
-          .mbsc-picker .mbsc-scroller-wheel-item.mbsc-selected,
-          .rmp-item.rmp-wheel-item-selected { color: #FF6B35 !important; }
-        `}</style>
-        <Picker
-          value={pickerVal}
-          onChange={handlePickerChange}
-          wheelMode="natural"
-          height={220}
-          itemHeight={44}
-        >
-          {Object.keys(PICKER_SELECTIONS).map(col => (
-            <Picker.Column key={col} name={col}>
-              {PICKER_SELECTIONS[col].map(opt => (
-                <Picker.Item key={opt} value={opt}>
-                  {({ selected }) => (
-                    <span style={{
-                      fontSize: selected ? '1.7rem' : '1.15rem',
-                      fontWeight: selected ? 800 : 500,
-                      color: selected ? '#FF6B35' : 'rgba(248,249,250,0.28)',
-                      transition: 'all 0.15s ease',
-                      fontVariantNumeric: 'tabular-nums',
-                    }}>
-                      {opt}
-                    </span>
-                  )}
-                </Picker.Item>
-              ))}
-            </Picker.Column>
-          ))}
-        </Picker>
-      </Box>
+      <TimePicker value={value} onChange={onChange}/>
 
       <Box sx={{ display:'flex', justifyContent:'center', mt:2.5 }}>
         <AnimatePresence mode="wait">
