@@ -7,6 +7,12 @@ import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import StyleIcon from '@mui/icons-material/Style';
 import BoltIcon from '@mui/icons-material/Bolt';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import AlarmIcon from '@mui/icons-material/Alarm';
+import SpaIcon from '@mui/icons-material/Spa';
+import WhatshotIcon from '@mui/icons-material/Whatshot';
+import FlashOnIcon from '@mui/icons-material/FlashOn';
+import CheckIcon from '@mui/icons-material/Check';
 import { useApp } from '../../context/AppContext';
 import MathGame from '../Games/MathGame';
 import MemoryGame from '../Games/MemoryGame';
@@ -134,9 +140,12 @@ export default function WakeUpFlow() {
           </Typography>
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
             {failCount > 0 && (
-              <Typography variant="caption" color="error.main" fontWeight={700}>
-                ⚠️ {failCount} restart{failCount > 1 ? 's' : ''}
-              </Typography>
+              <Box sx={{ display:'flex', alignItems:'center', gap:0.5 }}>
+                <WarningAmberIcon sx={{ fontSize:'0.9rem', color:'error.main' }}/>
+                <Typography variant="caption" color="error.main" fontWeight={700}>
+                  {failCount} restart{failCount > 1 ? 's' : ''}
+                </Typography>
+              </Box>
             )}
             <Typography variant="caption" color="primary.main" fontWeight={600}>
               +{xpReward} XP on finish
@@ -178,10 +187,13 @@ export default function WakeUpFlow() {
             '50%':     { opacity: 0.7 },
           },
         }}>
-          <Typography variant="body2" fontWeight={700}
-            color={inactivityLeft <= 5 ? 'error.main' : '#FF8C00'}>
-            ⚠️ Still there? Alarm restarts in…
-          </Typography>
+          <Box sx={{ display:'flex', alignItems:'center', gap:0.75 }}>
+            <WarningAmberIcon sx={{ fontSize:'1rem', color: inactivityLeft <= 5 ? '#EF476F' : '#FF8C00' }}/>
+            <Typography variant="body2" fontWeight={700}
+              color={inactivityLeft <= 5 ? 'error.main' : '#FF8C00'}>
+              Still there? Alarm restarts in…
+            </Typography>
+          </Box>
           <Typography variant="h6" fontWeight={900}
             color={inactivityLeft <= 5 ? 'error.main' : '#FF8C00'}
             sx={{ fontVariantNumeric: 'tabular-nums', minWidth: 32, textAlign: 'right' }}>
@@ -208,7 +220,10 @@ export default function WakeUpFlow() {
 }
 
 function IntroScreen({ alarm, games, intensity, xpReward, onStart }) {
-  const intensityEmoji = { gentle: '🌱', moderate: '🔥', intense: '⚡' }[intensity];
+  const INTENSITY_ICON = { gentle: SpaIcon, moderate: WhatshotIcon, intense: FlashOnIcon };
+  const INTENSITY_COLOR = { gentle: '#06D6A0', moderate: '#FFD166', intense: '#EF476F' };
+  const IntensityIcon = INTENSITY_ICON[intensity];
+  const intensityColor = INTENSITY_COLOR[intensity];
 
   return (
     <Box sx={{
@@ -217,12 +232,15 @@ function IntroScreen({ alarm, games, intensity, xpReward, onStart }) {
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       p: 3, textAlign: 'center',
     }}>
-      <Typography variant="h1" sx={{ mb: 2 }}>⏰</Typography>
-      <Typography variant="h4" fontWeight={800} gutterBottom>Rise & Shine, Legend! 🐨</Typography>
+      <AlarmIcon sx={{ fontSize: 72, color: 'primary.main', mb: 2 }} />
+      <Typography variant="h4" fontWeight={800} gutterBottom>Rise & Shine, Legend!</Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>{alarm?.label || 'Alarm'}</Typography>
-      <Typography variant="h6" color="primary.main" fontWeight={700} sx={{ mb: 1 }}>
-        {intensityEmoji} {intensity.charAt(0).toUpperCase() + intensity.slice(1)} Pulse
-      </Typography>
+      <Box sx={{ display:'flex', alignItems:'center', gap:0.75, mb: 1 }}>
+        <IntensityIcon sx={{ fontSize:'1.2rem', color: intensityColor }}/>
+        <Typography variant="h6" fontWeight={700} sx={{ color: intensityColor }}>
+          {intensity.charAt(0).toUpperCase() + intensity.slice(1)} Pulse
+        </Typography>
+      </Box>
       <Typography variant="caption" color="text.disabled" sx={{ mb: 4 }}>
         No dodging it, mate — finish all games to dismiss.
       </Typography>
@@ -295,7 +313,10 @@ function ResultScreen({ results, xpReward, totalFails, onDone }) {
           <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}>
             <Typography variant="body2">{GAME_LABELS[r.game]}</Typography>
             <Typography variant="body2" color={r.retries === 0 ? 'success.main' : 'warning.main'} fontWeight={700}>
-              {r.retries === 0 ? '✓ First crack!' : `✓ ${r.retries} restart${r.retries > 1 ? 's' : ''}`}
+              <Box sx={{ display:'flex', alignItems:'center', gap:0.5 }}>
+                <CheckIcon sx={{ fontSize:'0.9rem' }}/>
+                {r.retries === 0 ? 'First crack!' : `${r.retries} restart${r.retries > 1 ? 's' : ''}`}
+              </Box>
             </Typography>
           </Box>
         ))}

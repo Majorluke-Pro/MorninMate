@@ -204,6 +204,7 @@ export function AppProvider({ children }) {
     if (alarmsResult.data) {
       const mapped = alarmsResult.data.map(a => ({
         id: a.id, label: a.label, time: a.time,
+        sound: a.pulse?.sound || 'classic',
         pulse: a.pulse, active: a.active, days: (a.days || []).map(Number),
       }));
       setAlarms(mapped);
@@ -245,6 +246,7 @@ export function AppProvider({ children }) {
     if (alarmsResult.data) {
       const mapped = alarmsResult.data.map(a => ({
         id: a.id, label: a.label, time: a.time,
+        sound: a.pulse?.sound || 'classic',
         pulse: a.pulse, active: a.active, days: (a.days || []).map(Number),
       }));
       setAlarms(mapped);
@@ -301,7 +303,7 @@ export function AppProvider({ children }) {
         user_id: session.user.id,
         label: alarm.label || 'Alarm',
         time: alarm.time,
-        pulse: alarm.pulse ?? null,
+        pulse: { ...(alarm.pulse ?? {}), sound: alarm.sound || 'classic' },
         active: true,
         days: alarm.days || [],
       })
@@ -316,6 +318,7 @@ export function AppProvider({ children }) {
       id: data.id,
       label: data.label,
       time: data.time,
+      sound: data.pulse?.sound || 'classic',
       pulse: data.pulse,
       active: data.active,
       days: data.days || [],
@@ -325,13 +328,14 @@ export function AppProvider({ children }) {
   }
 
   async function toggleAlarm(id) {
-    const alarm = alarms.find(a => a.id === id);
+    const alarm = alarmsRef.current.find(a => a.id === id);
     if (!alarm) return;
-    const updated = { ...alarm, active: !alarm.active };
-    await supabase.from('alarms').update({ active: updated.active }).eq('id', id);
-    setAlarms(prev => prev.map(a => a.id === id ? updated : a));
-    if (updated.active) scheduleAlarm(updated);
+    const newActive = !alarm.active;
+    // Update UI instantly, sync to DB in background
+    setAlarms(prev => prev.map(a => a.id === id ? { ...a, active: newActive } : a));
+    if (newActive) scheduleAlarm({ ...alarm, active: newActive });
     else cancelAlarmNotifications(id);
+    supabase.from('alarms').update({ active: newActive }).eq('id', id);
   }
 
   async function deleteAlarm(id) {
@@ -344,9 +348,13 @@ export function AppProvider({ children }) {
     const dbUpdates = {};
     if (updates.label  !== undefined) dbUpdates.label  = updates.label;
     if (updates.time   !== undefined) dbUpdates.time   = updates.time;
-    if (updates.pulse  !== undefined) dbUpdates.pulse  = updates.pulse;
     if (updates.active !== undefined) dbUpdates.active = updates.active;
     if (updates.days   !== undefined) dbUpdates.days   = updates.days;
+    if (updates.pulse  !== undefined || updates.sound !== undefined) {
+      const existing = alarms.find(a => a.id === id);
+      const basePulse = updates.pulse ?? existing?.pulse ?? {};
+      dbUpdates.pulse = { ...basePulse, sound: updates.sound ?? existing?.sound ?? 'classic' };
+    }
 
     await supabase.from('alarms').update(dbUpdates).eq('id', id);
     setAlarms(prev => {

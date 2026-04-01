@@ -130,13 +130,7 @@ function AlarmsTab({ onNavigate }) {
   const xpInLevel = user.xp % XP_PER_LEVEL;
 
   const sortedAlarms = useMemo(() => (
-    [...alarms].sort((a, b) => {
-      const ta = getNextFire(a), tb = getNextFire(b);
-      if (!ta && !tb) return 0;
-      if (!ta) return 1;
-      if (!tb) return -1;
-      return ta - tb;
-    })
+    [...alarms].sort((a, b) => a.time.localeCompare(b.time))
   ), [alarms]);
 
   const nextAlarm    = sortedAlarms.find(a => a.active && getNextFire(a));
@@ -349,7 +343,7 @@ function AlarmsTab({ onNavigate }) {
                 alarm={alarm}
                 isNext={idx === 0 && alarm.active}
                 now={now}
-                onToggle={()  => toggleAlarm(alarm.id)}
+                onToggle={() => toggleAlarm(alarm.id)}
                 onDelete={()  => setDeleteTarget(alarm)}
                 onEdit={()    => setEditTarget(alarm)}
                 onTest={()    => triggerAlarm(alarm)}

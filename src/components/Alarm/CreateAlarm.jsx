@@ -18,10 +18,23 @@ import SportsEsportsIcon        from '@mui/icons-material/SportsEsports';
 import CampaignIcon             from '@mui/icons-material/Campaign';
 import WavesIcon                from '@mui/icons-material/Waves';
 import PlayArrowIcon            from '@mui/icons-material/PlayArrow';
+import NightsStayIcon           from '@mui/icons-material/NightsStay';
+import WbTwilightIcon           from '@mui/icons-material/WbTwilight';
+import WbSunnyIcon              from '@mui/icons-material/WbSunny';
+import LightModeIcon            from '@mui/icons-material/LightMode';
+import WbCloudyIcon             from '@mui/icons-material/WbCloudy';
+import Brightness4Icon          from '@mui/icons-material/Brightness4';
+import HotelIcon                from '@mui/icons-material/Hotel';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { ALARM_SOUNDS, previewAlarmSound } from '../../lib/sounds';
-import ScrollDrum, { HOURS, MINUTES, PERIODS } from '../common/ScrollDrum';
+import Picker from 'react-mobile-picker';
+
+const PICKER_SELECTIONS = {
+  hour:   ['01','02','03','04','05','06','07','08','09','10','11','12'],
+  minute: Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')),
+  period: ['AM', 'PM'],
+};
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -78,19 +91,19 @@ export default function CreateAlarm() {
   const isPM   = h >= 12;
   const hour12 = h % 12 || 12;
 
-  function onHourChange(h12Str) {
-    const h12 = parseInt(h12Str, 10);
-    const h24 = isPM ? (h12 % 12) + 12 : h12 % 12;
-    setForm(f => ({ ...f, time: `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}` }));
-  }
+  const [pickerVal, setPickerVal] = useState({
+    hour:   String(hour12).padStart(2, '0'),
+    minute: String(m).padStart(2, '0'),
+    period: isPM ? 'PM' : 'AM',
+  });
 
-  function onMinuteChange(mmStr) {
-    setForm(f => ({ ...f, time: `${String(h).padStart(2, '0')}:${mmStr}` }));
-  }
-
-  function onPeriodChange(period) {
-    const newH = period === 'PM' ? (hour12 % 12) + 12 : hour12 % 12;
-    setForm(f => ({ ...f, time: `${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')}` }));
+  function handlePickerChange(newVal) {
+    setPickerVal(newVal);
+    const h12 = parseInt(newVal.hour, 10);
+    const min = parseInt(newVal.minute, 10);
+    const pm  = newVal.period === 'PM';
+    const h24 = pm ? (h12 % 12) + 12 : h12 % 12;
+    setForm(f => ({ ...f, time: `${String(h24).padStart(2, '0')}:${String(min).padStart(2, '0')}` }));
   }
 
   // ── Day helpers ───────────────────────────────────────────────────────────
@@ -129,16 +142,16 @@ export default function CreateAlarm() {
   }
 
   const timeCtx =
-    h >= 0  && h < 4  ? { label: 'Deep night 🌙',          color: '#8B5CF6' } :
-    h >= 4  && h < 6  ? { label: 'Before dawn 💪',         color: '#EF476F' } :
-    h >= 6  && h < 8  ? { label: 'Early riser 🌅',         color: '#FF6B35' } :
-    h >= 8  && h < 10 ? { label: 'Morning sweet spot ☀️',  color: '#FFD166' } :
-    h >= 10 && h < 12 ? { label: 'Late morning 🌤️',        color: '#06D6A0' } :
-    h >= 12 && h < 14 ? { label: 'Midday 🌞',              color: '#FFD166' } :
-    h >= 14 && h < 17 ? { label: 'Afternoon ⛅',            color: '#FF8C5A' } :
-    h >= 17 && h < 20 ? { label: 'Evening 🌆',             color: '#FF6B35' } :
-    h >= 20 && h < 22 ? { label: 'Night 🌙',               color: '#8B5CF6' } :
-                        { label: 'Late night 🦉',           color: '#A0A0B8' };
+    h >= 0  && h < 4  ? { label: 'Deep night',        color: '#8B5CF6', Icon: NightsStayIcon  } :
+    h >= 4  && h < 6  ? { label: 'Before dawn',       color: '#EF476F', Icon: WbTwilightIcon  } :
+    h >= 6  && h < 8  ? { label: 'Early riser',       color: '#FF6B35', Icon: WbTwilightIcon  } :
+    h >= 8  && h < 10 ? { label: 'Morning sweet spot',color: '#FFD166', Icon: WbSunnyIcon     } :
+    h >= 10 && h < 12 ? { label: 'Late morning',      color: '#06D6A0', Icon: WbSunnyIcon     } :
+    h >= 12 && h < 14 ? { label: 'Midday',            color: '#FFD166', Icon: LightModeIcon   } :
+    h >= 14 && h < 17 ? { label: 'Afternoon',         color: '#FF8C5A', Icon: WbCloudyIcon    } :
+    h >= 17 && h < 20 ? { label: 'Evening',           color: '#FF6B35', Icon: Brightness4Icon } :
+    h >= 20 && h < 22 ? { label: 'Night',             color: '#8B5CF6', Icon: NightsStayIcon  } :
+                        { label: 'Late night',         color: '#A0A0B8', Icon: HotelIcon       };
 
   const activePreset = QUICK_PRESETS.find(p =>
     p.days.length === form.days.length && p.days.every(d => form.days.includes(d))
@@ -168,39 +181,45 @@ export default function CreateAlarm() {
         {/* ── Time ─────────────────────────────────────────────────────────── */}
         <Section delay={0.04}>
           <SectionLabel>Time</SectionLabel>
-          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0 }}>
-            <ScrollDrum
-              items={HOURS}
-              value={String(hour12).padStart(2, '0')}
-              onChange={onHourChange}
-              width={88}
-            />
-            <Typography variant="h3" fontWeight={900} color="primary.main"
-              sx={{ userSelect: 'none', mb: 1, mx: 0.5, lineHeight: 1 }}>
-              :
-            </Typography>
-            <ScrollDrum
-              items={MINUTES}
-              value={String(m).padStart(2, '0')}
-              onChange={onMinuteChange}
-              width={88}
-            />
-            <Box sx={{ width: 16 }} />
-            <ScrollDrum
-              items={PERIODS}
-              value={isPM ? 'PM' : 'AM'}
-              onChange={onPeriodChange}
-              width={64}
-            />
+          <Box sx={{ mt: 2, mx: 'auto', maxWidth: 300,
+            borderRadius: 4, overflow: 'hidden',
+            bgcolor: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}>
+            <Picker
+              value={pickerVal}
+              onChange={handlePickerChange}
+              wheelMode="natural"
+              height={220}
+              itemHeight={44}
+            >
+              {Object.keys(PICKER_SELECTIONS).map(col => (
+                <Picker.Column key={col} name={col}>
+                  {PICKER_SELECTIONS[col].map(opt => (
+                    <Picker.Item key={opt} value={opt}>
+                      {({ selected }) => (
+                        <span style={{
+                          fontSize: selected ? '1.7rem' : '1.15rem',
+                          fontWeight: selected ? 800 : 500,
+                          color: selected ? '#FF6B35' : 'rgba(248,249,250,0.28)',
+                          transition: 'all 0.15s ease',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}>
+                          {opt}
+                        </span>
+                      )}
+                    </Picker.Item>
+                  ))}
+                </Picker.Column>
+              ))}
+            </Picker>
           </Box>
-          <Typography
-            variant="body2"
-            fontWeight={600}
-            textAlign="center"
-            sx={{ color: timeCtx.color, transition: 'color 0.3s', mt: 1 }}
-          >
-            {timeCtx.label}
-          </Typography>
+          <Box sx={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0.75, mt:1.5 }}>
+            <timeCtx.Icon sx={{ fontSize:'1rem', color: timeCtx.color, transition:'color 0.3s' }}/>
+            <Typography variant="body2" fontWeight={600} sx={{ color: timeCtx.color, transition:'color 0.3s' }}>
+              {timeCtx.label}
+            </Typography>
+          </Box>
         </Section>
 
         <Separator />
@@ -538,7 +557,7 @@ export default function CreateAlarm() {
             '&:hover': { boxShadow: '0 12px 40px rgba(255,107,53,0.45)' },
           }}
         >
-          Set Alarm ✓
+          <CheckIcon sx={{ mr:0.75, fontSize:'1.1rem' }}/> Set Alarm
         </Button>
       </Box>
     </Box>

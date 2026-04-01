@@ -35,6 +35,7 @@ import HistoryEduIcon      from '@mui/icons-material/HistoryEdu';
 import TrackChangesIcon    from '@mui/icons-material/TrackChanges';
 import EmojiEventsIcon     from '@mui/icons-material/EmojiEvents';
 import FaceIcon            from '@mui/icons-material/Face';
+import Picker from 'react-mobile-picker';
 import { useApp } from '../../context/AppContext';
 import { AVATAR_OPTIONS } from '../../lib/avatars';
 
@@ -971,90 +972,102 @@ function NameStep({ value, onChange, onSubmit }) {
 
 // ─── Wake time step ───────────────────────────────────────────────────────────
 
+const PICKER_SELECTIONS = {
+  hour:   ['01','02','03','04','05','06','07','08','09','10','11','12'],
+  minute: ['00','05','10','15','20','25','30','35','40','45','50','55'],
+  period: ['AM','PM'],
+};
+
 function WakeTimeStep({ value, onChange }) {
-  const [h,m] = value.split(':').map(Number);
+  const [h, m] = value.split(':').map(Number);
   const isPM   = h >= 12;
-  const hour12 = h % 12 || 12;
-  const setH  = (h12) => { const h24=isPM?(h12%12)+12:h12%12; onChange(`${String(h24).padStart(2,'0')}:${String(m).padStart(2,'0')}`); };
-  const setM  = (nm)  => onChange(`${String(h).padStart(2,'0')}:${String(nm).padStart(2,'0')}`);
-  const toggle= () => { const nh=isPM?h-12:h+12; onChange(`${String(nh).padStart(2,'0')}:${String(m).padStart(2,'0')}`); };
-  const ctx   = h<4 ?{l:'Deep night',   c:'#8B5CF6', Icon:NightsStayIcon }
-               :h<6 ?{l:'Before dawn',  c:'#EF476F', Icon:WbTwilightIcon }
-               :h<8 ?{l:'Early riser',  c:'#FF6B35', Icon:WbTwilightIcon }
-               :h<10?{l:'Sweet spot',   c:'#FFD166', Icon:WbSunnyIcon    }
-               :h<12?{l:'Late morning', c:'#06D6A0', Icon:WbSunnyIcon    }
-               :h<14?{l:'Midday',       c:'#FFD166', Icon:LightModeIcon  }
-               :h<17?{l:'Afternoon',    c:'#FF8C5A', Icon:WbCloudyIcon   }
-               :h<20?{l:'Evening',      c:'#FF6B35', Icon:Brightness4Icon}
-               :h<22?{l:'Night',        c:'#8B5CF6', Icon:NightsStayIcon }
-               :     {l:'Late night',   c:'#A0A0B8', Icon:HotelIcon      };
+  const hour12 = String(h % 12 || 12).padStart(2, '0');
+  const minStr = String(Math.round(m / 5) * 5).padStart(2, '0');
+
+  const [pickerVal, setPickerVal] = useState({
+    hour:   hour12,
+    minute: minStr,
+    period: isPM ? 'PM' : 'AM',
+  });
+
+  function handlePickerChange(newVal) {
+    setPickerVal(newVal);
+    const h12  = parseInt(newVal.hour, 10);
+    const min  = parseInt(newVal.minute, 10);
+    const pm   = newVal.period === 'PM';
+    const h24  = pm ? (h12 % 12) + 12 : h12 % 12;
+    onChange(`${String(h24).padStart(2,'0')}:${String(min).padStart(2,'0')}`);
+  }
+
+  const ctx = h<4  ?{l:'Deep night',   c:'#8B5CF6', Icon:NightsStayIcon }
+             :h<6  ?{l:'Before dawn',  c:'#EF476F', Icon:WbTwilightIcon }
+             :h<8  ?{l:'Early riser',  c:'#FF6B35', Icon:WbTwilightIcon }
+             :h<10 ?{l:'Sweet spot',   c:'#FFD166', Icon:WbSunnyIcon    }
+             :h<12 ?{l:'Late morning', c:'#06D6A0', Icon:WbSunnyIcon    }
+             :h<14 ?{l:'Midday',       c:'#FFD166', Icon:LightModeIcon  }
+             :h<17 ?{l:'Afternoon',    c:'#FF8C5A', Icon:WbCloudyIcon   }
+             :h<20 ?{l:'Evening',      c:'#FF6B35', Icon:Brightness4Icon}
+             :h<22 ?{l:'Night',        c:'#8B5CF6', Icon:NightsStayIcon }
+             :      {l:'Late night',   c:'#A0A0B8', Icon:HotelIcon      };
 
   return (
     <Box>
-      <StepHeader Icon={AlarmIcon} title="When do you want to wake up?" subtitle="Set your default alarm time."/>
-      <Box sx={{ mt:4, display:'flex', alignItems:'center', justifyContent:'center', gap:2 }}>
-        <TimeDrum display={String(hour12).padStart(2,'0')} onUp={() => setH(hour12===12?1:hour12+1)} onDown={() => setH(hour12===1?12:hour12-1)}/>
-        <Typography variant="h3" fontWeight={900} color="primary.main" sx={{ mb:2, userSelect:'none' }}>:</Typography>
-        <TimeDrum display={String(m).padStart(2,'0')} onUp={() => setM(m>=55?0:m+5)} onDown={() => setM(m<=0?55:m-5)}/>
-        <Box sx={{ display:'flex', flexDirection:'column', gap:1, mb:2 }}>
-          {['AM','PM'].map(p => { const active=(p==='PM')===isPM; return (
-            <motion.div key={p} whileTap={{ scale:0.9 }} transition={{ type:'spring', stiffness:400, damping:20 }}>
-              <Box onClick={() => !active && toggle()} sx={{ px:1.75, py:0.75, borderRadius:2, userSelect:'none', cursor:active?'default':'pointer', bgcolor:active?'primary.main':'rgba(255,255,255,0.07)', fontWeight:700, fontSize:'0.8rem', transition:'background 0.2s' }}>
-                {p}
-              </Box>
-            </motion.div>
-          );})}
-        </Box>
+      <StepHeader Icon={AlarmIcon} title="When do you want to wake up?" subtitle="Scroll to set your wake-up time."/>
+
+      <Box sx={{ mt:3, mx:'auto', maxWidth:280,
+        borderRadius:4, overflow:'hidden',
+        bgcolor:'rgba(255,255,255,0.04)',
+        border:'1px solid rgba(255,255,255,0.08)',
+      }}>
+        <style>{`
+          .mbsc-picker .mbsc-scroller-wheel-item { color: rgba(248,249,250,0.35); font-weight:600; }
+          .mbsc-picker .mbsc-scroller-wheel-item.mbsc-selected,
+          .rmp-item.rmp-wheel-item-selected { color: #FF6B35 !important; }
+        `}</style>
+        <Picker
+          value={pickerVal}
+          onChange={handlePickerChange}
+          wheelMode="natural"
+          height={220}
+          itemHeight={44}
+        >
+          {Object.keys(PICKER_SELECTIONS).map(col => (
+            <Picker.Column key={col} name={col}>
+              {PICKER_SELECTIONS[col].map(opt => (
+                <Picker.Item key={opt} value={opt}>
+                  {({ selected }) => (
+                    <span style={{
+                      fontSize: selected ? '1.7rem' : '1.15rem',
+                      fontWeight: selected ? 800 : 500,
+                      color: selected ? '#FF6B35' : 'rgba(248,249,250,0.28)',
+                      transition: 'all 0.15s ease',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>
+                      {opt}
+                    </span>
+                  )}
+                </Picker.Item>
+              ))}
+            </Picker.Column>
+          ))}
+        </Picker>
       </Box>
-      <Box sx={{ display:'flex', justifyContent:'center', mt:1.5 }}>
+
+      <Box sx={{ display:'flex', justifyContent:'center', mt:2.5 }}>
         <AnimatePresence mode="wait">
           <motion.div
             key={ctx.l}
-            initial={{ opacity:0, y:6, scale:0.9 }}
-            animate={{ opacity:1, y:0, scale:1 }}
-            exit={{    opacity:0, y:-6, scale:0.9 }}
-            transition={{ type:'spring', stiffness:400, damping:26 }}
-            style={{
-              display:'inline-flex', alignItems:'center', gap:6,
-              padding:'6px 14px', borderRadius:100,
-              background:`${ctx.c}18`,
-              border:`1px solid ${ctx.c}40`,
-            }}
+            initial={{ opacity:0, y:5 }}
+            animate={{ opacity:1, y:0 }}
+            exit={{    opacity:0, y:-5 }}
+            transition={{ duration:0.2, ease:'easeOut' }}
+            style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 14px', borderRadius:100, background:`${ctx.c}18`, border:`1px solid ${ctx.c}40` }}
           >
-            <ctx.Icon sx={{ fontSize:'1rem', color:ctx.c }} />
-            <Typography variant="caption" fontWeight={700} sx={{ color:ctx.c, letterSpacing:0.3 }}>
-              {ctx.l}
-            </Typography>
+            <ctx.Icon sx={{ fontSize:'1rem', color:ctx.c }}/>
+            <Typography variant="caption" fontWeight={700} sx={{ color:ctx.c, letterSpacing:0.3 }}>{ctx.l}</Typography>
           </motion.div>
         </AnimatePresence>
       </Box>
-    </Box>
-  );
-}
-
-function TimeDrum({ display, onUp, onDown }) {
-  return (
-    <Box sx={{ display:'flex', flexDirection:'column', alignItems:'center', gap:0.5 }}>
-      <motion.div whileTap={{ scale:0.85 }} transition={{ type:'spring', stiffness:500, damping:20 }}>
-        <IconButton onClick={onUp} sx={{ color:'primary.main', bgcolor:'rgba(255,107,53,0.08)', '&:hover':{ bgcolor:'rgba(255,107,53,0.16)' } }}><KeyboardArrowUpIcon/></IconButton>
-      </motion.div>
-      <Box sx={{ width:76, height:76, borderRadius:3, bgcolor:'rgba(255,107,53,0.07)', border:'1px solid rgba(255,107,53,0.2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-        <AnimatePresence mode="wait">
-          <motion.span
-            key={display}
-            initial={{ y:-12, opacity:0 }}
-            animate={{ y:0,   opacity:1 }}
-            exit={{    y:12,  opacity:0 }}
-            transition={{ type:'spring', stiffness:400, damping:28 }}
-            style={{ fontSize:'2rem', fontWeight:800, fontVariantNumeric:'tabular-nums' }}
-          >
-            {display}
-          </motion.span>
-        </AnimatePresence>
-      </Box>
-      <motion.div whileTap={{ scale:0.85 }} transition={{ type:'spring', stiffness:500, damping:20 }}>
-        <IconButton onClick={onDown} sx={{ color:'primary.main', bgcolor:'rgba(255,107,53,0.08)', '&:hover':{ bgcolor:'rgba(255,107,53,0.16)' } }}><KeyboardArrowDownIcon/></IconButton>
-      </motion.div>
     </Box>
   );
 }
