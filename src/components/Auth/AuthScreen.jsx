@@ -7,7 +7,7 @@ import { useApp } from '../../context/AppContext';
 
 export default function AuthScreen() {
   const { pendingOnboarding, setShowAuthDirectly, handlePostAuth, lockAuth, unlockAuth } = useApp();
-  const [mode, setMode] = useState('signup');
+  const [mode, setMode] = useState(pendingOnboarding ? 'signup' : 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,6 +27,11 @@ export default function AuthScreen() {
       if (error) {
         unlockAuth();
         setError(error.message);
+        setLoading(false);
+      } else if (!data.session) {
+        // Email confirmation required
+        unlockAuth();
+        setError('Check your email to confirm your account, then sign in here.');
         setLoading(false);
       } else {
         await handlePostAuth(data.session);

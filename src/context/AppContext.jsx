@@ -37,7 +37,6 @@ function newProfilePayload(userId, data) {
     morning_rating: data.morningRating,
     favorite_game: data.favoriteGame,
     wake_goal: data.wakeGoal,
-    profile_icon: data.profileIcon || 'bolt',
     onboarding_complete: true,
     level: 1,
     xp: 0,
@@ -282,6 +281,12 @@ export function AppProvider({ children }) {
     const { error } = await supabase.from('profiles').upsert(newProfilePayload(userId, data));
     if (error) {
       console.error('Failed to save profile:', error);
+      // Stale session — user no longer exists in auth. Sign out and reload.
+      if (error.code === '23503') {
+        await supabase.auth.signOut();
+        window.location.reload();
+        return;
+      }
       throw error;
     }
     setUser(prev => ({ ...prev, ...data, onboardingComplete: true }));
@@ -362,7 +367,6 @@ export function AppProvider({ children }) {
     if (updates.favoriteGame       !== undefined) dbUpdates.favorite_game     = updates.favoriteGame;
     if (updates.wakeGoal           !== undefined) dbUpdates.wake_goal         = updates.wakeGoal;
     if (updates.profileIcon        !== undefined) {
-      dbUpdates.profile_icon = updates.profileIcon;
       localStorage.setItem('mm_profile_icon', updates.profileIcon);
     }
     if (updates.level              !== undefined) dbUpdates.level             = updates.level;
@@ -385,7 +389,6 @@ export function AppProvider({ children }) {
         morning_rating: 3,
         favorite_game: 'math',
         wake_goal: '',
-        profile_icon: 'bolt',
         onboarding_complete: false,
         level: 1,
         xp: 0,
