@@ -1,20 +1,48 @@
 import { useState, useEffect } from 'react';
 import { Box, Typography, LinearProgress } from '@mui/material';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import PublicIcon from '@mui/icons-material/Public';
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import LocalCafeIcon from '@mui/icons-material/LocalCafe';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import SportsSoccerIcon from '@mui/icons-material/SportsSoccer';
+import PsychologyIcon from '@mui/icons-material/Psychology';
+import ParkIcon from '@mui/icons-material/Park';
+import FlightTakeoffIcon from '@mui/icons-material/FlightTakeoff';
+import AlarmIcon from '@mui/icons-material/Alarm';
 import { playCardFlip, playMatch, playError, playWarningTick } from '../../lib/sounds';
 
-const EMOJIS = ['🌟', '🔥', '⚡', '🎯', '🚀', '💎', '🌊', '🎵', '🦋', '🍀'];
+const ICONS = [
+  { key: 'sparkle', Icon: AutoAwesomeIcon },
+  { key: 'globe',   Icon: PublicIcon },
+  { key: 'camera',  Icon: PhotoCameraIcon },
+  { key: 'coffee',  Icon: LocalCafeIcon },
+  { key: 'trophy',  Icon: EmojiEventsIcon },
+  { key: 'soccer',  Icon: SportsSoccerIcon },
+  { key: 'brain',   Icon: PsychologyIcon },
+  { key: 'tree',    Icon: ParkIcon },
+  { key: 'flight',  Icon: FlightTakeoffIcon },
+  { key: 'alarm',   Icon: AlarmIcon },
+];
 
 function buildGrid(difficulty) {
   const count    = difficulty === 'easy' ? 4 : difficulty === 'hard' ? 8 : 6;
-  const selected = EMOJIS.slice(0, count);
+  const selected = ICONS.slice(0, count);
   return [...selected, ...selected]
     .sort(() => Math.random() - 0.5)
-    .map((emoji, i) => ({ id: i, emoji, flipped: false, matched: false }));
+    .map((item, i) => ({
+      id: i,
+      key: item.key,
+      Icon: item.Icon,
+      flipped: false,
+      matched: false,
+    }));
 }
 
 function FlipCard({ card, onClick, previewing, selected }) {
   const isFlipped  = card.flipped || card.matched || previewing;
   const isSelected = selected;
+  const FaceIcon = card.Icon;
 
   return (
     <Box
@@ -65,7 +93,7 @@ function FlipCard({ card, onClick, previewing, selected }) {
             '100%': { transform: 'scale(1)' },
           },
         }}>
-          {card.emoji}
+          <FaceIcon sx={{ fontSize: '2.75rem', color: card.matched ? '#06D6A0' : '#FF6B35' }} />
         </Box>
 
         {/* Back face — hidden */}
@@ -150,7 +178,7 @@ export default function MemoryGame({ difficulty = 'normal', onComplete, onFail, 
       setMoves(m => m + 1);
       setLocked(true);
       const [a, b] = next;
-      if (a.emoji === b.emoji) {
+      if (a.key === b.key) {
         playMatch();
         setTimeout(() => {
           setCards(prev => prev.map(c =>

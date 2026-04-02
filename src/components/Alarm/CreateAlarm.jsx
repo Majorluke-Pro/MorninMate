@@ -44,7 +44,7 @@ const GAMES = [
   { value: 'reaction', Icon: BoltIcon,      label: 'Reaction Rush', desc: 'Tap right on cue',        color: '#06D6A0' },
 ];
 
-const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const SOUND_META = {
   classic: { Icon: NotificationsActiveIcon, color: '#EF476F' },

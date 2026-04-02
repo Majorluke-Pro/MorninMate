@@ -78,8 +78,8 @@ export function playCardFlip() {
 
 // Memory game — matched pair
 export function playMatch() {
-  tone(659, 0.10, { delay: 0.00, volume: 0.20 });
-  tone(880, 0.16, { delay: 0.09, volume: 0.20 });
+  tone(659, 0.10, { delay: 0.00, volume: 0.90 });
+  tone(880, 0.16, { delay: 0.09, volume: 0.90 });
 }
 
 // ── Alarm sound patterns ──────────────────────────────────────────────────────

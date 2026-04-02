@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 
 const SIZE    = 256;
@@ -6,20 +6,24 @@ const CENTER  = SIZE / 2;
 const RADIUS  = 92;
 const HOURS   = [12,1,2,3,4,5,6,7,8,9,10,11];
 const MINUTES = [0,5,10,15,20,25,30,35,40,45,50,55];
+const STEP_DEG = 30; // 12 ticks around circle
 
 function itemPos(index) {
   const angle = (index * 30 - 90) * (Math.PI / 180);
   return { x: CENTER + RADIUS * Math.cos(angle), y: CENTER + RADIUS * Math.sin(angle) };
 }
 
-function angleToHour(angle) {
-  const norm = ((angle + 90 + 360) % 360);
-  return Math.round(norm / 30) % 12 || 12;
+function normAngle(angle) {
+  return (angle + 90 + 360) % 360;
 }
 
-function angleToMinute(angle) {
-  const norm = ((angle + 90 + 360) % 360);
-  return (Math.round(norm / 30) * 5) % 60;
+function angleToTickFloat(angle) {
+  return normAngle(angle) / STEP_DEG; // 0..12
+}
+
+function angleToHandPos(angleDeg) {
+  const rad = angleDeg * (Math.PI / 180);
+  return { x: CENTER + RADIUS * Math.cos(rad), y: CENTER + RADIUS * Math.sin(rad) };
 }
 
 function getAngleFromCenter(clientX, clientY, rect) {
@@ -33,39 +37,68 @@ export default function TimePicker({ value, onChange }) {
   const isPM   = h24 >= 12;
   const hour12 = h24 % 12 || 12;
   const [mode, setMode] = useState('hour');
+  const [dragAngle, setDragAngle] = useState(null); // degrees, null when not dragging
+  const dragAngleRef = useRef(null);
+  const draggingRef = useRef(false);
+  const rafRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   // selected index on the clock face
   const selIdx = mode === 'hour'
     ? HOURS.indexOf(hour12)
     : MINUTES.indexOf(m) >= 0 ? MINUTES.indexOf(m) : 0;
-  const handPos = itemPos(selIdx);
+  const snappedHandPos = itemPos(selIdx);
+  const handPos = dragAngle == null ? snappedHandPos : angleToHandPos(dragAngle);
+  const liveIdx = dragAngle == null ? selIdx : (Math.round(angleToTickFloat(dragAngle)) + 12) % 12;
 
-  function pickFromPoint(clientX, clientY, rect) {
-    const angle = getAngleFromCenter(clientX, clientY, rect);
+  function commitTick(tickIdx) {
     if (mode === 'hour') {
-      const h = angleToHour(angle);
+      const h = HOURS[tickIdx];
       const h24new = isPM ? (h % 12) + 12 : h % 12;
       onChange(`${String(h24new).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
     } else {
-      const min = angleToMinute(angle);
+      const min = MINUTES[tickIdx];
       onChange(`${String(h24).padStart(2,'0')}:${String(min).padStart(2,'0')}`);
     }
   }
 
-  function handleClick(e) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    pickFromPoint(e.clientX, e.clientY, rect);
-    if (mode === 'hour') setMode('minute');
-  }
-
-  function handleTouchMove(e) {
+  function handlePointerDown(e) {
+    // Smooth drag: move hand continuously, snap once on release.
     e.preventDefault();
-    const t = e.touches[0];
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     const rect = e.currentTarget.getBoundingClientRect();
-    pickFromPoint(t.clientX, t.clientY, rect);
+    const angle = getAngleFromCenter(e.clientX, e.clientY, rect);
+    draggingRef.current = true;
+    dragAngleRef.current = angle;
+    setDragAngle(angle);
   }
 
-  function handleTouchEnd() {
+  function handlePointerMove(e) {
+    if (!draggingRef.current) return;
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const angle = getAngleFromCenter(e.clientX, e.clientY, rect);
+    dragAngleRef.current = angle;
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = 0;
+      setDragAngle(dragAngleRef.current);
+    });
+  }
+
+  function endDrag() {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    const finalAngle = dragAngleRef.current ?? dragAngle;
+    setDragAngle(null);
+
+    const tick = (Math.round(angleToTickFloat(finalAngle)) + 12) % 12;
+    commitTick(tick);
     if (mode === 'hour') setMode('minute');
   }
 
@@ -129,9 +162,10 @@ export default function TimePicker({ value, onChange }) {
         <Box
           component="svg"
           width={SIZE} height={SIZE}
-          onClick={handleClick}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
           sx={{ touchAction:'none', userSelect:'none', cursor:'pointer', display:'block' }}
         >
           {/* Background circle */}
@@ -147,10 +181,13 @@ export default function TimePicker({ value, onChange }) {
           {/* Center dot */}
           <circle cx={CENTER} cy={CENTER} r={5} fill="#FF6B35" />
 
+          {/* Hand knob */}
+          <circle cx={handPos.x} cy={handPos.y} r={8} fill="#FF6B35" opacity={0.95} />
+
           {/* Number bubbles */}
           {(mode === 'hour' ? HOURS : MINUTES).map((item, i) => {
             const { x, y } = itemPos(i);
-            const sel = item === (mode === 'hour' ? hour12 : m);
+            const sel = i === liveIdx;
             return (
               <g key={item}>
                 <circle cx={x} cy={y} r={20}
