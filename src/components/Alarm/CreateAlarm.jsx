@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Typography, Button, TextField, IconButton } from '@mui/material';
+import { Box, Typography, Button, TextField, IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckIcon from '@mui/icons-material/Check';
 import CalculateIcon from '@mui/icons-material/Calculate';
@@ -136,6 +136,13 @@ export default function CreateAlarm() {
   const activePreset = QUICK_PRESETS.find(p =>
     p.days.length === form.days.length && p.days.every(d => form.days.includes(d))
   );
+
+  const repeatModeValue =
+    form.days.length === 0 ? 'once' :
+    activePreset?.label === 'Every day' ? 'every' :
+    activePreset?.label === 'Weekdays'  ? 'weekdays' :
+    activePreset?.label === 'Weekend'   ? 'weekend' :
+    'custom';
 
   return (
     <Box sx={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', bgcolor: 'background.default' }}>
@@ -300,58 +307,89 @@ export default function CreateAlarm() {
             </Typography>
           </Box>
 
-          {/* Quick presets */}
-          <Box sx={{ display: 'flex', gap: 1, mt: 2, mb: 2.5 }}>
-            {QUICK_PRESETS.map(preset => {
-              const active = preset.label === activePreset?.label;
-              return (
-                <Box
-                  key={preset.label}
-                  onClick={() => applyPreset(preset.days)}
-                  sx={{
-                    px: 1.75, py: 0.6, borderRadius: 10, cursor: 'pointer', userSelect: 'none',
-                    border: active ? '1.5px solid rgba(255,107,53,0.55)' : '1.5px solid rgba(255,255,255,0.1)',
-                    bgcolor: active ? 'rgba(255,107,53,0.1)' : 'rgba(255,255,255,0.04)',
-                    typography: 'caption',
-                    fontWeight: active ? 700 : 500,
-                    color: active ? 'primary.main' : 'text.secondary',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  {preset.label}
-                </Box>
-              );
-            })}
+          {/* Modes (smoother than raw chips) */}
+          <Box sx={{ mt: 2, mb: 2.5, display: 'flex', justifyContent: 'center' }}>
+            <ToggleButtonGroup
+              exclusive
+              value={repeatModeValue}
+              onChange={(_, next) => {
+                if (!next) return;
+                if (next === 'once') applyPreset([]);
+                if (next === 'every') applyPreset(QUICK_PRESETS[0].days);
+                if (next === 'weekdays') applyPreset(QUICK_PRESETS[1].days);
+                if (next === 'weekend') applyPreset(QUICK_PRESETS[2].days);
+              }}
+              sx={{
+                bgcolor: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 999,
+                p: 0.35,
+                '& .MuiToggleButton-root': {
+                  border: 'none',
+                  borderRadius: 999,
+                  textTransform: 'none',
+                  px: 1.5,
+                  py: 0.7,
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  letterSpacing: 0.2,
+                  color: 'rgba(255,255,255,0.55)',
+                  transition: 'background-color 160ms ease, color 160ms ease, transform 120ms ease',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' },
+                  '&.Mui-selected': {
+                    color: '#FF6B35',
+                    bgcolor: 'rgba(255,107,53,0.14)',
+                    boxShadow: '0 8px 18px rgba(255,107,53,0.12)',
+                  },
+                  '&.Mui-selected:hover': { bgcolor: 'rgba(255,107,53,0.18)' },
+                  '&:active': { transform: 'scale(0.98)' },
+                },
+              }}
+            >
+              <ToggleButton value="once">Once</ToggleButton>
+              <ToggleButton value="weekdays">Weekdays</ToggleButton>
+              <ToggleButton value="weekend">Weekend</ToggleButton>
+              <ToggleButton value="every">Every day</ToggleButton>
+            </ToggleButtonGroup>
           </Box>
 
-          {/* Day circles */}
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          {/* Day circles (custom) */}
+          <Box sx={{ display: 'flex', gap: 1, opacity: repeatModeValue === 'once' ? 0.45 : 1, transition: 'opacity 180ms ease' }}>
             {DAY_LABELS.map((d, i) => {
               const on = form.days.includes(i);
               return (
-                <Box
+                <ToggleButton
                   key={i}
-                  onClick={() => toggleDay(i)}
+                  value={i}
+                  selected={on}
+                  disabled={repeatModeValue === 'once'}
+                  onChange={() => toggleDay(i)}
                   sx={{
                     flex: 1,
+                    minWidth: 0,
                     aspectRatio: '1',
                     borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                    bgcolor: on ? 'primary.main' : 'rgba(255,255,255,0.06)',
-                    border: `1.5px solid ${on ? '#FF6B35' : 'transparent'}`,
-                    fontWeight: 700,
+                    border: '1.5px solid rgba(255,255,255,0.08)',
+                    bgcolor: 'rgba(255,255,255,0.05)',
+                    color: 'rgba(255,255,255,0.55)',
+                    fontWeight: 800,
                     fontSize: '0.62rem',
-                    boxShadow: on ? '0 4px 12px rgba(255,107,53,0.35)' : 'none',
-                    transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
-                    transform: on ? 'scale(1.1)' : 'scale(1)',
+                    letterSpacing: 0.3,
+                    transition: 'background-color 160ms ease, box-shadow 160ms ease, transform 120ms ease, border-color 160ms ease, color 160ms ease',
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
+                    '&.Mui-selected': {
+                      bgcolor: 'rgba(255,107,53,0.9)',
+                      borderColor: '#FF6B35',
+                      color: '#fff',
+                      boxShadow: '0 10px 22px rgba(255,107,53,0.22)',
+                    },
+                    '&.Mui-selected:hover': { bgcolor: 'rgba(255,107,53,1)' },
+                    '&:active': { transform: 'scale(0.97)' },
+                    '&.Mui-disabled': { opacity: 0.5, color: 'rgba(255,255,255,0.4)' },
                   }}
                 >
                   {d}
-                </Box>
+                </ToggleButton>
               );
             })}
           </Box>

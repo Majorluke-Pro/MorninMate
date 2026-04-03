@@ -892,7 +892,7 @@ const GAMES_PROFILE = [
 ];
 
 function ProfileTab() {
-  const { user, resetAll, updateUser } = useApp();
+  const { session, user, resetAll, updateUser } = useApp();
   const [editing,      setEditing]      = useState(false);
   const [draft,        setDraft]        = useState(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -901,6 +901,7 @@ function ProfileTab() {
 
   const morningLabel = MORNING_TYPES_PROFILE.find(t => t.value === user.morningRating)?.label || '—';
   const gameLabel    = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush' }[user.favoriteGame] || '—';
+  const email = session?.user?.email || '—';
 
   function startEdit() {
     setDraft({ name: user.name, wakeTime: user.wakeTime, morningRating: user.morningRating, favoriteGame: user.favoriteGame, wakeGoal: user.wakeGoal || '' });
@@ -974,6 +975,21 @@ function ProfileTab() {
         {editing ? (
           /* ── Edit form ── */
           <>
+            {/* Email (read-only) */}
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>Email</Typography>
+              <TextField
+                fullWidth
+                size="small"
+                value={email}
+                disabled
+                sx={{
+                  '& .MuiOutlinedInput-root': { borderRadius: 2 },
+                  '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: 'rgba(255,255,255,0.6)' },
+                }}
+              />
+            </Box>
+
             {/* Name */}
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>Name</Typography>
@@ -1106,6 +1122,8 @@ function ProfileTab() {
           /* ── Display mode ── */
           <>
             <Card sx={{ bgcolor: 'background.paper', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+              <ProfileRow label="Email" value={email} />
+              <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
               <ProfileRow label="Default wake-up time" value={formatTime(user.wakeTime)} />
               <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
               <ProfileRow label="Morning type"   value={morningLabel} />
