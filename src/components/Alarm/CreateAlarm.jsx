@@ -601,9 +601,17 @@ function Section({ children, delay = 0 }) {
 
 function SectionLabel({ children }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Box sx={{ width: 3, height: 14, borderRadius: 2, bgcolor: 'primary.main', flexShrink: 0 }} />
-      <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2, fontSize: '0.62rem' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+      <Box sx={{
+        width: 3, height: 16, borderRadius: 2, flexShrink: 0,
+        background: 'linear-gradient(180deg, #FF6B35, #FFD166)',
+        boxShadow: '0 0 8px rgba(255,107,53,0.5)',
+      }} />
+      <Typography sx={{
+        fontWeight: 700, color: 'rgba(255,255,255,0.5)',
+        letterSpacing: '0.1em', fontSize: '0.6rem',
+        textTransform: 'uppercase',
+      }}>
         {children}
       </Typography>
     </Box>
@@ -611,5 +619,7 @@ function SectionLabel({ children }) {
 }
 
 function Separator() {
-  return <Box sx={{ height: 1, bgcolor: 'rgba(255,255,255,0.05)', mx: 3 }} />;
+  return (
+    <Box sx={{ height: '1px', mx: 3, background: 'linear-gradient(90deg, rgba(255,107,53,0.08), rgba(255,255,255,0.04), transparent)' }} />
+  );
 }

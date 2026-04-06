@@ -4,7 +4,6 @@ import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import { supabase } from '../../lib/supabase';
 import { useApp } from '../../context/AppContext';
 
-
 export default function AuthScreen() {
   const { pendingOnboarding, setShowAuthDirectly, handlePostAuth, lockAuth, unlockAuth } = useApp();
   const [mode, setMode] = useState(pendingOnboarding ? 'signup' : 'signin');
@@ -21,7 +20,6 @@ export default function AuthScreen() {
     setLoading(true);
 
     if (mode === 'signup') {
-      // Lock before signUp so onAuthStateChange can't race handlePostAuth
       lockAuth();
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) {
@@ -29,7 +27,6 @@ export default function AuthScreen() {
         setError(error.message);
         setLoading(false);
       } else if (!data.session) {
-        // Email confirmation required
         unlockAuth();
         setError('Check your email to confirm your account, then sign in here.');
         setLoading(false);
@@ -42,8 +39,6 @@ export default function AuthScreen() {
         setError(error.message);
         setLoading(false);
       } else if (data.session) {
-        // Explicitly handle post-auth in case onAuthStateChange doesn't fire
-        // (can happen in regular browser when Supabase already has a cached session)
         await handlePostAuth(data.session);
       }
     }
@@ -62,97 +57,127 @@ export default function AuthScreen() {
     }}>
       <Background />
 
-      <Box sx={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 360 }}>
+      <Box sx={{
+        position: 'relative', zIndex: 1, width: '100%', maxWidth: 360,
+        animation: 'authIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        '@keyframes authIn': {
+          from: { opacity: 0, transform: 'translateY(24px) scale(0.97)' },
+          to:   { opacity: 1, transform: 'none' },
+        },
+      }}>
 
         {/* Logo */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
           <Box sx={{
-            display: 'inline-block', mb: 2,
-            '@keyframes sunGlow': {
-              '0%,100%': { filter: 'drop-shadow(0 0 18px rgba(255,107,53,0.35))' },
-              '50%':     { filter: 'drop-shadow(0 0 40px rgba(255,107,53,0.7))' },
-            },
-            animation: 'sunGlow 3s ease-in-out infinite',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            mb: 2.5, position: 'relative',
           }}>
-            <WbSunnyIcon sx={{ fontSize: 48, color: 'primary.main' }} />
+            {/* Outer ring */}
+            <Box sx={{
+              position: 'absolute',
+              width: 90, height: 90, borderRadius: '50%',
+              border: '1.5px solid rgba(255,107,53,0.2)',
+              animation: 'logoRingPulse 3s ease-in-out infinite',
+              '@keyframes logoRingPulse': {
+                '0%,100%': { transform: 'scale(1)', opacity: 0.6 },
+                '50%':     { transform: 'scale(1.1)', opacity: 0.2 },
+              },
+            }} />
+            <Box sx={{
+              width: 72, height: 72, borderRadius: '50%',
+              bgcolor: 'rgba(255,107,53,0.1)',
+              border: '1.5px solid rgba(255,107,53,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 0 40px rgba(255,107,53,0.2)',
+            }}>
+              <WbSunnyIcon sx={{
+                fontSize: 36, color: '#FF6B35',
+                filter: 'drop-shadow(0 0 16px rgba(255,107,53,0.6))',
+                animation: 'sunSpin 12s linear infinite',
+                '@keyframes sunSpin': { to: { transform: 'rotate(360deg)' } },
+              }} />
+            </Box>
           </Box>
 
           {firstName ? (
             <>
-              <Typography variant="h5" fontWeight={900} letterSpacing="-0.5px">
+              <Typography variant="h5" fontWeight={900} sx={{ letterSpacing: '-0.5px', mb: 0.5 }}>
                 Almost there, {firstName}!
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
                 Create an account to save your morning profile.
               </Typography>
             </>
           ) : (
             <>
-              <Typography variant="h5" fontWeight={900} letterSpacing="-0.5px">
+              <Typography variant="h5" fontWeight={900} sx={{ letterSpacing: '-0.5px', mb: 0.5 }}>
                 {mode === 'signin' ? 'Welcome back' : 'Create account'}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
                 {mode === 'signin' ? "Let's get you up." : 'Start your morning ritual.'}
               </Typography>
             </>
           )}
         </Box>
 
-        {/* Form */}
-        <Box
-          component="form"
-          onSubmit={handleSubmit}
-          sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-        >
-          {error && <Alert severity="error" sx={{ borderRadius: 2 }}>{error}</Alert>}
-
-          <TextField
-            label="Email"
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-            fullWidth
-            sx={inputSx}
-          />
-
-          <TextField
-            label="Password"
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-            inputProps={{ minLength: 6 }}
-            fullWidth
-            sx={inputSx}
-          />
-
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            size="large"
-            disabled={loading || !email || !password}
-            sx={{
-              mt: 0.5,
-              py: 1.75,
-              fontWeight: 700,
-              borderRadius: 3,
-              fontSize: '1rem',
-              background: 'linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)',
-              boxShadow: '0 8px 32px rgba(255,107,53,0.3)',
-              '&:disabled': { opacity: 0.5 },
-            }}
+        {/* Form card */}
+        <Box sx={{
+          p: 3, borderRadius: 4,
+          bgcolor: 'rgba(20,20,38,0.85)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          backdropFilter: 'blur(24px)',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
+        }}>
+          <Box
+            component="form"
+            onSubmit={handleSubmit}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
           >
-            {loading
-              ? <CircularProgress size={22} sx={{ color: '#fff' }} />
-              : mode === 'signin' ? 'Sign In' : 'Sign Up'}
-          </Button>
+            {error && (
+              <Alert severity="error" sx={{ borderRadius: 2, fontSize: '0.82rem' }}>
+                {error}
+              </Alert>
+            )}
+
+            <TextField
+              label="Email"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              fullWidth
+              sx={inputSx}
+            />
+
+            <TextField
+              label="Password"
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+              inputProps={{ minLength: 6 }}
+              fullWidth
+              sx={inputSx}
+            />
+
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={loading || !email || !password}
+              sx={{ mt: 0.5, py: 1.75, fontSize: '1rem' }}
+            >
+              {loading
+                ? <CircularProgress size={22} sx={{ color: '#fff' }} />
+                : mode === 'signin' ? 'Sign In' : 'Sign Up'}
+            </Button>
+          </Box>
         </Box>
 
-        {/* Toggle sign in / sign up */}
+        {/* Toggle */}
         <Box sx={{ textAlign: 'center', mt: 2.5 }}>
           <Typography variant="body2" color="text.secondary">
             {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
@@ -166,7 +191,6 @@ export default function AuthScreen() {
           </Typography>
         </Box>
 
-        {/* Back to onboarding — only when arriving from "Sign in" on welcome step */}
         {!pendingOnboarding && (
           <Box sx={{ textAlign: 'center', mt: 1.5 }}>
             <Box
@@ -186,9 +210,9 @@ export default function AuthScreen() {
 const inputSx = {
   '& .MuiOutlinedInput-root': {
     borderRadius: 2.5,
-    '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
+    '& fieldset': { borderColor: 'rgba(255,255,255,0.09)' },
     '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-    '&.Mui-focused fieldset': { borderColor: '#FF6B35' },
+    '&.Mui-focused fieldset': { borderColor: '#FF6B35', borderWidth: '1.5px' },
   },
   '& .MuiInputLabel-root.Mui-focused': { color: '#FF6B35' },
 };
@@ -196,16 +220,28 @@ const inputSx = {
 function Background() {
   return (
     <Box sx={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-      <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, #08081A 0%, #14082A 55%, #0D0D1A 100%)' }} />
+      <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, #09071C 0%, #160830 45%, #0D0D1A 100%)' }} />
+      {/* Large warm orb top-right */}
       <Box sx={{
-        position: 'absolute', width: 480, height: 480, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(255,107,53,0.1) 0%, transparent 70%)',
-        top: -140, right: -140, filter: 'blur(60px)',
+        position: 'absolute', width: 500, height: 500, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(255,107,53,0.1) 0%, transparent 65%)',
+        top: -180, right: -160, filter: 'blur(70px)',
+        animation: 'bgOrb1 14s ease-in-out infinite',
+        '@keyframes bgOrb1': { '0%,100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.08)' } },
       }} />
+      {/* Cool orb bottom-left */}
       <Box sx={{
-        position: 'absolute', width: 380, height: 380, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(120,40,220,0.08) 0%, transparent 70%)',
-        bottom: -60, left: -120, filter: 'blur(60px)',
+        position: 'absolute', width: 400, height: 400, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(90,30,200,0.1) 0%, transparent 65%)',
+        bottom: -100, left: -140, filter: 'blur(70px)',
+        animation: 'bgOrb2 18s ease-in-out infinite',
+        '@keyframes bgOrb2': { '0%,100%': { transform: 'translate(0,0)' }, '50%': { transform: 'translate(20px,-20px)' } },
+      }} />
+      {/* Subtle center glow */}
+      <Box sx={{
+        position: 'absolute', width: 300, height: 300, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(255,107,53,0.04) 0%, transparent 70%)',
+        top: '30%', left: '50%', transform: 'translateX(-50%)', filter: 'blur(50px)',
       }} />
     </Box>
   );

@@ -283,23 +283,63 @@ export default function WakeUpFlow() {
 }
 
 function IntroScreen({ alarm, games, intensity, xpReward, onStart }) {
-  const INTENSITY_ICON = { gentle: SpaIcon, moderate: WhatshotIcon, intense: FlashOnIcon };
+  const INTENSITY_ICON  = { gentle: SpaIcon, moderate: WhatshotIcon, intense: FlashOnIcon };
   const INTENSITY_COLOR = { gentle: '#06D6A0', moderate: '#FFD166', intense: '#EF476F' };
-  const IntensityIcon = INTENSITY_ICON[intensity];
-  const intensityColor = INTENSITY_COLOR[intensity];
+  const IntensityIcon   = INTENSITY_ICON[intensity];
+  const intensityColor  = INTENSITY_COLOR[intensity];
 
   return (
     <Box sx={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1A0A2E 0%, #0D0D1A 100%)',
+      background: 'linear-gradient(170deg, #160830 0%, #0D0D1A 55%, #080818 100%)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      p: 3, textAlign: 'center',
+      p: 3, textAlign: 'center', position: 'relative', overflow: 'hidden',
     }}>
-      <AlarmIcon sx={{ fontSize: 72, color: 'primary.main', mb: 2 }} />
-      <Typography variant="h4" fontWeight={800} gutterBottom>Rise & Shine, Legend!</Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>{alarm?.label || 'Alarm'}</Typography>
-      <Box sx={{ display:'flex', alignItems:'center', gap:0.75, mb: 1 }}>
-        <IntensityIcon sx={{ fontSize:'1.2rem', color: intensityColor }}/>
+      {/* Ambient glow */}
+      <Box sx={{
+        position: 'absolute', width: 400, height: 400, borderRadius: '50%',
+        background: `radial-gradient(circle, ${intensityColor}18 0%, transparent 65%)`,
+        top: -100, left: '50%', transform: 'translateX(-50%)',
+        filter: 'blur(60px)', pointerEvents: 'none',
+      }} />
+
+      {/* Alarm icon */}
+      <Box sx={{
+        position: 'relative', mb: 2.5,
+        animation: 'introRing 2.5s ease-in-out infinite',
+        '@keyframes introRing': {
+          '0%,100%': { transform: 'scale(1)' },
+          '50%':     { transform: 'scale(1.06)' },
+        },
+      }}>
+        <Box sx={{
+          position: 'absolute', inset: -12, borderRadius: '50%',
+          border: `2px solid ${intensityColor}30`,
+          animation: 'introPulse 2.5s ease-out infinite',
+          '@keyframes introPulse': {
+            '0%':   { transform: 'scale(0.85)', opacity: 0.8 },
+            '100%': { transform: 'scale(1.4)',  opacity: 0 },
+          },
+        }} />
+        <Box sx={{
+          width: 88, height: 88, borderRadius: '50%',
+          bgcolor: `${intensityColor}14`,
+          border: `2px solid ${intensityColor}35`,
+          boxShadow: `0 0 40px ${intensityColor}30`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <AlarmIcon sx={{ fontSize: 44, color: intensityColor, filter: `drop-shadow(0 0 12px ${intensityColor}80)` }} />
+        </Box>
+      </Box>
+
+      <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-0.5px', mb: 0.5 }}>
+        Rise & Shine, Legend!
+      </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+        {alarm?.label || 'Alarm'}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.75 }}>
+        <IntensityIcon sx={{ fontSize: '1.15rem', color: intensityColor }} />
         <Typography variant="h6" fontWeight={700} sx={{ color: intensityColor }}>
           {intensity.charAt(0).toUpperCase() + intensity.slice(1)} Pulse
         </Typography>
@@ -308,42 +348,80 @@ function IntroScreen({ alarm, games, intensity, xpReward, onStart }) {
         No dodging it, mate — finish all games to dismiss.
       </Typography>
 
-      <Card sx={{ p: 3, bgcolor: 'background.paper', width: '100%', maxWidth: 340, mb: 4 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Complete these games to wake up:
-        </Typography>
+      {/* Games card */}
+      <Box sx={{
+        width: '100%', maxWidth: 340, mb: 4,
+        borderRadius: 4,
+        bgcolor: 'rgba(20,20,38,0.9)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        backdropFilter: 'blur(16px)',
+        overflow: 'hidden',
+      }}>
+        <Box sx={{ px: 2.5, pt: 2, pb: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.1em', fontSize: '0.6rem' }}>
+            COMPLETE THESE TO DISMISS
+          </Typography>
+        </Box>
+
         {games.map((g, i) => {
           const GameIcon = GAME_ICONS[g];
-          const color = GAME_COLORS[g];
+          const color    = GAME_COLORS[g];
           return (
-            <Box key={g} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1 }}>
+            <Box
+              key={g}
+              sx={{
+                display: 'flex', alignItems: 'center', gap: 2,
+                px: 2.5, py: 1.5,
+                borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                animation: `gameIn 0.5s ease ${i * 0.1}s both`,
+                '@keyframes gameIn': {
+                  from: { opacity: 0, transform: 'translateX(-12px)' },
+                  to:   { opacity: 1, transform: 'none' },
+                },
+              }}
+            >
               <Box sx={{
-                width: 36, height: 36, borderRadius: 2, flexShrink: 0,
-                bgcolor: `${color}18`, border: `1px solid ${color}35`,
+                width: 42, height: 42, borderRadius: 2.5, flexShrink: 0,
+                bgcolor: `${color}15`, border: `1px solid ${color}30`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 0 12px ${color}20`,
               }}>
-                <GameIcon sx={{ fontSize: '1.2rem', color }} />
+                <GameIcon sx={{ fontSize: '1.3rem', color }} />
               </Box>
-              <Box sx={{ flex: 1 }}>
+              <Box sx={{ flex: 1, textAlign: 'left' }}>
                 <Typography fontWeight={700} variant="body2">{GAME_LABELS[g]}</Typography>
               </Box>
               <Box sx={{
-                width: 22, height: 22, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.08)',
+                width: 24, height: 24, borderRadius: '50%',
+                bgcolor: 'rgba(255,255,255,0.06)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.65rem', fontWeight: 800, color: 'text.disabled',
+                fontSize: '0.65rem', fontWeight: 800, color: 'rgba(255,255,255,0.3)',
+                fontFamily: '"Fraunces", serif',
               }}>
                 {i + 1}
               </Box>
             </Box>
           );
         })}
-        <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-          <EmojiEventsIcon sx={{ color: 'secondary.main', fontSize: 18 }} />
-          <Typography variant="body2" color="secondary.main" fontWeight={700}>+{xpReward} XP on success</Typography>
-        </Box>
-      </Card>
 
-      <Button variant="contained" size="large" onClick={onStart} sx={{ px: 6, py: 1.5 }}>
+        <Box sx={{
+          mx: 2.5, my: 1.5, px: 2, py: 1.25,
+          borderRadius: 2.5,
+          bgcolor: 'rgba(255,209,102,0.06)',
+          border: '1px solid rgba(255,209,102,0.15)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
+        }}>
+          <EmojiEventsIcon sx={{ color: '#FFD166', fontSize: 16 }} />
+          <Typography variant="body2" color="secondary.main" fontWeight={700}>
+            +{xpReward} XP on success
+          </Typography>
+        </Box>
+      </Box>
+
+      <Button
+        variant="contained" size="large" onClick={onStart}
+        sx={{ px: 7, py: 1.75, fontSize: '1rem', borderRadius: 3 }}
+      >
         Start Wake-Up Routine
       </Button>
     </Box>
@@ -354,38 +432,115 @@ function ResultScreen({ results, xpReward, totalFails, onDone }) {
   return (
     <Box sx={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0a2e1a 0%, #0D0D1A 100%)',
+      background: 'linear-gradient(170deg, #061C10 0%, #0D0D1A 60%, #080818 100%)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      p: 3, textAlign: 'center',
+      p: 3, textAlign: 'center', position: 'relative', overflow: 'hidden',
     }}>
-      <CheckCircleIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
-      <Typography variant="h4" fontWeight={800} gutterBottom>Bonzer, you're up! 🎉</Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>Ripper morning routine, mate</Typography>
+      {/* Celebration glow */}
+      <Box sx={{
+        position: 'absolute', width: 450, height: 450, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(6,214,160,0.14) 0%, transparent 65%)',
+        top: -100, left: '50%', transform: 'translateX(-50%)',
+        filter: 'blur(60px)', pointerEvents: 'none',
+      }} />
 
-      <Card sx={{ px: 4, py: 2, bgcolor: 'rgba(6,214,160,0.1)', border: '1px solid rgba(6,214,160,0.3)', mb: 3 }}>
-        <Typography variant="h5" color="success.main" fontWeight={800}>+{xpReward} XP earned!</Typography>
+      {/* Check icon */}
+      <Box sx={{
+        position: 'relative', mb: 2.5,
+        animation: 'checkBounce 0.6s cubic-bezier(0.34,1.56,0.64,1)',
+        '@keyframes checkBounce': {
+          from: { transform: 'scale(0.3)', opacity: 0 },
+          to:   { transform: 'scale(1)',   opacity: 1 },
+        },
+      }}>
+        <Box sx={{
+          position: 'absolute', inset: -12, borderRadius: '50%',
+          border: '2px solid rgba(6,214,160,0.25)',
+          animation: 'resultPulse 2s ease-out 0.4s infinite',
+          '@keyframes resultPulse': {
+            '0%':   { transform: 'scale(0.85)', opacity: 0.6 },
+            '100%': { transform: 'scale(1.5)',  opacity: 0 },
+          },
+        }} />
+        <Box sx={{
+          width: 88, height: 88, borderRadius: '50%',
+          bgcolor: 'rgba(6,214,160,0.12)',
+          border: '2px solid rgba(6,214,160,0.35)',
+          boxShadow: '0 0 40px rgba(6,214,160,0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <CheckCircleIcon sx={{
+            fontSize: 48, color: '#06D6A0',
+            filter: 'drop-shadow(0 0 12px rgba(6,214,160,0.7))',
+          }} />
+        </Box>
+      </Box>
+
+      <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-0.5px', mb: 0.5 }}>
+        Bonzer, you're up!
+      </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+        Ripper morning routine, mate
+      </Typography>
+
+      {/* XP card */}
+      <Box sx={{
+        px: 4, py: 2, mb: 3, borderRadius: 3,
+        bgcolor: 'rgba(6,214,160,0.08)',
+        border: '1px solid rgba(6,214,160,0.22)',
+        backdropFilter: 'blur(12px)',
+        animation: 'xpIn 0.5s ease 0.3s both',
+        '@keyframes xpIn': {
+          from: { opacity: 0, transform: 'translateY(12px)' },
+          to:   { opacity: 1, transform: 'none' },
+        },
+      }}>
+        <Typography variant="h5" color="success.main" fontWeight={900} sx={{ fontFamily: '"Fraunces", serif', letterSpacing: '-0.5px' }}>
+          +{xpReward} XP earned!
+        </Typography>
         {totalFails > 0 && (
           <Typography variant="caption" color="text.secondary">
-            ({totalFails} restart{totalFails > 1 ? 's' : ''} — no worries, keep at it!)
+            {totalFails} restart{totalFails > 1 ? 's' : ''} — no worries, keep at it!
           </Typography>
         )}
-      </Card>
+      </Box>
 
-      <Card sx={{ p: 3, bgcolor: 'background.paper', width: '100%', maxWidth: 340, mb: 4 }}>
+      {/* Results card */}
+      <Box sx={{
+        width: '100%', maxWidth: 340, mb: 4,
+        borderRadius: 4,
+        bgcolor: 'rgba(20,20,38,0.9)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        backdropFilter: 'blur(16px)',
+        overflow: 'hidden',
+        animation: 'resultsIn 0.5s ease 0.5s both',
+        '@keyframes resultsIn': {
+          from: { opacity: 0, transform: 'translateY(16px)' },
+          to:   { opacity: 1, transform: 'none' },
+        },
+      }}>
         {results.map((r, i) => (
-          <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}>
-            <Typography variant="body2">{GAME_LABELS[r.game]}</Typography>
-            <Typography variant="body2" color={r.retries === 0 ? 'success.main' : 'warning.main'} fontWeight={700}>
-              <Box sx={{ display:'flex', alignItems:'center', gap:0.5 }}>
-                <CheckIcon sx={{ fontSize:'0.9rem' }}/>
+          <Box key={i} sx={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            px: 2.5, py: 1.5,
+            borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+          }}>
+            <Typography variant="body2" fontWeight={500}>{GAME_LABELS[r.game]}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <CheckIcon sx={{ fontSize: '0.85rem', color: r.retries === 0 ? '#06D6A0' : '#FFD166' }} />
+              <Typography variant="body2" fontWeight={700}
+                color={r.retries === 0 ? 'success.main' : 'secondary.main'}>
                 {r.retries === 0 ? 'First crack!' : `${r.retries} restart${r.retries > 1 ? 's' : ''}`}
-              </Box>
-            </Typography>
+              </Typography>
+            </Box>
           </Box>
         ))}
-      </Card>
+      </Box>
 
-      <Button variant="contained" size="large" onClick={onDone} sx={{ px: 6, py: 1.5 }}>
+      <Button
+        variant="contained" size="large" onClick={onDone}
+        sx={{ px: 6, py: 1.75, borderRadius: 3, fontSize: '1rem' }}
+      >
         <WbSunnyIcon sx={{ mr: 1 }} /> Go to Home
       </Button>
     </Box>

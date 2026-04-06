@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { AVATAR_OPTIONS } from '../../lib/avatars';
 import {
   Box, Typography, Card, IconButton, Switch, LinearProgress,
-  Fab, BottomNavigation, BottomNavigationAction,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button,
+  Fab, Dialog, DialogTitle, DialogContent, DialogActions, Button,
   TextField, Divider, Avatar, Menu, MenuItem,
 } from '@mui/material';
 import ScrollDrum, { HOURS, MINUTES, PERIODS } from '../common/ScrollDrum';
@@ -36,6 +35,12 @@ import { useApp } from '../../context/AppContext';
 const PULSE_COLORS = { gentle: '#06D6A0', moderate: '#FFD166', intense: '#EF476F' };
 const PULSE_LABELS = { gentle: 'Gentle', moderate: 'Moderate', intense: 'Intense' };
 const DAY_LABELS   = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+const NAV_ITEMS = [
+  { label: 'Alarms',  Icon: HomeIcon },
+  { label: 'Stats',   Icon: BarChartIcon },
+  { label: 'Profile', Icon: PersonIcon },
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -87,29 +92,62 @@ export default function Home() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ flex: 1, overflowY: 'auto', pb: 8 }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', pb: 9 }}>
         {tab === 0 && <AlarmsTab onNavigate={navigate} />}
         {tab === 1 && <StatsTab />}
         {tab === 2 && <ProfileTab />}
       </Box>
 
-      <BottomNavigation
-        value={tab}
-        onChange={(_, v) => setTab(v)}
-        sx={{
-          position: 'fixed', bottom: 0, left: 0, right: 0,
-          bgcolor: 'rgba(17,17,40,0.95)',
-          backdropFilter: 'blur(16px)',
-          borderTop: '1px solid rgba(255,255,255,0.07)',
-          '& .MuiBottomNavigationAction-root':  { color: 'rgba(255,255,255,0.32)', minWidth: 0 },
-          '& .Mui-selected':                    { color: '#FF6B35 !important' },
-          '& .MuiBottomNavigationAction-label': { fontSize: '0.62rem', fontWeight: 600 },
-        }}
-      >
-        <BottomNavigationAction label="Alarms"  icon={<HomeIcon />} />
-        <BottomNavigationAction label="Stats"   icon={<BarChartIcon />} />
-        <BottomNavigationAction label="Profile" icon={<PersonIcon />} />
-      </BottomNavigation>
+      {/* Custom bottom nav with sliding pill */}
+      <Box sx={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
+        bgcolor: 'rgba(10,10,22,0.93)',
+        backdropFilter: 'blur(24px)',
+        borderTop: '1px solid rgba(255,255,255,0.055)',
+        display: 'flex',
+        pb: 'max(env(safe-area-inset-bottom), 4px)',
+      }}>
+        {/* Animated pill indicator */}
+        <Box sx={{
+          position: 'absolute',
+          bottom: 10,
+          left: `calc(${tab} * 33.333% + 16.666% - 22px)`,
+          width: 44, height: 3, borderRadius: 2,
+          background: 'linear-gradient(90deg, #FF6B35, #FFD166)',
+          boxShadow: '0 0 10px rgba(255,107,53,0.6)',
+          transition: 'left 0.38s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          pointerEvents: 'none',
+        }} />
+
+        {NAV_ITEMS.map((item, i) => (
+          <Box
+            key={i}
+            onClick={() => setTab(i)}
+            sx={{
+              flex: 1, display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              pt: 1.5, pb: 0.75, cursor: 'pointer',
+              gap: 0.3, userSelect: 'none',
+              touchAction: 'manipulation',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <item.Icon sx={{
+              fontSize: '1.45rem',
+              color: tab === i ? '#FF6B35' : 'rgba(255,255,255,0.28)',
+              transition: 'color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+              transform: tab === i ? 'scale(1.1)' : 'scale(1)',
+            }} />
+            <Typography sx={{
+              fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.04em',
+              color: tab === i ? '#FF6B35' : 'rgba(255,255,255,0.28)',
+              transition: 'color 0.2s',
+            }}>
+              {item.label}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
     </Box>
   );
 }
@@ -140,78 +178,70 @@ function AlarmsTab({ onNavigate }) {
   return (
     <>
       {/* ── Header ── */}
-      <Box
-        sx={{
-          background: 'linear-gradient(160deg, #1A0A2E 0%, #16162A 100%)',
-          px: 2.5, pt: 5, pb: 3,
-          borderBottom: '1px solid rgba(255,107,53,0.1)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
+      <Box sx={{
+        background: 'linear-gradient(170deg, #16082E 0%, #14142A 55%, #0D0D1A 100%)',
+        px: 2.5, pt: 5.5, pb: 3,
+        borderBottom: '1px solid rgba(255,107,53,0.08)',
+        position: 'relative', overflow: 'hidden',
+      }}>
         {/* Ambient orbs */}
         <Box sx={{
-          position: 'absolute', width: 300, height: 300, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,107,53,0.13) 0%, transparent 70%)',
-          top: -120, right: -80, filter: 'blur(55px)', pointerEvents: 'none',
-          '@keyframes homeOrb': { '0%,100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.12)' } },
+          position: 'absolute', width: 340, height: 340, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,107,53,0.14) 0%, transparent 70%)',
+          top: -140, right: -90, filter: 'blur(60px)', pointerEvents: 'none',
           animation: 'homeOrb 9s ease-in-out infinite',
+          '@keyframes homeOrb': { '0%,100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.1)' } },
         }} />
         <Box sx={{
-          position: 'absolute', width: 180, height: 180, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,209,102,0.07) 0%, transparent 70%)',
-          bottom: -40, left: -40, filter: 'blur(40px)', pointerEvents: 'none',
+          position: 'absolute', width: 200, height: 200, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,209,102,0.06) 0%, transparent 70%)',
+          bottom: -50, left: -50, filter: 'blur(40px)', pointerEvents: 'none',
         }} />
 
         {/* Brand + clock */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <WbSunnyIcon sx={{ color: 'primary.main', fontSize: 15 }} />
-            <Typography variant="caption" fontWeight={800} color="primary.main" letterSpacing={1.5} fontSize="0.62rem">
+            <WbSunnyIcon sx={{ color: 'primary.main', fontSize: 13, filter: 'drop-shadow(0 0 6px rgba(255,107,53,0.5))' }} />
+            <Typography sx={{ fontWeight: 800, color: 'primary.main', letterSpacing: '0.14em', fontSize: '0.58rem' }}>
               MORNINMATE
             </Typography>
           </Box>
-          <Typography fontWeight={600} sx={{ fontVariantNumeric: 'tabular-nums', color: 'rgba(255,255,255,0.35)', fontSize: '0.82rem' }}>
+          <Typography sx={{
+            fontWeight: 500, color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem',
+            fontVariantNumeric: 'tabular-nums', fontFamily: '"Fraunces", serif',
+          }}>
             {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Typography>
         </Box>
 
-        {/* Top row: level ring + greeting + next alarm */}
+        {/* Top row: level ring + greeting + streak */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
           {/* Level ring */}
           <Box sx={{ position: 'relative', flexShrink: 0, width: 64, height: 64 }}>
-            {/* Spinning ring */}
             <Box sx={{
-              position: 'absolute', inset: -3,
-              borderRadius: '50%',
+              position: 'absolute', inset: -3, borderRadius: '50%',
               border: '2px solid transparent',
-              borderTopColor: '#FF6B35',
-              borderRightColor: '#FFD166',
-              '@keyframes spinRing': { to: { transform: 'rotate(360deg)' } },
+              borderTopColor: '#FF6B35', borderRightColor: '#FFD166',
               animation: 'spinRing 4s linear infinite',
+              '@keyframes spinRing': { to: { transform: 'rotate(360deg)' } },
             }} />
-            {/* Static track ring */}
-            <Box sx={{
-              position: 'absolute', inset: -3,
-              borderRadius: '50%',
-              border: '2px solid rgba(255,255,255,0.07)',
-            }} />
+            <Box sx={{ position: 'absolute', inset: -3, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.06)' }} />
             <Avatar sx={{
               width: 64, height: 64,
-              background: 'linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)',
-              fontWeight: 900, fontSize: '1.35rem',
-              boxShadow: '0 0 20px rgba(255,107,53,0.35)',
+              background: 'linear-gradient(135deg, #FF6B35 0%, #E54E1B 100%)',
+              fontWeight: 900, fontSize: '1.4rem',
+              fontFamily: '"Fraunces", serif',
+              boxShadow: '0 0 24px rgba(255,107,53,0.4), inset 0 1px 0 rgba(255,255,255,0.15)',
               letterSpacing: '-1px',
             }}>
               {user.level}
             </Avatar>
-            {/* "LVL" label */}
             <Box sx={{
               position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
-              px: 0.75, py: 0.1, borderRadius: 0.75,
+              px: 0.75, py: 0.15, borderRadius: 1,
               bgcolor: '#FF6B35',
-              fontSize: '0.42rem', fontWeight: 900, letterSpacing: 0.8, color: '#fff',
-              lineHeight: 1.6, whiteSpace: 'nowrap',
+              fontSize: '0.4rem', fontWeight: 900, letterSpacing: '0.08em', color: '#fff',
+              lineHeight: 1.7, whiteSpace: 'nowrap',
             }}>
               LEVEL
             </Box>
@@ -220,12 +250,15 @@ function AlarmsTab({ onNavigate }) {
           {/* Greeting */}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Typography variant="h5" fontWeight={800} noWrap>
+              <Typography variant="h5" fontWeight={800} noWrap sx={{ letterSpacing: '-0.3px' }}>
                 {greeting}, {user.name}
               </Typography>
-              <WbSunnyIcon sx={{ fontSize: '1.3rem', color: '#FFD166', flexShrink: 0, filter: 'drop-shadow(0 0 6px rgba(255,209,102,0.5))' }} />
+              <WbSunnyIcon sx={{
+                fontSize: '1.2rem', color: '#FFD166', flexShrink: 0,
+                filter: 'drop-shadow(0 0 6px rgba(255,209,102,0.5))',
+              }} />
             </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: 'block' }} noWrap>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.2, display: 'block', opacity: 0.8 }} noWrap>
               {user.wakeGoal ? `"${user.wakeGoal}"` : 'Keep that streak alive!'}
             </Typography>
           </Box>
@@ -235,26 +268,32 @@ function AlarmsTab({ onNavigate }) {
             <Box sx={{
               flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
               px: 1.25, py: 0.75, borderRadius: 2.5,
-              bgcolor: 'rgba(255,209,102,0.1)',
-              border: '1px solid rgba(255,209,102,0.25)',
+              bgcolor: 'rgba(255,209,102,0.08)',
+              border: '1px solid rgba(255,209,102,0.2)',
+              boxShadow: '0 0 16px rgba(255,209,102,0.08)',
             }}>
-              <LocalFireDepartmentIcon sx={{ fontSize: '1.2rem', color: '#FFD166', filter: 'drop-shadow(0 0 4px rgba(255,209,102,0.5))' }} />
-              <Typography fontWeight={900} fontSize="0.9rem" color="#FFD166" sx={{ lineHeight: 1.2 }}>{user.streak}</Typography>
-              <Typography sx={{ fontSize: '0.48rem', color: 'rgba(255,209,102,0.65)', fontWeight: 700, letterSpacing: 0.5 }}>STREAK</Typography>
+              <LocalFireDepartmentIcon sx={{ fontSize: '1.15rem', color: '#FFD166', filter: 'drop-shadow(0 0 5px rgba(255,209,102,0.55))' }} />
+              <Typography fontWeight={900} fontSize="0.88rem" color="#FFD166" sx={{ lineHeight: 1.2, fontFamily: '"Fraunces", serif' }}>
+                {user.streak}
+              </Typography>
+              <Typography sx={{ fontSize: '0.45rem', color: 'rgba(255,209,102,0.6)', fontWeight: 700, letterSpacing: '0.06em' }}>
+                STREAK
+              </Typography>
             </Box>
           )}
         </Box>
 
-        {/* XP Progress section */}
+        {/* XP section */}
         <Box sx={{
           p: 2, borderRadius: 3,
-          bgcolor: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.07)',
+          bgcolor: 'rgba(255,255,255,0.035)',
+          border: '1px solid rgba(255,255,255,0.06)',
+          backdropFilter: 'blur(10px)',
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.25 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <EmojiEventsIcon sx={{ fontSize: 14, color: '#FFD166' }} />
-              <Typography variant="caption" fontWeight={700} color="rgba(255,255,255,0.7)" fontSize="0.72rem">
+              <EmojiEventsIcon sx={{ fontSize: 13, color: '#FFD166' }} />
+              <Typography sx={{ fontWeight: 700, color: 'rgba(255,255,255,0.65)', fontSize: '0.68rem' }}>
                 Level {user.level} → {user.level + 1}
               </Typography>
             </Box>
@@ -262,60 +301,58 @@ function AlarmsTab({ onNavigate }) {
               {nextAlarm && msUntilNext != null && (
                 <Box sx={{
                   px: 1, py: 0.25, borderRadius: 1.5,
-                  bgcolor: 'rgba(255,107,53,0.12)',
-                  border: '1px solid rgba(255,107,53,0.2)',
+                  bgcolor: 'rgba(255,107,53,0.1)',
+                  border: '1px solid rgba(255,107,53,0.18)',
                   display: 'flex', alignItems: 'center', gap: 0.5,
                 }}>
-                  <AlarmIcon sx={{ fontSize: 10, color: 'primary.main' }} />
-                  <Typography variant="caption" fontWeight={800} color="primary.main" fontSize="0.6rem">
+                  <AlarmIcon sx={{ fontSize: 9, color: 'primary.main' }} />
+                  <Typography sx={{ fontWeight: 800, color: '#FF6B35', fontSize: '0.58rem', fontVariantNumeric: 'tabular-nums' }}>
                     {formatCountdown(msUntilNext)}
                   </Typography>
                 </Box>
               )}
-              <Typography variant="caption" fontWeight={800} color="primary.main" fontSize="0.72rem">
-                {xpInLevel}<Typography component="span" variant="caption" color="text.disabled" fontSize="0.65rem">/{XP_PER_LEVEL} XP</Typography>
+              <Typography sx={{ fontWeight: 800, color: '#FF6B35', fontSize: '0.7rem', fontVariantNumeric: 'tabular-nums' }}>
+                {xpInLevel}
+                <Box component="span" sx={{ color: 'text.disabled', fontSize: '0.62rem', fontWeight: 500 }}>
+                  /{XP_PER_LEVEL} XP
+                </Box>
               </Typography>
             </Box>
           </Box>
 
-          {/* XP Bar with milestone dots */}
           <Box sx={{ position: 'relative' }}>
             <LinearProgress
               variant="determinate"
               value={xpProgress * 100}
               sx={{
-                height: 10, borderRadius: 5,
-                bgcolor: 'rgba(255,255,255,0.08)',
+                height: 8, borderRadius: 99,
+                bgcolor: 'rgba(255,255,255,0.07)',
                 '& .MuiLinearProgress-bar': {
-                  borderRadius: 5,
+                  borderRadius: 99,
                   background: 'linear-gradient(90deg, #FF6B35 0%, #FFD166 100%)',
-                  boxShadow: '0 0 10px rgba(255,107,53,0.4)',
+                  boxShadow: '0 0 12px rgba(255,107,53,0.5)',
                 },
               }}
             />
-            {/* Milestone dots at 25%, 50%, 75% */}
             {[0.25, 0.5, 0.75].map(pct => (
               <Box key={pct} sx={{
                 position: 'absolute', top: '50%', left: `${pct * 100}%`,
                 transform: 'translate(-50%, -50%)',
-                width: 4, height: 4, borderRadius: '50%',
-                bgcolor: xpProgress >= pct ? '#fff' : 'rgba(255,255,255,0.2)',
-                boxShadow: xpProgress >= pct ? '0 0 4px rgba(255,255,255,0.6)' : 'none',
+                width: 3, height: 3, borderRadius: '50%', zIndex: 1, pointerEvents: 'none',
+                bgcolor: xpProgress >= pct ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.15)',
                 transition: 'all 0.3s',
-                zIndex: 1,
-                pointerEvents: 'none',
               }} />
             ))}
           </Box>
 
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-            <Typography variant="caption" color="text.disabled" fontSize="0.62rem">
+            <Typography sx={{ color: 'text.disabled', fontSize: '0.6rem' }}>
               {XP_PER_LEVEL - xpInLevel} XP to level up
             </Typography>
             {user.demerits > 0 && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
                 <WarningAmberIcon sx={{ fontSize: 10, color: '#EF476F' }} />
-                <Typography variant="caption" color="#EF476F" fontWeight={700} fontSize="0.62rem">
+                <Typography sx={{ color: '#EF476F', fontWeight: 700, fontSize: '0.6rem' }}>
                   {user.demerits} demerit{user.demerits !== 1 ? 's' : ''}
                 </Typography>
               </Box>
@@ -327,10 +364,18 @@ function AlarmsTab({ onNavigate }) {
       {/* ── Alarm list ── */}
       <Box sx={{ px: 2, pt: 2.5, pb: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="subtitle1" fontWeight={700}>Your Alarms</Typography>
-          <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 700, bgcolor: 'rgba(255,107,53,0.1)', px: 1.25, py: 0.35, borderRadius: 1.5, fontSize: '0.65rem' }}>
-            {alarms.filter(a => a.active).length} active
+          <Typography variant="subtitle1" fontWeight={700} sx={{ letterSpacing: '-0.2px' }}>
+            Your Alarms
           </Typography>
+          <Box sx={{
+            px: 1.25, py: 0.3, borderRadius: 1.5,
+            bgcolor: 'rgba(255,107,53,0.1)',
+            border: '1px solid rgba(255,107,53,0.18)',
+          }}>
+            <Typography sx={{ color: '#FF6B35', fontWeight: 700, fontSize: '0.62rem', letterSpacing: '0.04em' }}>
+              {alarms.filter(a => a.active).length} active
+            </Typography>
+          </Box>
         </Box>
 
         {sortedAlarms.length === 0 ? (
@@ -353,15 +398,19 @@ function AlarmsTab({ onNavigate }) {
         )}
       </Box>
 
-      {/* ── FAB with pulse ring ── */}
+      {/* ── FAB ── */}
       <Box sx={{ position: 'fixed', bottom: 80, right: 20 }}>
         <Box sx={{
           position: 'absolute', inset: -8, borderRadius: '50%',
-          border: '2px solid rgba(255,107,53,0.3)', pointerEvents: 'none',
-          '@keyframes fabRing': { '0%': { transform: 'scale(1)', opacity: 0.6 }, '100%': { transform: 'scale(1.6)', opacity: 0 } },
-          animation: 'fabRing 2.2s ease-out infinite',
+          border: '2px solid rgba(255,107,53,0.25)', pointerEvents: 'none',
+          animation: 'fabRing 2.4s ease-out infinite',
+          '@keyframes fabRing': { '0%': { transform: 'scale(1)', opacity: 0.5 }, '100%': { transform: 'scale(1.65)', opacity: 0 } },
         }} />
-        <Fab color="primary" onClick={() => onNavigate('/create-alarm')} sx={{ boxShadow: '0 6px 24px rgba(255,107,53,0.45)' }}>
+        <Fab
+          color="primary"
+          onClick={() => onNavigate('/create-alarm')}
+          sx={{ boxShadow: '0 8px 28px rgba(255,107,53,0.5)', '&:active': { transform: 'scale(0.94)' } }}
+        >
           <AddIcon />
         </Fab>
       </Box>
@@ -404,31 +453,40 @@ function AlarmCard({ alarm, isNext, now, onToggle, onDelete, onEdit, onTest }) {
   function closeMenu() { setMenuAnchor(null); }
 
   return (
-    <Card
-      sx={{
-        bgcolor: 'background.paper',
-        border: '1px solid rgba(255,255,255,0.07)',
-        borderLeft: `3px solid ${alarm.active ? pulseColor : 'rgba(255,255,255,0.12)'}`,
-        background: alarm.active ? `linear-gradient(90deg, ${pulseColor}08 0%, transparent 30%)` : undefined,
-        opacity: alarm.active ? 1 : 0.48,
-        transition: 'opacity 0.2s',
-        overflow: 'hidden',
-      }}
-    >
+    <Box sx={{
+      borderRadius: '20px',
+      overflow: 'hidden',
+      position: 'relative',
+      bgcolor: alarm.active ? 'rgba(20,20,36,0.95)' : 'rgba(16,16,26,0.7)',
+      border: '1px solid',
+      borderColor: alarm.active ? `${pulseColor}20` : 'rgba(255,255,255,0.05)',
+      opacity: alarm.active ? 1 : 0.5,
+      transition: 'opacity 0.25s, border-color 0.25s',
+      backdropFilter: 'blur(6px)',
+    }}>
+      {/* Active top edge gradient */}
+      {alarm.active && (
+        <Box sx={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: '2px',
+          background: `linear-gradient(90deg, ${pulseColor}90 0%, ${pulseColor}00 70%)`,
+        }} />
+      )}
+
       {/* ── Row 1: label / badge + switch + menu ── */}
-      <Box sx={{ px: 2, pt: 1.75, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+      <Box sx={{ px: 2, pt: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
           {isNext && alarm.active && (
             <Box sx={{
               px: 0.9, py: 0.15, borderRadius: 1, flexShrink: 0,
               bgcolor: 'rgba(255,107,53,0.15)',
-              fontSize: '0.52rem', fontWeight: 900, letterSpacing: 0.8,
-              color: 'primary.main', lineHeight: 1.6,
+              border: '1px solid rgba(255,107,53,0.3)',
+              fontSize: '0.5rem', fontWeight: 900, letterSpacing: '0.08em',
+              color: '#FF6B35', lineHeight: 1.7,
             }}>
               NEXT
             </Box>
           )}
-          <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: '0.72rem' }}>
+          <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', fontWeight: 500 }} noWrap>
             {alarm.label || 'Alarm'}
           </Typography>
         </Box>
@@ -443,7 +501,7 @@ function AlarmCard({ alarm, isNext, now, onToggle, onDelete, onEdit, onTest }) {
           />
           <IconButton
             onClick={e => setMenuAnchor(e.currentTarget)}
-            sx={{ color: 'rgba(255,255,255,0.35)', p: 1, touchAction: 'manipulation' }}
+            sx={{ color: 'rgba(255,255,255,0.3)', p: 0.75, touchAction: 'manipulation' }}
           >
             <MoreVertIcon sx={{ fontSize: 18 }} />
           </IconButton>
@@ -453,25 +511,26 @@ function AlarmCard({ alarm, isNext, now, onToggle, onDelete, onEdit, onTest }) {
       {/* ── Row 2: time + countdown ── */}
       <Box sx={{ px: 2, pb: 0, display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
         <Typography
-          fontWeight={800}
           sx={{
-            fontSize: '2.4rem',
+            fontSize: '2.6rem',
+            fontFamily: '"Fraunces", serif',
+            fontWeight: 700,
             lineHeight: 1.05,
             fontVariantNumeric: 'tabular-nums',
-            letterSpacing: '-0.5px',
+            letterSpacing: '-1.5px',
             ...(isNext && alarm.active && {
+              animation: 'nextGlow 4s ease-in-out infinite',
               '@keyframes nextGlow': {
                 '0%,100%': { textShadow: 'none' },
-                '50%':     { textShadow: `0 0 22px ${pulseColor}55` },
+                '50%':     { textShadow: `0 0 28px ${pulseColor}66` },
               },
-              animation: 'nextGlow 3s ease-in-out infinite',
             }),
           }}
         >
           {formatTime(alarm.time)}
         </Typography>
         {alarm.active && countdown && (
-          <Typography variant="caption" fontWeight={700} sx={{ color: pulseColor, opacity: 0.9, pb: 0.25 }}>
+          <Typography sx={{ fontWeight: 700, color: pulseColor, opacity: 0.85, pb: 0.25, fontSize: '0.78rem' }}>
             {countdown}
           </Typography>
         )}
@@ -484,12 +543,13 @@ function AlarmCard({ alarm, isNext, now, onToggle, onDelete, onEdit, onTest }) {
             const on = alarm.days.includes(i);
             return (
               <Box key={i} sx={{
-                width: 26, height: 26, borderRadius: '50%',
+                width: 25, height: 25, borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                bgcolor: on ? `${pulseColor}22` : 'rgba(255,255,255,0.05)',
-                color: on ? pulseColor : 'rgba(255,255,255,0.22)',
-                fontWeight: 700, fontSize: '0.58rem',
-                border: on ? `1px solid ${pulseColor}45` : '1px solid transparent',
+                bgcolor: on ? `${pulseColor}20` : 'rgba(255,255,255,0.04)',
+                color: on ? pulseColor : 'rgba(255,255,255,0.18)',
+                fontWeight: 700, fontSize: '0.56rem',
+                border: on ? `1px solid ${pulseColor}40` : '1px solid transparent',
+                transition: 'all 0.2s',
               }}>
                 {d}
               </Box>
@@ -500,25 +560,26 @@ function AlarmCard({ alarm, isNext, now, onToggle, onDelete, onEdit, onTest }) {
 
       {/* ── Row 4: pulse info ── */}
       {alarm.pulse && (
-        <Box sx={{ px: 2, pt: 1, pb: 1.75, display: 'flex', gap: 0.75, alignItems: 'center' }}>
+        <Box sx={{ px: 2, pt: 1.1, pb: 2, display: 'flex', gap: 0.75, alignItems: 'center' }}>
           <Box sx={{
-            px: 1.25, py: 0.3, borderRadius: 1.5,
-            bgcolor: `${pulseColor}15`, color: pulseColor,
-            fontSize: '0.63rem', fontWeight: 700, lineHeight: 1.6,
+            px: 1.1, py: 0.25, borderRadius: 1.5,
+            bgcolor: `${pulseColor}12`, color: pulseColor,
+            fontSize: '0.6rem', fontWeight: 700, lineHeight: 1.7,
+            border: `1px solid ${pulseColor}22`,
           }}>
             {PULSE_LABELS[alarm.pulse.intensity]}
           </Box>
           <Box sx={{
-            px: 1.25, py: 0.3, borderRadius: 1.5,
-            bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.45)',
-            fontSize: '0.63rem', fontWeight: 600, lineHeight: 1.6,
+            px: 1.1, py: 0.25, borderRadius: 1.5,
+            bgcolor: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.38)',
+            fontSize: '0.6rem', fontWeight: 600, lineHeight: 1.7,
           }}>
             {alarm.pulse.games?.length || 1} game{alarm.pulse.games?.length !== 1 ? 's' : ''}
           </Box>
         </Box>
       )}
 
-      {/* ── Context menu ── */}
+      {/* Context menu */}
       <Menu
         anchorEl={menuAnchor}
         open={Boolean(menuAnchor)}
@@ -530,7 +591,7 @@ function AlarmCard({ alarm, isNext, now, onToggle, onDelete, onEdit, onTest }) {
             bgcolor: '#1C1C34', borderRadius: 2.5,
             border: '1px solid rgba(255,255,255,0.09)',
             minWidth: 170,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
           },
         }}
       >
@@ -548,7 +609,7 @@ function AlarmCard({ alarm, isNext, now, onToggle, onDelete, onEdit, onTest }) {
           <DeleteOutlineIcon fontSize="small" /> Delete
         </MenuItem>
       </Menu>
-    </Card>
+    </Box>
   );
 }
 
@@ -558,7 +619,6 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
   const [label, setLabel] = useState(alarm.label || '');
   const [days,  setDays]  = useState(alarm.days || []);
 
-  // Parse existing 24h time into drum values
   const initH24 = parseInt(alarm.time.split(':')[0], 10);
   const initM   = parseInt(alarm.time.split(':')[1], 10);
   const initIsPM = initH24 >= 12;
@@ -579,16 +639,15 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
   }
 
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="xs"
-      PaperProps={{ sx: { bgcolor: '#1E1E35', borderRadius: 3 } }}>
-      <DialogTitle fontWeight={700}>Edit Alarm</DialogTitle>
+    <Dialog open onClose={onClose} fullWidth maxWidth="xs">
+      <DialogTitle fontWeight={800} sx={{ pb: 1 }}>Edit Alarm</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: '8px !important' }}>
         <TextField
           label="Label" value={label} onChange={e => setLabel(e.target.value)}
           fullWidth size="small" slotProps={{ inputLabel: { shrink: true } }}
+          sx={dialogFieldSx}
         />
 
-        {/* iOS scroll drum time picker */}
         <Box>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>Time</Typography>
           <Box sx={{
@@ -598,7 +657,7 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
           }}>
             <ScrollDrum items={HOURS}   value={drumH} onChange={setDrumH} width={80} />
             <Typography variant="h3" fontWeight={900} color="primary.main"
-              sx={{ userSelect: 'none', mb: 1, mx: 0.5, lineHeight: 1 }}>:</Typography>
+              sx={{ userSelect: 'none', mb: 1, mx: 0.5, lineHeight: 1, fontFamily: '"Fraunces", serif' }}>:</Typography>
             <ScrollDrum items={MINUTES} value={drumM} onChange={setDrumM} width={80} />
             <Box sx={{ width: 14 }} />
             <ScrollDrum items={PERIODS} value={drumP} onChange={setDrumP} width={60} />
@@ -617,8 +676,9 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   bgcolor: days.includes(i) ? 'primary.main' : 'rgba(255,255,255,0.07)',
                   cursor: 'pointer', fontWeight: 700, fontSize: '0.68rem',
-                  userSelect: 'none', transition: 'background 0.15s',
-                  '&:hover': { bgcolor: days.includes(i) ? 'primary.dark' : 'rgba(255,255,255,0.14)' },
+                  userSelect: 'none', touchAction: 'manipulation',
+                  transition: 'background 0.15s, transform 0.1s',
+                  '&:active': { transform: 'scale(0.9)' },
                 }}
               >
                 {d}
@@ -635,6 +695,16 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
   );
 }
 
+const dialogFieldSx = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: 2.5,
+    '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
+    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
+    '&.Mui-focused fieldset': { borderColor: '#FF6B35' },
+  },
+  '& .MuiInputLabel-root.Mui-focused': { color: '#FF6B35' },
+};
+
 // ─── Stats Tab ────────────────────────────────────────────────────────────────
 
 function StatsTab() {
@@ -644,7 +714,6 @@ function StatsTab() {
   const xpPct       = (xpInLevel / XP_PER_LEVEL) * 100;
   const activeCount = alarms.filter(a => a.active).length;
 
-  // Show 5 levels centred on current
   const levelNodes  = [-2, -1, 0, 1, 2].map(offset => user.level + offset).filter(l => l >= 1);
 
   const RANK_LABELS = { 1: 'Newcomer', 2: 'Riser', 3: 'Consistent', 4: 'Dedicated', 5: 'Champion', 6: 'Legend' };
@@ -659,15 +728,15 @@ function StatsTab() {
     <Box>
       {/* Header hero */}
       <Box sx={{
-        background: 'linear-gradient(160deg, #1A0A2E 0%, #16162A 100%)',
-        px: 3, pt: 5, pb: 4,
-        borderBottom: '1px solid rgba(255,107,53,0.1)',
+        background: 'linear-gradient(170deg, #16082E 0%, #14142A 55%, #0D0D1A 100%)',
+        px: 3, pt: 5.5, pb: 4,
+        borderBottom: '1px solid rgba(255,107,53,0.08)',
         position: 'relative', overflow: 'hidden',
       }}>
         <Box sx={{
-          position: 'absolute', width: 280, height: 280, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,107,53,0.1) 0%, transparent 70%)',
-          top: -100, right: -60, filter: 'blur(45px)', pointerEvents: 'none',
+          position: 'absolute', width: 300, height: 300, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,107,53,0.12) 0%, transparent 70%)',
+          top: -100, right: -60, filter: 'blur(50px)', pointerEvents: 'none',
         }} />
 
         {/* Big level display */}
@@ -677,35 +746,44 @@ function StatsTab() {
               position: 'absolute', inset: -4, borderRadius: '50%',
               border: '2.5px solid transparent',
               borderTopColor: '#FF6B35', borderRightColor: '#FFD166',
-              '@keyframes statsRing': { to: { transform: 'rotate(360deg)' } },
               animation: 'statsRing 5s linear infinite',
+              '@keyframes statsRing': { to: { transform: 'rotate(360deg)' } },
             }} />
-            <Box sx={{ position: 'absolute', inset: -4, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.06)' }} />
+            <Box sx={{ position: 'absolute', inset: -4, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.05)' }} />
             <Avatar sx={{
               width: 80, height: 80,
-              background: 'linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)',
-              fontWeight: 900, fontSize: '1.6rem',
-              boxShadow: '0 0 28px rgba(255,107,53,0.4)',
+              background: 'linear-gradient(135deg, #FF6B35 0%, #E54E1B 100%)',
+              fontWeight: 900, fontSize: '1.7rem',
+              fontFamily: '"Fraunces", serif',
+              boxShadow: '0 0 32px rgba(255,107,53,0.45)',
             }}>
               {user.level}
             </Avatar>
           </Box>
           <Box>
-            <Typography variant="caption" color="primary.main" fontWeight={800} letterSpacing={1.5} fontSize="0.6rem">
+            <Typography sx={{ color: '#FF6B35', fontWeight: 800, letterSpacing: '0.12em', fontSize: '0.58rem', mb: 0.25 }}>
               CURRENT RANK
             </Typography>
-            <Typography variant="h4" fontWeight={900} sx={{ lineHeight: 1.1 }}>{rankLabel}</Typography>
-            <Typography variant="body2" color="text.secondary">{user.xp} total XP earned</Typography>
+            <Typography variant="h4" fontWeight={900} sx={{ lineHeight: 1.1, letterSpacing: '-0.5px' }}>
+              {rankLabel}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+              {user.xp} total XP earned
+            </Typography>
           </Box>
         </Box>
 
         {/* XP bar */}
-        <Box sx={{ p: 2, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <Box sx={{
+          p: 2, borderRadius: 3,
+          bgcolor: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.06)',
+          backdropFilter: 'blur(10px)',
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="caption" fontWeight={700} color="rgba(255,255,255,0.7)">
+            <Typography sx={{ fontWeight: 700, color: 'rgba(255,255,255,0.65)', fontSize: '0.7rem' }}>
               Level {user.level} → {user.level + 1}
             </Typography>
-            <Typography variant="caption" fontWeight={800} color="primary.main">
+            <Typography sx={{ fontWeight: 800, color: '#FF6B35', fontSize: '0.7rem', fontVariantNumeric: 'tabular-nums' }}>
               {xpInLevel}/{XP_PER_LEVEL} XP
             </Typography>
           </Box>
@@ -714,12 +792,12 @@ function StatsTab() {
               variant="determinate"
               value={xpPct}
               sx={{
-                height: 12, borderRadius: 6,
-                bgcolor: 'rgba(255,255,255,0.08)',
+                height: 10, borderRadius: 99,
+                bgcolor: 'rgba(255,255,255,0.07)',
                 '& .MuiLinearProgress-bar': {
-                  borderRadius: 6,
+                  borderRadius: 99,
                   background: 'linear-gradient(90deg, #FF6B35 0%, #FFD166 100%)',
-                  boxShadow: '0 0 12px rgba(255,107,53,0.45)',
+                  boxShadow: '0 0 14px rgba(255,107,53,0.5)',
                 },
               }}
             />
@@ -727,13 +805,12 @@ function StatsTab() {
               <Box key={pct} sx={{
                 position: 'absolute', top: '50%', left: `${pct * 100}%`,
                 transform: 'translate(-50%, -50%)',
-                width: 4, height: 4, borderRadius: '50%', zIndex: 1, pointerEvents: 'none',
-                bgcolor: xpPct / 100 >= pct ? '#fff' : 'rgba(255,255,255,0.2)',
-                boxShadow: xpPct / 100 >= pct ? '0 0 5px rgba(255,255,255,0.7)' : 'none',
+                width: 3, height: 3, borderRadius: '50%', zIndex: 1, pointerEvents: 'none',
+                bgcolor: xpPct / 100 >= pct ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.15)',
               }} />
             ))}
           </Box>
-          <Typography variant="caption" color="text.disabled" fontSize="0.65rem" sx={{ mt: 0.75, display: 'block' }}>
+          <Typography sx={{ color: 'text.disabled', fontSize: '0.62rem', mt: 0.75, display: 'block' }}>
             {xpToNext} XP needed to reach Level {user.level + 1}
           </Typography>
         </Box>
@@ -742,8 +819,8 @@ function StatsTab() {
       <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
 
         {/* Level journey */}
-        <Card sx={{ p: 2.5, bgcolor: 'background.paper', border: '1px solid rgba(255,255,255,0.07)' }}>
-          <Typography variant="caption" color="text.secondary" fontWeight={700} letterSpacing={1} fontSize="0.62rem" sx={{ mb: 2, display: 'block' }}>
+        <Card sx={{ p: 2.5, bgcolor: 'rgba(20,20,36,0.95)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <Typography sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: '0.1em', fontSize: '0.6rem', mb: 2, display: 'block' }}>
             LEVEL JOURNEY
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -754,31 +831,32 @@ function StatsTab() {
                 <Box key={lvl} sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
                     <Box sx={{
-                      width: isCurrent ? 44 : 32, height: isCurrent ? 44 : 32,
+                      width: isCurrent ? 46 : 32, height: isCurrent ? 46 : 32,
                       borderRadius: '50%',
                       background: isCurrent
                         ? 'linear-gradient(135deg, #FF6B35, #FFD166)'
-                        : isPast ? 'rgba(255,107,53,0.25)' : 'rgba(255,255,255,0.06)',
-                      border: isCurrent ? 'none' : isPast ? '1.5px solid rgba(255,107,53,0.4)' : '1.5px solid rgba(255,255,255,0.12)',
+                        : isPast ? 'rgba(255,107,53,0.2)' : 'rgba(255,255,255,0.05)',
+                      border: isCurrent ? 'none' : isPast ? '1.5px solid rgba(255,107,53,0.35)' : '1.5px solid rgba(255,255,255,0.1)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontWeight: 900, fontSize: isCurrent ? '0.9rem' : '0.7rem',
-                      color: isCurrent ? '#fff' : isPast ? '#FF6B35' : 'rgba(255,255,255,0.3)',
-                      boxShadow: isCurrent ? '0 0 16px rgba(255,107,53,0.5)' : 'none',
+                      fontWeight: 900, fontSize: isCurrent ? '0.88rem' : '0.68rem',
+                      fontFamily: isCurrent ? '"Fraunces", serif' : 'inherit',
+                      color: isCurrent ? '#fff' : isPast ? '#FF6B35' : 'rgba(255,255,255,0.25)',
+                      boxShadow: isCurrent ? '0 0 20px rgba(255,107,53,0.5)' : 'none',
                       transition: 'all 0.3s',
                     }}>
                       {isPast
-                        ? <CheckCircleOutlineIcon sx={{ fontSize: isCurrent ? '1.2rem' : '0.9rem', color: '#FF6B35' }} />
+                        ? <CheckCircleOutlineIcon sx={{ fontSize: isCurrent ? '1.2rem' : '0.88rem', color: '#FF6B35' }} />
                         : lvl}
                     </Box>
-                    <Typography variant="caption" fontSize="0.55rem" fontWeight={isCurrent ? 800 : 500}
-                      color={isCurrent ? 'primary.main' : 'text.disabled'}>
+                    <Typography sx={{ fontSize: '0.52rem', fontWeight: isCurrent ? 800 : 500,
+                      color: isCurrent ? 'primary.main' : 'text.disabled' }}>
                       {isCurrent ? 'YOU' : `Lv.${lvl}`}
                     </Typography>
                   </Box>
                   {i < levelNodes.length - 1 && (
                     <Box sx={{
                       flex: 1, height: 2, mx: 0.5,
-                      bgcolor: lvl < user.level ? 'rgba(255,107,53,0.35)' : 'rgba(255,255,255,0.07)',
+                      bgcolor: lvl < user.level ? 'rgba(255,107,53,0.3)' : 'rgba(255,255,255,0.06)',
                       borderRadius: 1,
                     }} />
                   )}
@@ -789,27 +867,30 @@ function StatsTab() {
         </Card>
 
         {/* Metric grid */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-          <MetricCard Icon={LocalFireDepartmentIcon} label="Day Streak"  value={user.streak}   unit={user.streak === 1 ? 'day' : 'days'} color="#FFD166" />
-          <MetricCard Icon={EmojiEventsIcon}         label="Total XP"    value={user.xp}       color="#FF6B35" />
-          <MetricCard Icon={AlarmIcon}               label="Alarms Set"  value={alarms.length} color="#06D6A0" />
-          <MetricCard Icon={NotificationsActiveIcon} label="Active"      value={activeCount}   color="#8B5CF6" />
-          <MetricCard Icon={TaskAltIcon}             label="Routines Won" value={wakeStats?.success ?? 0} color="#06D6A0" />
-          <MetricCard Icon={WarningAmberIcon}        label="Routines Lost" value={wakeStats?.failed ?? 0} color="#EF476F" />
+        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.75 }}>
+          <MetricCard Icon={LocalFireDepartmentIcon} label="Day Streak"    value={user.streak}           unit={user.streak === 1 ? 'day' : 'days'} color="#FFD166" />
+          <MetricCard Icon={EmojiEventsIcon}         label="Total XP"      value={user.xp}               color="#FF6B35" />
+          <MetricCard Icon={AlarmIcon}               label="Alarms Set"    value={alarms.length}         color="#06D6A0" />
+          <MetricCard Icon={NotificationsActiveIcon} label="Active"        value={activeCount}           color="#8B5CF6" />
+          <MetricCard Icon={TaskAltIcon}             label="Routines Won"  value={wakeStats?.success ?? 0} color="#06D6A0" />
+          <MetricCard Icon={WarningAmberIcon}        label="Routines Lost" value={wakeStats?.failed ?? 0}  color="#EF476F" />
         </Box>
 
-        {/* Demerit warning — only shown if relevant */}
+        {/* Demerit warning */}
         {user.demerits > 0 && (
-          <Card sx={{
-            p: 2.5, bgcolor: 'rgba(239,71,111,0.07)',
-            border: '1px solid rgba(239,71,111,0.25)',
-          }}>
+          <Card sx={{ p: 2.5, bgcolor: 'rgba(239,71,111,0.06)', border: '1px solid rgba(239,71,111,0.2)' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box sx={{ width: 40, height: 40, borderRadius: 2.5, bgcolor: 'rgba(239,71,111,0.12)', border: '1px solid rgba(239,71,111,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Box sx={{
+                width: 40, height: 40, borderRadius: 2.5, flexShrink: 0,
+                bgcolor: 'rgba(239,71,111,0.1)', border: '1px solid rgba(239,71,111,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
                 <WarningAmberIcon sx={{ fontSize: '1.4rem', color: '#EF476F' }} />
               </Box>
               <Box>
-                <Typography fontWeight={800} color="#EF476F">{user.demerits} Demerit{user.demerits !== 1 ? 's' : ''}</Typography>
+                <Typography fontWeight={800} color="#EF476F">
+                  {user.demerits} Demerit{user.demerits !== 1 ? 's' : ''}
+                </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Wake up on time to clear these and protect your XP.
                 </Typography>
@@ -818,32 +899,34 @@ function StatsTab() {
           </Card>
         )}
 
-        {/* Next reward teaser */}
-        <Card sx={{ p: 2.5, bgcolor: 'background.paper', border: '1px solid rgba(255,255,255,0.07)' }}>
-          <Typography variant="caption" color="text.secondary" fontWeight={700} letterSpacing={1} fontSize="0.62rem" sx={{ mb: 1.5, display: 'block' }}>
+        {/* Next milestone */}
+        <Card sx={{ p: 2.5, bgcolor: 'rgba(20,20,36,0.95)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <Typography sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: '0.1em', fontSize: '0.6rem', mb: 1.5, display: 'block' }}>
             NEXT MILESTONE
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box sx={{
               width: 44, height: 44, borderRadius: 2.5, flexShrink: 0,
-              bgcolor: 'rgba(255,107,53,0.1)', border: '1px dashed rgba(255,107,53,0.3)',
+              bgcolor: 'rgba(255,107,53,0.08)', border: '1px dashed rgba(255,107,53,0.25)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <EmojiEventsIcon sx={{ fontSize: '1.5rem', color: '#FFD166' }} />
+              <EmojiEventsIcon sx={{ fontSize: '1.4rem', color: '#FFD166' }} />
             </Box>
             <Box sx={{ flex: 1 }}>
-              <Typography fontWeight={800}>Reach Level {user.level + 1}</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+              <Typography fontWeight={800} sx={{ letterSpacing: '-0.2px' }}>
+                Reach Level {user.level + 1}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
                 <LinearProgress
                   variant="determinate"
                   value={xpPct}
                   sx={{
-                    flex: 1, height: 5, borderRadius: 3,
-                    bgcolor: 'rgba(255,255,255,0.07)',
-                    '& .MuiLinearProgress-bar': { borderRadius: 3, background: 'linear-gradient(90deg, #FF6B35, #FFD166)' },
+                    flex: 1, height: 5, borderRadius: 99,
+                    bgcolor: 'rgba(255,255,255,0.06)',
+                    '& .MuiLinearProgress-bar': { borderRadius: 99, background: 'linear-gradient(90deg, #FF6B35, #FFD166)' },
                   }}
                 />
-                <Typography variant="caption" color="primary.main" fontWeight={700} fontSize="0.65rem" sx={{ flexShrink: 0 }}>
+                <Typography sx={{ color: '#FF6B35', fontWeight: 700, fontSize: '0.62rem', flexShrink: 0 }}>
                   {Math.round(xpPct)}%
                 </Typography>
               </Box>
@@ -857,28 +940,40 @@ function StatsTab() {
 
 function MetricCard({ Icon, label, value, unit, color }) {
   return (
-    <Card sx={{
-      p: 2.5, bgcolor: 'background.paper',
-      border: '1px solid rgba(255,255,255,0.06)',
+    <Box sx={{
+      p: 2.5, borderRadius: '20px',
+      bgcolor: 'rgba(18,18,32,0.9)',
+      border: `1px solid ${color}18`,
       position: 'relative', overflow: 'hidden',
+      backdropFilter: 'blur(6px)',
     }}>
+      {/* Corner glow */}
       <Box sx={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 2,
-        background: `linear-gradient(90deg, ${color}, ${color}00)`,
+        position: 'absolute', top: -16, right: -16,
+        width: 70, height: 70, borderRadius: '50%',
+        background: `radial-gradient(circle, ${color}22, transparent 70%)`,
+        filter: 'blur(12px)', pointerEvents: 'none',
       }} />
       <Box sx={{
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        width: 34, height: 34, borderRadius: 2, mb: 1.25,
-        bgcolor: `${color}18`, border: `1px solid ${color}30`,
+        width: 36, height: 36, borderRadius: 2.25, mb: 1.5,
+        bgcolor: `${color}14`, border: `1px solid ${color}22`,
+        position: 'relative',
       }}>
         <Icon sx={{ fontSize: '1.2rem', color }} />
       </Box>
-      <Typography variant="h4" fontWeight={900} sx={{ color, lineHeight: 1 }}>
+      <Typography sx={{
+        fontFamily: '"Fraunces", serif',
+        fontSize: '1.9rem', fontWeight: 700, lineHeight: 1,
+        color, fontVariantNumeric: 'tabular-nums',
+      }}>
         {value}
       </Typography>
       {unit && <Typography variant="caption" color="text.secondary"> {unit}</Typography>}
-      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.25 }}>{label}</Typography>
-    </Card>
+      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.5, fontSize: '0.62rem' }}>
+        {label}
+      </Typography>
+    </Box>
   );
 }
 
@@ -905,7 +1000,6 @@ function ProfileTab() {
   const [confirmReset, setConfirmReset] = useState(false);
 
   const avatarOpt = AVATAR_OPTIONS.find(a => a.value === user.profileIcon) ?? AVATAR_OPTIONS[0];
-
   const morningLabel = MORNING_TYPES_PROFILE.find(t => t.value === user.morningRating)?.label || '—';
   const gameLabel    = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush' }[user.favoriteGame] || '—';
   const email = session?.user?.email || '—';
@@ -930,35 +1024,34 @@ function ProfileTab() {
   return (
     <Box>
       {/* Header */}
-      <Box
-        sx={{
-          background: 'linear-gradient(160deg, #1A0A2E 0%, #16162A 100%)',
-          p: 3, pt: 5, pb: 4,
-          borderBottom: '1px solid rgba(255,107,53,0.1)',
-          position: 'relative', overflow: 'hidden',
-        }}
-      >
+      <Box sx={{
+        background: 'linear-gradient(170deg, #16082E 0%, #14142A 55%, #0D0D1A 100%)',
+        p: 3, pt: 5.5, pb: 4,
+        borderBottom: '1px solid rgba(255,107,53,0.08)',
+        position: 'relative', overflow: 'hidden',
+      }}>
         <Box sx={{
-          position: 'absolute', width: 260, height: 260, borderRadius: '50%',
+          position: 'absolute', width: 280, height: 280, borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(255,107,53,0.1) 0%, transparent 70%)',
-          top: -80, right: -60, filter: 'blur(40px)', pointerEvents: 'none',
-          '@keyframes profOrb': { '0%,100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.12)' } },
+          top: -80, right: -60, filter: 'blur(44px)', pointerEvents: 'none',
           animation: 'profOrb 11s ease-in-out infinite',
+          '@keyframes profOrb': { '0%,100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.1)' } },
         }} />
+
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{
-              width: 64, height: 64, borderRadius: '50%', flexShrink: 0,
-              bgcolor: `${avatarOpt.color}20`,
+              width: 66, height: 66, borderRadius: '50%', flexShrink: 0,
+              bgcolor: `${avatarOpt.color}18`,
               border: `2.5px solid ${avatarOpt.color}`,
-              boxShadow: `0 0 0 3px ${avatarOpt.color}22, 0 0 28px ${avatarOpt.color}44`,
+              boxShadow: `0 0 0 3px ${avatarOpt.color}18, 0 0 30px ${avatarOpt.color}40`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'all 0.3s',
             }}>
-              <avatarOpt.Icon sx={{ fontSize: '1.9rem', color: avatarOpt.color }} />
+              <avatarOpt.Icon sx={{ fontSize: '1.85rem', color: avatarOpt.color }} />
             </Box>
             <Box>
-              <Typography variant="h5" fontWeight={800}>
+              <Typography variant="h5" fontWeight={800} sx={{ letterSpacing: '-0.3px' }}>
                 {editing ? (draft.name || 'Your Name') : user.name}
               </Typography>
               <Typography variant="body2" color="text.secondary">
@@ -970,7 +1063,7 @@ function ProfileTab() {
             <IconButton
               onClick={startEdit}
               size="small"
-              sx={{ color: 'rgba(255,255,255,0.45)', bgcolor: 'rgba(255,255,255,0.07)', '&:hover': { bgcolor: 'rgba(255,255,255,0.13)' } }}
+              sx={{ color: 'rgba(255,255,255,0.4)', bgcolor: 'rgba(255,255,255,0.06)', '&:hover': { bgcolor: 'rgba(255,255,255,0.12)' } }}
             >
               <EditIcon fontSize="small" />
             </IconButton>
@@ -980,24 +1073,18 @@ function ProfileTab() {
 
       <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
         {editing ? (
-          /* ── Edit form ── */
           <>
-            {/* Email (read-only) */}
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>Email</Typography>
               <TextField
-                fullWidth
-                size="small"
-                value={email}
-                disabled
+                fullWidth size="small" value={email} disabled
                 sx={{
                   '& .MuiOutlinedInput-root': { borderRadius: 2 },
-                  '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: 'rgba(255,255,255,0.6)' },
+                  '& .MuiInputBase-input.Mui-disabled': { WebkitTextFillColor: 'rgba(255,255,255,0.5)' },
                 }}
               />
             </Box>
 
-            {/* Name */}
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>Name</Typography>
               <TextField
@@ -1013,7 +1100,6 @@ function ProfileTab() {
               />
             </Box>
 
-            {/* Wake time */}
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>Default Wake-up Time</Typography>
               <TextField
@@ -1025,7 +1111,6 @@ function ProfileTab() {
               />
             </Box>
 
-            {/* Morning type */}
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 1.25, display: 'block' }}>Morning Type</Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
@@ -1037,17 +1122,17 @@ function ProfileTab() {
                       onClick={() => setDraft(d => ({ ...d, morningRating: type.value }))}
                       sx={{
                         px: 2, py: 1.25, borderRadius: 2.5, cursor: 'pointer',
-                        border: sel ? '1.5px solid rgba(255,107,53,0.5)' : '1.5px solid rgba(255,255,255,0.07)',
-                        bgcolor: sel ? 'rgba(255,107,53,0.08)' : 'rgba(255,255,255,0.03)',
+                        border: sel ? '1.5px solid rgba(255,107,53,0.45)' : '1.5px solid rgba(255,255,255,0.06)',
+                        bgcolor: sel ? 'rgba(255,107,53,0.07)' : 'rgba(255,255,255,0.025)',
                         display: 'flex', alignItems: 'center', gap: 1.5,
-                        transition: 'all 0.18s',
+                        transition: 'all 0.18s', touchAction: 'manipulation',
+                        '&:active': { transform: 'scale(0.98)' },
                       }}
                     >
-                      <Box sx={{ width: 28, height: 28, borderRadius: 1.5, bgcolor: sel ? 'rgba(255,107,53,0.15)' : 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Box sx={{ width: 28, height: 28, borderRadius: 1.5, bgcolor: sel ? 'rgba(255,107,53,0.14)' : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <type.Icon sx={{ fontSize: '1rem', color: sel ? 'primary.main' : 'text.secondary' }} />
                       </Box>
-                      <Typography variant="body2" fontWeight={sel ? 700 : 400}
-                        sx={{ color: sel ? 'primary.main' : 'text.primary' }}>
+                      <Typography variant="body2" fontWeight={sel ? 700 : 400} sx={{ color: sel ? 'primary.main' : 'text.primary' }}>
                         {type.label}
                       </Typography>
                     </Box>
@@ -1056,7 +1141,6 @@ function ProfileTab() {
               </Box>
             </Box>
 
-            {/* Preferred game */}
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 1.25, display: 'block' }}>Preferred Game</Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
@@ -1068,17 +1152,17 @@ function ProfileTab() {
                       onClick={() => setDraft(d => ({ ...d, favoriteGame: game.value }))}
                       sx={{
                         px: 2, py: 1.25, borderRadius: 2.5, cursor: 'pointer',
-                        border: sel ? '1.5px solid rgba(255,107,53,0.5)' : '1.5px solid rgba(255,255,255,0.07)',
-                        bgcolor: sel ? 'rgba(255,107,53,0.08)' : 'rgba(255,255,255,0.03)',
+                        border: sel ? '1.5px solid rgba(255,107,53,0.45)' : '1.5px solid rgba(255,255,255,0.06)',
+                        bgcolor: sel ? 'rgba(255,107,53,0.07)' : 'rgba(255,255,255,0.025)',
                         display: 'flex', alignItems: 'center', gap: 1.5,
-                        transition: 'all 0.18s',
+                        transition: 'all 0.18s', touchAction: 'manipulation',
+                        '&:active': { transform: 'scale(0.98)' },
                       }}
                     >
-                      <Box sx={{ width: 28, height: 28, borderRadius: 1.5, bgcolor: sel ? 'rgba(255,107,53,0.15)' : 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Box sx={{ width: 28, height: 28, borderRadius: 1.5, bgcolor: sel ? 'rgba(255,107,53,0.14)' : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <game.Icon sx={{ fontSize: '1rem', color: sel ? 'primary.main' : 'text.secondary' }} />
                       </Box>
-                      <Typography variant="body2" fontWeight={sel ? 700 : 400}
-                        sx={{ color: sel ? 'primary.main' : 'text.primary' }}>
+                      <Typography variant="body2" fontWeight={sel ? 700 : 400} sx={{ color: sel ? 'primary.main' : 'text.primary' }}>
                         {game.label}
                       </Typography>
                     </Box>
@@ -1087,7 +1171,6 @@ function ProfileTab() {
               </Box>
             </Box>
 
-            {/* Morning goal */}
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>Morning Goal</Typography>
               <TextField
@@ -1104,41 +1187,34 @@ function ProfileTab() {
               </Typography>
             </Box>
 
-            {/* Action buttons */}
             <Box sx={{ display: 'flex', gap: 1.5, mt: 0.5 }}>
               <Button
                 variant="outlined" fullWidth onClick={cancelEdit}
-                sx={{ borderRadius: 2, color: 'text.secondary', borderColor: 'rgba(255,255,255,0.15)', '&:hover': { borderColor: 'rgba(255,255,255,0.3)' } }}
+                sx={{ borderRadius: 2.5, color: 'text.secondary', borderColor: 'rgba(255,255,255,0.12)', '&:hover': { borderColor: 'rgba(255,255,255,0.25)' } }}
               >
                 Cancel
               </Button>
               <Button
                 variant="contained" fullWidth onClick={saveEdit}
                 disabled={!draft.name.trim()}
-                sx={{
-                  borderRadius: 2,
-                  background: draft.name.trim() ? 'linear-gradient(135deg, #FF6B35, #FF8C5A)' : undefined,
-                  boxShadow: draft.name.trim() ? '0 4px 16px rgba(255,107,53,0.3)' : 'none',
-                }}
               >
                 Save Changes
               </Button>
             </Box>
           </>
         ) : (
-          /* ── Display mode ── */
           <>
-            <Card sx={{ bgcolor: 'background.paper', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-              <ProfileRow label="Email" value={email} />
-              <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
+            <Card sx={{ bgcolor: 'rgba(20,20,36,0.95)', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+              <ProfileRow label="Email"                value={email} />
+              <Divider sx={{ borderColor: 'rgba(255,255,255,0.055)' }} />
               <ProfileRow label="Default wake-up time" value={formatTime(user.wakeTime)} />
-              <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
-              <ProfileRow label="Morning type"   value={morningLabel} />
-              <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
-              <ProfileRow label="Preferred game" value={gameLabel} />
+              <Divider sx={{ borderColor: 'rgba(255,255,255,0.055)' }} />
+              <ProfileRow label="Morning type"         value={morningLabel} />
+              <Divider sx={{ borderColor: 'rgba(255,255,255,0.055)' }} />
+              <ProfileRow label="Preferred game"       value={gameLabel} />
               {user.wakeGoal && (
                 <>
-                  <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
+                  <Divider sx={{ borderColor: 'rgba(255,255,255,0.055)' }} />
                   <ProfileRow label="Morning goal" value={user.wakeGoal} />
                 </>
               )}
@@ -1147,7 +1223,7 @@ function ProfileTab() {
             <Button
               variant="outlined" color="error" fullWidth
               onClick={() => setConfirmReset(true)}
-              sx={{ mt: 0.5, borderRadius: 2, py: 1.25 }}
+              sx={{ mt: 0.5, borderRadius: 2.5, py: 1.25 }}
             >
               Reset All Data
             </Button>
@@ -1171,8 +1247,8 @@ function ProfileTab() {
 function ProfileRow({ label, value }) {
   return (
     <Box sx={{ px: 2.5, py: 1.75, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
-      <Typography variant="body2" color="text.secondary">{label}</Typography>
-      <Typography variant="body2" fontWeight={600} sx={{ textAlign: 'right' }}>{value}</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>{label}</Typography>
+      <Typography variant="body2" fontWeight={600} sx={{ textAlign: 'right', color: 'text.primary' }}>{value}</Typography>
     </Box>
   );
 }
@@ -1181,8 +1257,8 @@ function ProfileRow({ label, value }) {
 
 function ConfirmDialog({ open = true, title, body, confirmLabel, confirmColor = 'primary', onClose, onConfirm }) {
   return (
-    <Dialog open={open} onClose={onClose} PaperProps={{ sx: { bgcolor: '#1E1E35', borderRadius: 3 } }}>
-      <DialogTitle fontWeight={700}>{title}</DialogTitle>
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle fontWeight={800}>{title}</DialogTitle>
       <DialogContent>
         <Typography color="text.secondary">{body}</Typography>
       </DialogContent>
@@ -1194,27 +1270,36 @@ function ConfirmDialog({ open = true, title, body, confirmLabel, confirmColor = 
   );
 }
 
-
 function EmptyState({ onAdd }) {
   return (
-    <Card
-      sx={{
-        p: 4, textAlign: 'center', bgcolor: 'background.paper',
-        border: '1px dashed rgba(255,107,53,0.25)',
-        '@keyframes emptyFloat': {
-          '0%,100%': { transform: 'translateY(0)' },
-          '50%':     { transform: 'translateY(-6px)' },
-        },
-      }}
-    >
-      <Box sx={{ animation: 'emptyFloat 3s ease-in-out infinite', display: 'inline-flex', mb: 2, p: 2.5, borderRadius: '50%', bgcolor: 'rgba(255,107,53,0.08)', border: '1px solid rgba(255,107,53,0.18)' }}>
-        <AlarmIcon sx={{ fontSize: '3rem', color: 'primary.main', opacity: 0.7 }} />
+    <Box sx={{
+      p: 4, textAlign: 'center', borderRadius: '20px',
+      border: '1px dashed rgba(255,107,53,0.2)',
+      bgcolor: 'rgba(255,107,53,0.03)',
+    }}>
+      <Box sx={{
+        display: 'inline-flex', mb: 2.5,
+        animation: 'emptyFloat 3.5s ease-in-out infinite',
+        '@keyframes emptyFloat': { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-8px)' } },
+      }}>
+        <Box sx={{
+          p: 2.5, borderRadius: '50%',
+          bgcolor: 'rgba(255,107,53,0.07)',
+          border: '1px solid rgba(255,107,53,0.15)',
+          boxShadow: '0 0 30px rgba(255,107,53,0.12)',
+        }}>
+          <AlarmIcon sx={{ fontSize: '2.75rem', color: 'primary.main', opacity: 0.75 }} />
+        </Box>
       </Box>
-      <Typography variant="h6" fontWeight={700} gutterBottom>No alarms yet, mate</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography variant="h6" fontWeight={800} gutterBottom sx={{ letterSpacing: '-0.3px' }}>
+        No alarms yet, mate
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3, lineHeight: 1.6 }}>
         Chuck in your first alarm and get your morning sorted
       </Typography>
-      <Button variant="contained" startIcon={<AddIcon />} onClick={onAdd}>Create Alarm</Button>
-    </Card>
+      <Button variant="contained" startIcon={<AddIcon />} onClick={onAdd}>
+        Create Alarm
+      </Button>
+    </Box>
   );
 }
