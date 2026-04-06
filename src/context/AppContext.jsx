@@ -69,6 +69,7 @@ export function AppProvider({ children }) {
   const [alarms, setAlarms] = useState([]);
   const [activeAlarm, setActiveAlarm] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [wakeStats, setWakeStats] = useState({ success: 0, failed: 0, loading: false });
 
   // Onboarding data collected before auth — survives OAuth redirects via sessionStorage
   const [pendingOnboarding, setPendingOnboardingState] = useState(() => {
@@ -211,6 +212,8 @@ export function AppProvider({ children }) {
       syncAllAlarms(mapped);
     }
 
+    refreshWakeStats(userId);
+
     loadingData.current = false;
     setLoading(false);
   }
@@ -252,6 +255,8 @@ export function AppProvider({ children }) {
       setAlarms(mapped);
       syncAllAlarms(mapped);
     }
+
+    refreshWakeStats(userId);
 
     loadingData.current = false;
     setLoading(false);
@@ -406,9 +411,11 @@ export function AppProvider({ children }) {
       }).eq('id', userId),
       supabase.from('alarms').delete().eq('user_id', userId),
     ]);
+    try { await supabase.from('wake_sessions').delete().eq('user_id', userId); } catch (_) {}
     setUser(INITIAL_USER);
     setAlarms([]);
     setActiveAlarm(null);
+    setWakeStats({ success: 0, failed: 0, loading: false });
   }
 
   async function awardXP(amount) {
@@ -440,6 +447,24 @@ export function AppProvider({ children }) {
 
   const xpProgress = (user.xp % XP_PER_LEVEL) / XP_PER_LEVEL;
 
+  async function refreshWakeStats(userId = session?.user?.id) {
+    if (!userId) return;
+    setWakeStats(s => ({ ...s, loading: true }));
+    const [successRes, failedRes] = await Promise.all([
+      supabase.from('wake_sessions').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'success'),
+      supabase.from('wake_sessions').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'failed'),
+    ]);
+    if (successRes.error || failedRes.error) {
+      setWakeStats(s => ({ ...s, loading: false }));
+      return;
+    }
+    setWakeStats({
+      success: successRes.count ?? 0,
+      failed: failedRes.count ?? 0,
+      loading: false,
+    });
+  }
+
   return (
     <AppContext.Provider
       value={{
@@ -450,6 +475,8 @@ export function AppProvider({ children }) {
         loading,
         xpProgress,
         XP_PER_LEVEL,
+        wakeStats,
+        refreshWakeStats,
         pendingOnboarding,
         setPendingOnboarding,
         handlePostAuth,

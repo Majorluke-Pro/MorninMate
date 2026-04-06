@@ -638,7 +638,7 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
 // ─── Stats Tab ────────────────────────────────────────────────────────────────
 
 function StatsTab() {
-  const { user, alarms, XP_PER_LEVEL } = useApp();
+  const { user, alarms, XP_PER_LEVEL, wakeStats, refreshWakeStats, session } = useApp();
   const xpInLevel   = user.xp % XP_PER_LEVEL;
   const xpToNext    = XP_PER_LEVEL - xpInLevel;
   const xpPct       = (xpInLevel / XP_PER_LEVEL) * 100;
@@ -649,6 +649,11 @@ function StatsTab() {
 
   const RANK_LABELS = { 1: 'Newcomer', 2: 'Riser', 3: 'Consistent', 4: 'Dedicated', 5: 'Champion', 6: 'Legend' };
   const rankLabel   = RANK_LABELS[Math.min(user.level, 6)] || 'Legend';
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    refreshWakeStats?.(session.user.id);
+  }, [session?.user?.id, refreshWakeStats]);
 
   return (
     <Box>
@@ -789,6 +794,8 @@ function StatsTab() {
           <MetricCard Icon={EmojiEventsIcon}         label="Total XP"    value={user.xp}       color="#FF6B35" />
           <MetricCard Icon={AlarmIcon}               label="Alarms Set"  value={alarms.length} color="#06D6A0" />
           <MetricCard Icon={NotificationsActiveIcon} label="Active"      value={activeCount}   color="#8B5CF6" />
+          <MetricCard Icon={TaskAltIcon}             label="Routines Won" value={wakeStats?.success ?? 0} color="#06D6A0" />
+          <MetricCard Icon={WarningAmberIcon}        label="Routines Lost" value={wakeStats?.failed ?? 0} color="#EF476F" />
         </Box>
 
         {/* Demerit warning — only shown if relevant */}

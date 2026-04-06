@@ -17,6 +17,7 @@ import { useApp } from '../../context/AppContext';
 import MathGame from '../Games/MathGame';
 import MemoryGame from '../Games/MemoryGame';
 import ReactionGame from '../Games/ReactionGame';
+import { supabase } from '../../lib/supabase';
 
 const GAME_MAP    = { math: MathGame, memory: MemoryGame, reaction: ReactionGame };
 const INACTIVITY_LIMIT = 30; // seconds before alarm restarts
@@ -27,7 +28,7 @@ const DIFFICULTY_MAP = { gentle: 'easy', moderate: 'normal', intense: 'hard' };
 const XP_REWARD = { gentle: 20, moderate: 35, intense: 60 };
 
 export default function WakeUpFlow() {
-  const { activeAlarm, clearActiveAlarm, awardXP, addDemerit } = useApp();
+  const { session, activeAlarm, clearActiveAlarm, awardXP, addDemerit, refreshWakeStats } = useApp();
 
   const games      = activeAlarm?.pulse?.games || ['math'];
   const intensity  = activeAlarm?.pulse?.intensity || 'moderate';
@@ -46,6 +47,8 @@ export default function WakeUpFlow() {
   const [totalFails, setTotalFails] = useState(0);   // across all games
   const [results,    setResults]    = useState([]);
   const [phase,      setPhase]      = useState('intro');
+  const [ending,     setEnding]     = useState(false);
+  const sessionIdRef = useRef(null);
 
   // Inactivity tracking
   const lastActivityRef      = useRef(Date.now());
@@ -90,6 +93,7 @@ export default function WakeUpFlow() {
     setFailCount(0);
     if (gameIndex + 1 >= games.length) {
       awardXP(xpReward);
+      finalizeWakeSession('success', newResults);
       setPhase('complete');
     } else {
       setGameIndex(i => i + 1);
@@ -107,6 +111,52 @@ export default function WakeUpFlow() {
     setGameKey(k => k + 1);
   }
 
+  async function startWakeSession() {
+    const userId = session?.user?.id;
+    if (!userId || sessionIdRef.current) return;
+    const payload = {
+      user_id: userId,
+      alarm_id: activeAlarm?.id ?? null,
+      started_at: new Date().toISOString(),
+      status: 'in_progress',
+      intensity,
+      games,
+      total_fails: 0,
+    };
+    const { data, error } = await supabase.from('wake_sessions').insert(payload).select('id').single();
+    if (!error && data?.id) sessionIdRef.current = data.id;
+  }
+
+  async function finalizeWakeSession(status, finalResults = results) {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    const id = sessionIdRef.current;
+    if (!id) return;
+
+    setEnding(true);
+    try {
+      await supabase
+        .from('wake_sessions')
+        .update({
+          status,
+          completed_at: new Date().toISOString(),
+          total_fails: totalFails,
+          results: finalResults,
+        })
+        .eq('id', id)
+        .eq('user_id', userId);
+    } finally {
+      setEnding(false);
+      refreshWakeStats?.(userId);
+    }
+  }
+
+  async function handleEndEarly() {
+    if (ending) return;
+    await finalizeWakeSession('failed');
+    clearActiveAlarm();
+  }
+
   if (phase === 'intro') {
     return (
       <IntroScreen
@@ -114,7 +164,11 @@ export default function WakeUpFlow() {
         games={games}
         intensity={intensity}
         xpReward={xpReward}
-        onStart={() => { stopAlarm(); setPhase('playing'); }}
+        onStart={async () => {
+          await startWakeSession();
+          stopAlarm();
+          setPhase('playing');
+        }}
       />
     );
   }
@@ -134,10 +188,19 @@ export default function WakeUpFlow() {
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', p: 3, pt: 5, display: 'flex', flexDirection: 'column' }}>
       {/* Progress header */}
       <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, gap: 1.5, alignItems: 'center' }}>
           <Typography variant="caption" color="text.secondary">
             Game {gameIndex + 1} of {games.length}
           </Typography>
+          <Button
+            variant="text"
+            size="small"
+            disabled={ending}
+            onClick={handleEndEarly}
+            sx={{ color: 'rgba(255,255,255,0.55)', fontWeight: 800, px: 1, minWidth: 0 }}
+          >
+            End
+          </Button>
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
             {failCount > 0 && (
               <Box sx={{ display:'flex', alignItems:'center', gap:0.5 }}>

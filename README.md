@@ -115,6 +115,20 @@ Set up your Supabase tables:
 | pulse | jsonb |
 | created_at | timestamptz |
 
+**`wake_sessions`**
+| column | type |
+|---|---|
+| id | uuid (primary key, default gen_random_uuid()) |
+| user_id | uuid (references auth.users) |
+| alarm_id | uuid (nullable) |
+| started_at | timestamptz |
+| completed_at | timestamptz (nullable) |
+| status | text (`in_progress` \| `success` \| `failed`) |
+| intensity | text |
+| games | jsonb |
+| total_fails | int4 |
+| results | jsonb (nullable) |
+
 ```bash
 npm run dev
 ```
