@@ -46,8 +46,7 @@ function FlipCard({ card, onClick, previewing, selected }) {
 
   return (
     <Box
-      onTouchStart={(e) => { e.preventDefault(); onClick(); }}
-      onClick={onClick}
+      onPointerDown={(e) => { e.preventDefault(); onClick(); }}
       sx={{
         aspectRatio: '1',
         perspective: '800px',

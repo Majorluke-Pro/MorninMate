@@ -282,8 +282,7 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail, on
           return (
             <Box
               key={key}
-              onTouchStart={(e) => { e.preventDefault(); if (!disabled) triggerKey(key); }}
-              onClick={() => { if (!disabled) triggerKey(key); }}
+              onPointerDown={(e) => { e.preventDefault(); if (!disabled) triggerKey(key); }}
               sx={{
                 py: 2.1,
                 borderRadius: 3.5,
