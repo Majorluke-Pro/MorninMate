@@ -5,7 +5,7 @@ import {
   Fab, Dialog, DialogTitle, DialogContent, DialogActions, Button,
   TextField, Divider, Avatar, Menu, MenuItem,
 } from '@mui/material';
-import ScrollDrum, { HOURS, MINUTES, PERIODS } from '../common/ScrollDrum';
+import TimePicker from '../common/TimePicker';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
@@ -617,22 +617,8 @@ function AlarmCard({ alarm, isNext, now, onToggle, onDelete, onEdit, onTest }) {
 
 function EditAlarmDialog({ alarm, onClose, onSave }) {
   const [label, setLabel] = useState(alarm.label || '');
-  const [days,  setDays]  = useState(alarm.days || []);
-
-  const initH24 = parseInt(alarm.time.split(':')[0], 10);
-  const initM   = parseInt(alarm.time.split(':')[1], 10);
-  const initIsPM = initH24 >= 12;
-  const initH12  = initH24 % 12 || 12;
-
-  const [drumH, setDrumH] = useState(String(initH12).padStart(2, '0'));
-  const [drumM, setDrumM] = useState(String(initM).padStart(2, '0'));
-  const [drumP, setDrumP] = useState(initIsPM ? 'PM' : 'AM');
-
-  function get24hTime() {
-    const h12 = parseInt(drumH, 10);
-    const h24 = drumP === 'PM' ? (h12 % 12) + 12 : h12 % 12;
-    return `${String(h24).padStart(2, '0')}:${drumM}`;
-  }
+  const [time,  setTime]  = useState(alarm.time  || '07:00');
+  const [days,  setDays]  = useState(alarm.days  || []);
 
   function toggleDay(i) {
     setDays(prev => prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i]);
@@ -649,19 +635,8 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
         />
 
         <Box>
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: 'block' }}>Time</Typography>
-          <Box sx={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0,
-            bgcolor: 'rgba(255,255,255,0.03)', borderRadius: 3,
-            border: '1px solid rgba(255,255,255,0.07)', py: 1,
-          }}>
-            <ScrollDrum items={HOURS}   value={drumH} onChange={setDrumH} width={80} />
-            <Typography variant="h3" fontWeight={900} color="primary.main"
-              sx={{ userSelect: 'none', mb: 1, mx: 0.5, lineHeight: 1, fontFamily: '"Fraunces", serif' }}>:</Typography>
-            <ScrollDrum items={MINUTES} value={drumM} onChange={setDrumM} width={80} />
-            <Box sx={{ width: 14 }} />
-            <ScrollDrum items={PERIODS} value={drumP} onChange={setDrumP} width={60} />
-          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>Time</Typography>
+          <TimePicker value={time} onChange={setTime} />
         </Box>
 
         <Box>
@@ -670,7 +645,7 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
             {DAY_LABELS.map((d, i) => (
               <Box
                 key={i}
-                onClick={() => toggleDay(i)}
+                onPointerDown={() => toggleDay(i)}
                 sx={{
                   flex: 1, aspectRatio: '1', borderRadius: '50%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -689,7 +664,7 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
       </DialogContent>
       <DialogActions sx={{ p: 2, gap: 1 }}>
         <Button onClick={onClose} sx={{ color: 'text.secondary' }}>Cancel</Button>
-        <Button variant="contained" onClick={() => onSave({ label, time: get24hTime(), days })}>Save</Button>
+        <Button variant="contained" onClick={() => onSave({ label, time, days })}>Save</Button>
       </DialogActions>
     </Dialog>
   );
