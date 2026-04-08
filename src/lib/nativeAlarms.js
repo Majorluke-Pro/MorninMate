@@ -30,7 +30,7 @@ export async function scheduleAlarm(alarm) {
   await cancelAlarmNotifications(alarm.id);
   try {
     await AlarmPlugin.schedule({
-      id:    alarm.id,
+      id:    String(alarm.id),
       label: alarm.label || '',
       time:  alarm.time,
       days:  alarm.days || [],
@@ -45,7 +45,7 @@ export async function scheduleAlarm(alarm) {
 export async function cancelAlarmNotifications(alarmId) {
   if (!isNative) return;
   try {
-    await AlarmPlugin.cancel({ id: alarmId });
+    await AlarmPlugin.cancel({ id: String(alarmId) });
   } catch (_) {}
 }
 
@@ -78,7 +78,7 @@ export async function getPendingAlarm() {
 export async function dismissAlarm(id) {
   if (!isNative) return;
   try {
-    await AlarmPlugin.dismissAlarm({ id });
+    await AlarmPlugin.dismissAlarm({ id: String(id) });
   } catch (_) {}
 }
 

@@ -174,7 +174,7 @@ export function AppProvider({ children }) {
       let alarmId;
       try { alarmId = JSON.parse(e.detail).alarmId; } catch (_) { alarmId = e.detail?.alarmId; }
       if (!alarmId || activeRef.current) return;
-      const alarm = alarmsRef.current.find(a => a.id === alarmId);
+      const alarm = alarmsRef.current.find(a => String(a.id) === alarmId);
       if (alarm) { vibrateAlarm(); setActiveAlarm(alarm); }
     }
     document.addEventListener('alarmFired', handleAlarmFired);
@@ -195,7 +195,7 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!session) return;
     const unsub = onNotificationTap(alarmId => {
-      const alarm = alarmsRef.current.find(a => a.id === alarmId);
+      const alarm = alarmsRef.current.find(a => String(a.id) === alarmId);
       if (alarm && !activeRef.current) {
         vibrateAlarm();
         setActiveAlarm(alarm);
@@ -234,7 +234,7 @@ export function AppProvider({ children }) {
       // Cold-start: check if an alarm fired while the app was closed
       const pendingAlarmId = await getPendingAlarm();
       if (pendingAlarmId) {
-        const alarm = mapped.find(a => a.id === pendingAlarmId);
+        const alarm = mapped.find(a => String(a.id) === pendingAlarmId);
         if (alarm) { vibrateAlarm(); setActiveAlarm(alarm); }
       }
     }
