@@ -1,11 +1,19 @@
 package com.morninmate.app;
 
 import android.app.AlarmManager;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Build;
+import android.os.PowerManager;
+import android.provider.Settings;
+import android.util.Log;
+
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -74,13 +82,22 @@ public class AlarmPlugin extends Plugin {
 
         long triggerAt = nextOccurrence(hour, minute, targetDay);
         AlarmManager am = getAlarmManager();
+        Log.d("AlarmPlugin", "doSchedule: id=" + alarmId + " triggerAt=" + triggerAt
+            + " now=" + System.currentTimeMillis()
+            + " sdk=" + Build.VERSION.SDK_INT);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (am.canScheduleExactAlarms()) {
+            boolean canSchedule = am.canScheduleExactAlarms();
+            Log.d("AlarmPlugin", "canScheduleExactAlarms=" + canSchedule);
+            if (canSchedule) {
                 am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
+                Log.d("AlarmPlugin", "Alarm set successfully");
+            } else {
+                Log.e("AlarmPlugin", "BLOCKED: canScheduleExactAlarms=false — alarm NOT scheduled");
             }
         } else {
             am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
+            Log.d("AlarmPlugin", "Alarm set (pre-S)");
         }
     }
 
@@ -170,5 +187,73 @@ public class AlarmPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("alarmId", pendingId.isEmpty() ? null : pendingId);
         call.resolve(result);
+    }
+
+    @PluginMethod
+    public void dismissAlarm(PluginCall call) {
+        String id = call.getString("id");
+        Log.d("AlarmPlugin", "dismissAlarm id=" + id);
+        getContext().stopService(new Intent(getContext(), AlarmService.class));
+        getPrefs().edit().remove("pending_alarm").apply();
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void checkAlarmPermissions(PluginCall call) {
+        boolean postNotifications =
+            NotificationManagerCompat.from(getContext()).areNotificationsEnabled();
+
+        boolean fullScreenIntent = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34
+            NotificationManager nm =
+                (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+            fullScreenIntent = nm.canUseFullScreenIntent();
+        }
+
+        PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+        boolean batteryOptimization =
+            pm.isIgnoringBatteryOptimizations(getContext().getPackageName());
+
+        JSObject result = new JSObject();
+        result.put("postNotifications",   postNotifications);
+        result.put("fullScreenIntent",    fullScreenIntent);
+        result.put("batteryOptimization", batteryOptimization);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void requestAlarmPermissions(PluginCall call) {
+        // POST_NOTIFICATIONS — runtime request (API 33+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // API 33
+            if (!NotificationManagerCompat.from(getContext()).areNotificationsEnabled()) {
+                ActivityCompat.requestPermissions(
+                    getActivity(),
+                    new String[]{ android.Manifest.permission.POST_NOTIFICATIONS },
+                    1001);
+            }
+        }
+
+        // USE_FULL_SCREEN_INTENT — must be granted in Settings (API 34+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34
+            NotificationManager nm =
+                (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+            if (!nm.canUseFullScreenIntent()) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT);
+                intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(intent);
+            }
+        }
+
+        // Battery optimization exemption
+        PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+        if (!pm.isIgnoringBatteryOptimizations(getContext().getPackageName())) {
+            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+            intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+        }
+
+        call.resolve();
     }
 }
