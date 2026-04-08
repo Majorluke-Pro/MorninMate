@@ -1,203 +1,319 @@
-# Background Alarm — Full-Screen Intent Implementation Plan
+# Background Alarm Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make MorninMate alarms fire when the app is closed, waking the screen and opening the WakeUpFlow over the lock screen.
+**Goal:** Make alarms fire as a lock-screen notification with looping ringtone when the app is closed, via an Android foreground service.
 
-**Architecture:** A custom Capacitor Java plugin (`AlarmPlugin`) schedules exact alarms via `AlarmManager`. When the alarm fires, `AlarmReceiver` shows a full-screen intent notification that launches `MainActivity` with the alarm ID. `AppContext` reads the alarm ID on startup (cold start via `getPendingAlarm()`) or in real-time (backgrounded app via a `document` event) and sets `activeAlarm`, opening `WakeUpFlow` where existing JS sounds play.
+**Architecture:** `AlarmReceiver` starts a new `AlarmService` foreground service instead of posting a notification directly. `AlarmService` acquires a WakeLock, plays the system alarm ringtone on loop, and posts a persistent `setOngoing` notification with a full-screen intent and a "Dismiss" button. A new `dismissAlarm()` plugin method stops the service; JS calls it when the user completes the wake-up routine or taps Dismiss.
 
-**Tech Stack:** Capacitor 8, Android AlarmManager, Android NotificationCompat (full-screen intent), SharedPreferences (alarm persistence), React + Supabase (existing JS layer)
+**Tech Stack:** Android Java (Capacitor plugin), React/JSX (AppContext + nativeAlarms.js), Capacitor 8
 
 ---
 
 ## File Map
 
-| Action | File |
-|--------|------|
-| Create | `android/app/src/main/java/com/morninmate/app/AlarmPlugin.java` |
-| Create | `android/app/src/main/java/com/morninmate/app/AlarmReceiver.java` |
-| Create | `android/app/src/main/java/com/morninmate/app/BootReceiver.java` |
-| Modify | `android/app/src/main/AndroidManifest.xml` |
-| Modify | `android/app/src/main/java/com/morninmate/app/MainActivity.java` |
-| Modify | `src/lib/nativeAlarms.js` |
-| Modify | `src/context/AppContext.jsx` |
+| File | Action |
+|---|---|
+| `android/app/src/main/AndroidManifest.xml` | Add 3 permissions, register `AlarmService` + `AlarmDismissReceiver` |
+| `android/app/src/main/java/com/morninmate/app/AlarmDismissReceiver.java` | Create |
+| `android/app/src/main/java/com/morninmate/app/AlarmService.java` | Create |
+| `android/app/src/main/java/com/morninmate/app/AlarmReceiver.java` | Update — replace notification code with `startForegroundService` |
+| `android/app/src/main/java/com/morninmate/app/AlarmPlugin.java` | Update — add `dismissAlarm`, `checkAlarmPermissions`, `requestAlarmPermissions` |
+| `src/lib/nativeAlarms.js` | Update — add `dismissAlarm`, `checkAndRequestAlarmPermissions` |
+| `src/context/AppContext.jsx` | Update — import new exports, call on load + in `clearActiveAlarm` |
 
 ---
 
-## Task 1: Update AndroidManifest.xml
+## Task 1: Update `AndroidManifest.xml`
 
 **Files:**
 - Modify: `android/app/src/main/AndroidManifest.xml`
 
-- [ ] **Step 1: Add permissions and register receivers**
+- [ ] **Step 1: Add three new `<uses-permission>` entries**
 
-Replace the entire `AndroidManifest.xml` with:
-
+Open `android/app/src/main/AndroidManifest.xml`. After the line:
 ```xml
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <!-- Existing -->
-    <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Alarm permissions -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <application
-        android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/AppTheme">
-
-        <activity
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
-            android:name=".MainActivity"
-            android:label="@string/title_activity_main"
-            android:theme="@style/AppTheme.NoActionBarLaunch"
-            android:launchMode="singleTask"
-            android:exported="true"
-            android:showOnLockScreen="true">
-
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-
-        </activity>
-
-        <!-- Alarm receiver — fires when AlarmManager triggers -->
-        <receiver
-            android:name=".AlarmReceiver"
-            android:exported="false" />
-
-        <!-- Boot receiver — reschedules alarms after phone reboot -->
-        <receiver
-            android:name=".BootReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
-
-    </application>
-
-</manifest>
+```
+Add:
+```xml
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: Register `AlarmService` and `AlarmDismissReceiver` inside `<application>`**
+
+Inside the `<application>` block, directly after the closing `</receiver>` tag of `BootReceiver`, add:
+```xml
+        <!-- Foreground service — plays ringtone while alarm is ringing -->
+        <service
+            android:name=".AlarmService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />
+
+        <!-- Receives the "Dismiss" action from the alarm notification -->
+        <receiver android:name=".AlarmDismissReceiver" android:exported="false" />
+```
+
+- [ ] **Step 3: Verify manifest compiles**
+
+```bash
+cd android && ./gradlew assembleDebug 2>&1 | tail -20
+```
+
+Expected: `BUILD SUCCESSFUL`
+
+- [ ] **Step 4: Commit**
 
 ```bash
 git add android/app/src/main/AndroidManifest.xml
-git commit -m "feat(android): add alarm permissions and receiver declarations"
+git commit -m "feat(android): add foreground service permissions and register AlarmService"
 ```
 
 ---
 
-## Task 2: Create AlarmReceiver.java
+## Task 2: Create `AlarmDismissReceiver.java`
 
 **Files:**
-- Create: `android/app/src/main/java/com/morninmate/app/AlarmReceiver.java`
-
-This receiver fires when `AlarmManager` triggers. It saves the alarm ID to SharedPreferences (for cold-start detection), then posts a full-screen intent notification that launches `MainActivity`.
+- Create: `android/app/src/main/java/com/morninmate/app/AlarmDismissReceiver.java`
 
 - [ ] **Step 1: Create the file**
 
 ```java
 package com.morninmate.app;
 
-import android.app.AlarmManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.util.Log;
+
+public class AlarmDismissReceiver extends BroadcastReceiver {
+
+    private static final String PREFS_NAME = "MorninMateAlarms";
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        String alarmId = intent.getStringExtra("alarmId");
+        Log.d("AlarmDismissReceiver", "Dismiss tapped for alarmId=" + alarmId);
+
+        // Stop the foreground service (releases WakeLock + stops ringtone)
+        context.stopService(new Intent(context, AlarmService.class));
+
+        // Clear pending_alarm so a subsequent cold-start doesn't re-trigger the alarm UI
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().remove("pending_alarm").apply();
+    }
+}
+```
+
+- [ ] **Step 2: Build to verify no compile errors**
+
+```bash
+cd android && ./gradlew assembleDebug 2>&1 | tail -20
+```
+
+Expected: `BUILD SUCCESSFUL`
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add android/app/src/main/java/com/morninmate/app/AlarmDismissReceiver.java
+git commit -m "feat(android): add AlarmDismissReceiver for notification dismiss action"
+```
+
+---
+
+## Task 3: Create `AlarmService.java`
+
+**Files:**
+- Create: `android/app/src/main/java/com/morninmate/app/AlarmService.java`
+
+- [ ] **Step 1: Create the file**
+
+```java
+package com.morninmate.app;
+
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
+import android.os.IBinder;
+import android.os.PowerManager;
+import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 
-import java.util.Calendar;
+public class AlarmService extends Service {
 
-public class AlarmReceiver extends BroadcastReceiver {
-
+    private static final String TAG        = "AlarmService";
     private static final String CHANNEL_ID = "morninmate_alarm";
-    private static final String PREFS_NAME  = "MorninMateAlarms";
+    private static final int    NOTIF_ID   = 7654;
+
+    private PowerManager.WakeLock wakeLock;
+    private Ringtone ringtone;
 
     @Override
-    public void onReceive(Context context, Intent intent) {
-        String alarmId   = intent.getStringExtra("alarmId");
-        String label     = intent.getStringExtra("label");
-        int    hour      = intent.getIntExtra("hour", 7);
-        int    minute    = intent.getIntExtra("minute", 0);
-        boolean repeat   = intent.getBooleanExtra("repeating", false);
-        int    targetDay = intent.getIntExtra("targetDay", -1);
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        String alarmId = intent != null ? intent.getStringExtra("alarmId") : null;
+        String label   = intent != null ? intent.getStringExtra("label")   : "Alarm";
+        Log.d(TAG, "onStartCommand alarmId=" + alarmId);
 
-        if (alarmId == null) return;
+        // 1. Acquire WakeLock (max 10 min — service stopped earlier by dismiss)
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MorninMate::AlarmWakeLock");
+        wakeLock.acquire(10 * 60 * 1000L);
 
-        // Persist alarm ID so JS can read it on cold start
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit().putString("pending_alarm", alarmId).apply();
+        // 2. Play alarm ringtone on loop
+        Uri alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
+        if (alarmUri == null) {
+            alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        }
+        ringtone = RingtoneManager.getRingtone(this, alarmUri);
+        if (ringtone != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) { // API 28
+                ringtone.setLooping(true);
+            }
+            ringtone.play();
+        }
 
-        createNotificationChannel(context);
+        // 3. Build notification
+        createNotificationChannel();
 
-        // Intent that opens MainActivity with the alarm ID
-        Intent mainIntent = new Intent(context, MainActivity.class);
+        Intent mainIntent = new Intent(this, MainActivity.class);
         mainIntent.putExtra("alarmId", alarmId);
         mainIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
             | Intent.FLAG_ACTIVITY_CLEAR_TOP
             | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-        PendingIntent fullScreenPi = PendingIntent.getActivity(
-            context,
-            alarmId.hashCode(),
-            mainIntent,
+        int baseCode = alarmId != null ? alarmId.hashCode() : 0;
+
+        PendingIntent contentPi = PendingIntent.getActivity(
+            this, baseCode, mainIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        Intent dismissIntent = new Intent(this, AlarmDismissReceiver.class);
+        dismissIntent.putExtra("alarmId", alarmId);
+        PendingIntent dismissPi = PendingIntent.getBroadcast(
+            this, baseCode + 1, dismissIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         String body = (label != null && !label.isEmpty())
             ? label + " \u2014 Rise & Shine!"
             : "Rise & Shine, Legend!";
 
-        // Resolve notification small icon (uses ic_launcher_foreground if present)
-        int iconResId = context.getResources().getIdentifier(
-            "ic_launcher_foreground", "drawable", context.getPackageName());
+        int iconResId = getResources().getIdentifier(
+            "ic_launcher_foreground", "drawable", getPackageName());
         if (iconResId == 0) iconResId = android.R.drawable.ic_dialog_alert;
 
-        Notification notification = new NotificationCompat.Builder(context, CHANNEL_ID)
+        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(iconResId)
             .setContentTitle("MorninMate")
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setFullScreenIntent(fullScreenPi, true)
-            .setContentIntent(fullScreenPi)
-            .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+            .setFullScreenIntent(contentPi, true)
+            .setContentIntent(contentPi)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Dismiss", dismissPi)
             .build();
 
-        NotificationManager nm =
-            (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        nm.notify(alarmId.hashCode(), notification);
+        // 4. Start foreground (with service type on API 29+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) { // API 29
+            startForeground(NOTIF_ID, notification,
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+        } else {
+            startForeground(NOTIF_ID, notification);
+        }
 
-        // Repeating alarms: reschedule for next week. One-shot: remove from prefs.
+        // 5. Launch MainActivity to bring app to foreground / over lock screen
+        startActivity(mainIntent);
+
+        return START_NOT_STICKY;
+    }
+
+    @Override
+    public void onDestroy() {
+        Log.d(TAG, "onDestroy — stopping ringtone and releasing WakeLock");
+        if (ringtone != null && ringtone.isPlaying()) ringtone.stop();
+        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        super.onDestroy();
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) { return null; }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel ch = new NotificationChannel(
+                CHANNEL_ID, "Alarms", NotificationManager.IMPORTANCE_HIGH);
+            ch.setDescription("MorninMate alarm alerts");
+            ch.setBypassDnd(true);
+            ch.enableVibration(true);
+            getSystemService(NotificationManager.class).createNotificationChannel(ch);
+        }
+    }
+}
+```
+
+- [ ] **Step 2: Build to verify no compile errors**
+
+```bash
+cd android && ./gradlew assembleDebug 2>&1 | tail -20
+```
+
+Expected: `BUILD SUCCESSFUL`
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add android/app/src/main/java/com/morninmate/app/AlarmService.java
+git commit -m "feat(android): add AlarmService foreground service with WakeLock and ringtone"
+```
+
+---
+
+## Task 4: Update `AlarmReceiver.java`
+
+**Files:**
+- Modify: `android/app/src/main/java/com/morninmate/app/AlarmReceiver.java`
+
+- [ ] **Step 1: Replace the `onReceive` method body**
+
+The current `onReceive` builds a notification directly. Replace the entire `onReceive` method with this version (keep the `reschedule` and `requestCode` methods below it unchanged):
+
+```java
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        String  alarmId   = intent.getStringExtra("alarmId");
+        String  label     = intent.getStringExtra("label");
+        int     hour      = intent.getIntExtra("hour", 7);
+        int     minute    = intent.getIntExtra("minute", 0);
+        boolean repeat    = intent.getBooleanExtra("repeating", false);
+        int     targetDay = intent.getIntExtra("targetDay", -1);
+
+        Log.d("AlarmReceiver", "onReceive fired! alarmId=" + alarmId);
+        if (alarmId == null) { Log.e("AlarmReceiver", "alarmId is null — ignoring"); return; }
+
+        // Persist alarm ID so JS can read it on cold start
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString("pending_alarm", alarmId).apply();
+
+        // Delegate to AlarmService — it handles WakeLock, ringtone, and notification
+        Intent serviceIntent = new Intent(context, AlarmService.class);
+        serviceIntent.putExtra("alarmId", alarmId);
+        serviceIntent.putExtra("label",   label);
+        context.startForegroundService(serviceIntent);
+
+        // Repeating: reschedule for next week. One-shot: remove from prefs.
         if (repeat && targetDay >= 0) {
             reschedule(context, alarmId, label, hour, minute, targetDay);
         } else {
@@ -205,606 +321,214 @@ public class AlarmReceiver extends BroadcastReceiver {
                 .edit().remove("alarm_" + alarmId).apply();
         }
     }
-
-    private void createNotificationChannel(Context context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel ch = new NotificationChannel(
-                CHANNEL_ID, "Alarms", NotificationManager.IMPORTANCE_HIGH);
-            ch.setDescription("MorninMate alarm alerts");
-            ch.setBypassDnd(true);
-            ch.enableVibration(true);
-            context.getSystemService(NotificationManager.class).createNotificationChannel(ch);
-        }
-    }
-
-    private void reschedule(Context context, String alarmId, String label,
-                             int hour, int minute, int targetDay) {
-        // Next occurrence = same weekday, one week from now
-        Calendar cal = Calendar.getInstance();
-        cal.set(Calendar.SECOND, 0);
-        cal.set(Calendar.MILLISECOND, 0);
-        cal.set(Calendar.HOUR_OF_DAY, hour);
-        cal.set(Calendar.MINUTE, minute);
-        cal.add(Calendar.DAY_OF_YEAR, 7);
-
-        Intent intent = new Intent(context, AlarmReceiver.class);
-        intent.putExtra("alarmId",   alarmId);
-        intent.putExtra("label",     label);
-        intent.putExtra("hour",      hour);
-        intent.putExtra("minute",    minute);
-        intent.putExtra("repeating", true);
-        intent.putExtra("targetDay", targetDay);
-
-        PendingIntent pi = PendingIntent.getBroadcast(
-            context,
-            requestCode(alarmId, targetDay + 1),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (am.canScheduleExactAlarms()) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), pi);
-            }
-        } else {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), pi);
-        }
-    }
-
-    static int requestCode(String alarmId, int dayIndex) {
-        int hash = 0;
-        for (int i = 0; i < alarmId.length(); i++) {
-            hash = 31 * hash + alarmId.charAt(i);
-        }
-        return Math.abs(hash) * 10 + dayIndex;
-    }
-}
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: Remove now-unused imports and the `createNotificationChannel` method**
+
+Delete these four import lines (no longer needed — notification code moved to `AlarmService`):
+```java
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import androidx.core.app.NotificationCompat;
+```
+
+Delete the `createNotificationChannel` private method (the one that creates `morninmate_alarm` channel) — `AlarmService` now owns it.
+
+Delete the `CHANNEL_ID` constant at the top of the class.
+
+- [ ] **Step 3: Build to verify no compile errors**
+
+```bash
+cd android && ./gradlew assembleDebug 2>&1 | tail -20
+```
+
+Expected: `BUILD SUCCESSFUL`
+
+- [ ] **Step 4: Commit**
 
 ```bash
 git add android/app/src/main/java/com/morninmate/app/AlarmReceiver.java
-git commit -m "feat(android): add AlarmReceiver with full-screen intent"
+git commit -m "feat(android): AlarmReceiver delegates to AlarmService instead of posting notification"
 ```
 
 ---
 
-## Task 3: Create BootReceiver.java
+## Task 5: Update `AlarmPlugin.java`
 
 **Files:**
-- Create: `android/app/src/main/java/com/morninmate/app/BootReceiver.java`
+- Modify: `android/app/src/main/java/com/morninmate/app/AlarmPlugin.java`
 
-Reads all saved alarms from SharedPreferences after reboot and re-registers them with `AlarmManager`.
+- [ ] **Step 1: Add five missing imports**
 
-- [ ] **Step 1: Create the file**
-
+After the existing import block, add:
 ```java
-package com.morninmate.app;
-
-import android.app.AlarmManager;
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.os.Build;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import java.util.Calendar;
-import java.util.Map;
-
-public class BootReceiver extends BroadcastReceiver {
-
-    private static final String PREFS_NAME = "MorninMateAlarms";
-
-    @Override
-    public void onReceive(Context context, Intent intent) {
-        if (!Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) return;
-
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-
-        for (Map.Entry<String, ?> entry : prefs.getAll().entrySet()) {
-            if (!entry.getKey().startsWith("alarm_")) continue;
-            try {
-                JSONObject json   = new JSONObject((String) entry.getValue());
-                String  alarmId   = json.getString("id");
-                String  label     = json.optString("label", "Alarm");
-                String[] parts    = json.getString("time").split(":");
-                int     hour      = Integer.parseInt(parts[0]);
-                int     minute    = Integer.parseInt(parts[1]);
-                JSONArray days    = json.optJSONArray("days");
-
-                if (days == null || days.length() == 0) {
-                    scheduleOne(context, am, alarmId, label, hour, minute, -1, false, 0);
-                } else {
-                    for (int i = 0; i < days.length(); i++) {
-                        scheduleOne(context, am, alarmId, label, hour, minute,
-                            days.getInt(i), true, i + 1);
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
-    }
-
-    private void scheduleOne(Context context, AlarmManager am, String alarmId, String label,
-                              int hour, int minute, int targetDay, boolean repeating, int codeIndex) {
-        Intent intent = new Intent(context, AlarmReceiver.class);
-        intent.putExtra("alarmId",   alarmId);
-        intent.putExtra("label",     label);
-        intent.putExtra("hour",      hour);
-        intent.putExtra("minute",    minute);
-        intent.putExtra("repeating", repeating);
-        intent.putExtra("targetDay", targetDay);
-
-        PendingIntent pi = PendingIntent.getBroadcast(
-            context,
-            AlarmReceiver.requestCode(alarmId, codeIndex),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        long triggerAt = nextOccurrence(hour, minute, targetDay);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (am.canScheduleExactAlarms()) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-            }
-        } else {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-        }
-    }
-
-    private long nextOccurrence(int hour, int minute, int targetDay) {
-        Calendar cal = Calendar.getInstance();
-        cal.set(Calendar.SECOND, 0);
-        cal.set(Calendar.MILLISECOND, 0);
-        cal.set(Calendar.HOUR_OF_DAY, hour);
-        cal.set(Calendar.MINUTE, minute);
-
-        if (targetDay < 0) {
-            if (cal.getTimeInMillis() <= System.currentTimeMillis()) {
-                cal.add(Calendar.DAY_OF_YEAR, 1);
-            }
-            return cal.getTimeInMillis();
-        }
-
-        int today     = cal.get(Calendar.DAY_OF_WEEK) - 1; // 0 = Sunday
-        int daysUntil = (targetDay - today + 7) % 7;
-        cal.add(Calendar.DAY_OF_YEAR, daysUntil);
-        if (cal.getTimeInMillis() <= System.currentTimeMillis()) {
-            cal.add(Calendar.DAY_OF_YEAR, 7);
-        }
-        return cal.getTimeInMillis();
-    }
-}
+import android.net.Uri;
+import android.os.PowerManager;
+import android.provider.Settings;
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationManagerCompat;
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: Add `dismissAlarm` method**
 
-```bash
-git add android/app/src/main/java/com/morninmate/app/BootReceiver.java
-git commit -m "feat(android): add BootReceiver to reschedule alarms after reboot"
-```
-
----
-
-## Task 4: Create AlarmPlugin.java
-
-**Files:**
-- Create: `android/app/src/main/java/com/morninmate/app/AlarmPlugin.java`
-
-Capacitor plugin that exposes `schedule`, `cancel`, `cancelAll`, and `getPendingAlarm` to JavaScript.
-
-- [ ] **Step 1: Create the file**
+After the closing `}` of `getPendingAlarm`, add:
 
 ```java
-package com.morninmate.app;
-
-import android.app.AlarmManager;
-import android.app.PendingIntent;
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.os.Build;
-
-import com.getcapacitor.JSArray;
-import com.getcapacitor.JSObject;
-import com.getcapacitor.Plugin;
-import com.getcapacitor.PluginCall;
-import com.getcapacitor.PluginMethod;
-import com.getcapacitor.annotation.CapacitorPlugin;
-
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.util.Calendar;
-import java.util.Map;
-
-@CapacitorPlugin(name = "AlarmPlugin")
-public class AlarmPlugin extends Plugin {
-
-    private static final String PREFS_NAME = "MorninMateAlarms";
-
-    private AlarmManager getAlarmManager() {
-        return (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
-    }
-
-    private SharedPreferences getPrefs() {
-        return getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-    }
-
-    private long nextOccurrence(int hour, int minute, int targetDay) {
-        Calendar cal = Calendar.getInstance();
-        cal.set(Calendar.SECOND, 0);
-        cal.set(Calendar.MILLISECOND, 0);
-        cal.set(Calendar.HOUR_OF_DAY, hour);
-        cal.set(Calendar.MINUTE, minute);
-
-        if (targetDay < 0) {
-            if (cal.getTimeInMillis() <= System.currentTimeMillis()) {
-                cal.add(Calendar.DAY_OF_YEAR, 1);
-            }
-            return cal.getTimeInMillis();
-        }
-
-        int today     = cal.get(Calendar.DAY_OF_WEEK) - 1;
-        int daysUntil = (targetDay - today + 7) % 7;
-        cal.add(Calendar.DAY_OF_YEAR, daysUntil);
-        if (cal.getTimeInMillis() <= System.currentTimeMillis()) {
-            cal.add(Calendar.DAY_OF_YEAR, 7);
-        }
-        return cal.getTimeInMillis();
-    }
-
-    private void doSchedule(String alarmId, String label, int hour, int minute,
-                             int targetDay, int codeIndex, boolean repeating) {
-        Intent intent = new Intent(getContext(), AlarmReceiver.class);
-        intent.putExtra("alarmId",   alarmId);
-        intent.putExtra("label",     label);
-        intent.putExtra("hour",      hour);
-        intent.putExtra("minute",    minute);
-        intent.putExtra("repeating", repeating);
-        intent.putExtra("targetDay", targetDay);
-
-        PendingIntent pi = PendingIntent.getBroadcast(
-            getContext(),
-            AlarmReceiver.requestCode(alarmId, codeIndex),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        long triggerAt = nextOccurrence(hour, minute, targetDay);
-        AlarmManager am = getAlarmManager();
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (am.canScheduleExactAlarms()) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-            }
-        } else {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-        }
-    }
-
-    private void doCancel(String alarmId) {
-        AlarmManager am = getAlarmManager();
-        for (int i = 0; i < 8; i++) {
-            Intent intent = new Intent(getContext(), AlarmReceiver.class);
-            PendingIntent pi = PendingIntent.getBroadcast(
-                getContext(),
-                AlarmReceiver.requestCode(alarmId, i),
-                intent,
-                PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
-            if (pi != null) { am.cancel(pi); pi.cancel(); }
-        }
-        getPrefs().edit().remove("alarm_" + alarmId).apply();
-    }
-
     @PluginMethod
-    public void schedule(PluginCall call) {
-        String  id    = call.getString("id");
-        String  label = call.getString("label", "Alarm");
-        String  time  = call.getString("time", "07:00");
-        JSArray days  = call.getArray("days");
-
-        if (id == null || time == null) { call.reject("id and time required"); return; }
-
-        String[] parts = time.split(":");
-        int hour   = Integer.parseInt(parts[0]);
-        int minute = Integer.parseInt(parts[1]);
-
-        // Persist alarm so BootReceiver can restore it
-        try {
-            JSONObject json = new JSONObject();
-            json.put("id",    id);
-            json.put("label", label);
-            json.put("time",  time);
-            json.put("days",  days != null ? days : new JSArray());
-            getPrefs().edit().putString("alarm_" + id, json.toString()).apply();
-        } catch (JSONException e) {
-            call.reject("Serialization failed");
-            return;
-        }
-
-        // Register with AlarmManager
-        try {
-            if (days == null || days.length() == 0) {
-                doSchedule(id, label, hour, minute, -1, 0, false);
-            } else {
-                for (int i = 0; i < days.length(); i++) {
-                    doSchedule(id, label, hour, minute, days.getInt(i), i + 1, true);
-                }
-            }
-        } catch (JSONException e) {
-            call.reject("Scheduling failed");
-            return;
-        }
-
-        call.resolve();
-    }
-
-    @PluginMethod
-    public void cancel(PluginCall call) {
+    public void dismissAlarm(PluginCall call) {
         String id = call.getString("id");
-        if (id == null) { call.reject("id required"); return; }
-        doCancel(id);
+        Log.d("AlarmPlugin", "dismissAlarm id=" + id);
+        getContext().stopService(new Intent(getContext(), AlarmService.class));
+        getPrefs().edit().remove("pending_alarm").apply();
         call.resolve();
     }
+```
 
+- [ ] **Step 3: Add `checkAlarmPermissions` method**
+
+```java
     @PluginMethod
-    public void cancelAll(PluginCall call) {
-        for (String key : getPrefs().getAll().keySet()) {
-            if (key.startsWith("alarm_")) doCancel(key.substring(6));
+    public void checkAlarmPermissions(PluginCall call) {
+        boolean postNotifications =
+            NotificationManagerCompat.from(getContext()).areNotificationsEnabled();
+
+        boolean fullScreenIntent = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34
+            NotificationManager nm =
+                (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+            fullScreenIntent = nm.canUseFullScreenIntent();
         }
-        getPrefs().edit().remove("pending_alarm").apply();
-        call.resolve();
-    }
 
-    /**
-     * Returns the alarm ID that fired while the app was closed, then clears it.
-     * Call this once on app startup to detect cold-start alarm launches.
-     */
-    @PluginMethod
-    public void getPendingAlarm(PluginCall call) {
-        String pendingId = getPrefs().getString("pending_alarm", "");
-        getPrefs().edit().remove("pending_alarm").apply();
+        PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+        boolean batteryOptimization =
+            pm.isIgnoringBatteryOptimizations(getContext().getPackageName());
+
         JSObject result = new JSObject();
-        result.put("alarmId", pendingId.isEmpty() ? null : pendingId);
+        result.put("postNotifications",   postNotifications);
+        result.put("fullScreenIntent",    fullScreenIntent);
+        result.put("batteryOptimization", batteryOptimization);
         call.resolve(result);
     }
-}
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 4: Add `requestAlarmPermissions` method**
+
+```java
+    @PluginMethod
+    public void requestAlarmPermissions(PluginCall call) {
+        // POST_NOTIFICATIONS — runtime request (API 33+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // API 33
+            if (!NotificationManagerCompat.from(getContext()).areNotificationsEnabled()) {
+                ActivityCompat.requestPermissions(
+                    getActivity(),
+                    new String[]{ android.Manifest.permission.POST_NOTIFICATIONS },
+                    1001);
+            }
+        }
+
+        // USE_FULL_SCREEN_INTENT — must be granted in Settings (API 34+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34
+            NotificationManager nm =
+                (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
+            if (!nm.canUseFullScreenIntent()) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT);
+                intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(intent);
+            }
+        }
+
+        // Battery optimization exemption
+        PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+        if (!pm.isIgnoringBatteryOptimizations(getContext().getPackageName())) {
+            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+            intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+        }
+
+        call.resolve();
+    }
+```
+
+- [ ] **Step 5: Build to verify no compile errors**
+
+```bash
+cd android && ./gradlew assembleDebug 2>&1 | tail -20
+```
+
+Expected: `BUILD SUCCESSFUL`
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add android/app/src/main/java/com/morninmate/app/AlarmPlugin.java
-git commit -m "feat(android): add AlarmPlugin Capacitor bridge (schedule/cancel/getPendingAlarm)"
+git commit -m "feat(android): add dismissAlarm, checkAlarmPermissions, requestAlarmPermissions to AlarmPlugin"
 ```
 
 ---
 
-## Task 5: Update MainActivity.java
-
-**Files:**
-- Modify: `android/app/src/main/java/com/morninmate/app/MainActivity.java`
-
-Register `AlarmPlugin` with Capacitor and handle the alarm launch intent. When `alarmId` is present, turn the screen on and show the app over the lock screen. For backgrounded launches (`onNewIntent`), also fire a JS event so `AppContext` can react immediately.
-
-- [ ] **Step 1: Replace the file**
-
-```java
-package com.morninmate.app;
-
-import android.content.Intent;
-import android.os.Build;
-import android.os.Bundle;
-import android.view.WindowManager;
-
-import com.getcapacitor.BridgeActivity;
-
-public class MainActivity extends BridgeActivity {
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        registerPlugin(AlarmPlugin.class);
-        super.onCreate(savedInstanceState);
-        applyAlarmWindowFlags(getIntent());
-    }
-
-    @Override
-    protected void onNewIntent(Intent intent) {
-        super.onNewIntent(intent);
-        setIntent(intent);
-        String alarmId = intent.getStringExtra("alarmId");
-        if (alarmId != null && !alarmId.isEmpty()) {
-            applyAlarmWindowFlags(intent);
-            // App is already running — fire JS event immediately via the bridge
-            getBridge().getWebView().post(() ->
-                getBridge().triggerJSEvent(
-                    "alarmFired",
-                    "document",
-                    "{\"alarmId\":\"" + alarmId + "\"}")
-            );
-        }
-    }
-
-    private void applyAlarmWindowFlags(Intent intent) {
-        if (intent == null) return;
-        String alarmId = intent.getStringExtra("alarmId");
-        if (alarmId == null || alarmId.isEmpty()) return;
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) { // API 27+
-            setShowWhenLocked(true);
-            setTurnScreenOn(true);
-        } else {
-            getWindow().addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED |
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON  |
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        }
-    }
-}
-```
-
-- [ ] **Step 2: Commit**
-
-```bash
-git add android/app/src/main/java/com/morninmate/app/MainActivity.java
-git commit -m "feat(android): register AlarmPlugin and handle alarm launch intent in MainActivity"
-```
-
----
-
-## Task 6: Update nativeAlarms.js
+## Task 6: Update `src/lib/nativeAlarms.js`
 
 **Files:**
 - Modify: `src/lib/nativeAlarms.js`
 
-Replace the `@capacitor/local-notifications` scheduling with `AlarmPlugin`. Keeps the same public function names so `AppContext` imports don't break. Adds `getPendingAlarm()` for cold-start detection.
+- [ ] **Step 1: Add `dismissAlarm` export**
 
-- [ ] **Step 1: Replace the file**
+After the `getPendingAlarm` function (after line 74 in the current file), add:
 
-```javascript
-/**
- * nativeAlarms.js
- * Wraps the native AlarmPlugin for scheduling exact Android alarms.
- * Falls back gracefully on web (no-ops).
- */
+```js
+// ─── Dismiss (stops AlarmService: ringtone + WakeLock) ────────────────────────
 
-import { Capacitor, registerPlugin } from '@capacitor/core';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
-
-export const isNative = Capacitor.isNativePlatform();
-
-const AlarmPlugin = registerPlugin('AlarmPlugin');
-
-// ─── Permissions ─────────────────────────────────────────────────────────────
-// On Android 13+, POST_NOTIFICATIONS is auto-prompted when the first
-// notification is posted. No manual request needed from JS.
-
-export async function requestNotificationPermission() {
-  if (!isNative) {
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      return Notification.requestPermission();
-    }
-  }
-}
-
-// ─── Schedule ─────────────────────────────────────────────────────────────────
-
-export async function scheduleAlarm(alarm) {
-  if (!isNative || !alarm.active) return;
-  await cancelAlarmNotifications(alarm.id);
-  try {
-    await AlarmPlugin.schedule({
-      id:    alarm.id,
-      label: alarm.label || '',
-      time:  alarm.time,
-      days:  alarm.days || [],
-    });
-  } catch (e) {
-    console.warn('Failed to schedule alarm:', e);
-  }
-}
-
-// ─── Cancel ───────────────────────────────────────────────────────────────────
-
-export async function cancelAlarmNotifications(alarmId) {
+export async function dismissAlarm(id) {
   if (!isNative) return;
   try {
-    await AlarmPlugin.cancel({ id: alarmId });
+    await AlarmPlugin.dismissAlarm({ id });
   } catch (_) {}
-}
-
-// ─── Sync all (called after loading alarms from Supabase) ─────────────────────
-
-export async function syncAllAlarms(alarms) {
-  if (!isNative) return;
-  for (const alarm of alarms) {
-    if (alarm.active) await scheduleAlarm(alarm);
-    else await cancelAlarmNotifications(alarm.id);
-  }
-}
-
-// ─── Pending alarm (cold-start detection) ─────────────────────────────────────
-// Returns the ID of an alarm that fired while the app was closed, then clears it.
-// Call once after alarms are loaded in AppContext.
-
-export async function getPendingAlarm() {
-  if (!isNative) return null;
-  try {
-    const { alarmId } = await AlarmPlugin.getPendingAlarm();
-    return alarmId || null;
-  } catch (_) {
-    return null;
-  }
-}
-
-// ─── Haptics ──────────────────────────────────────────────────────────────────
-
-export async function vibrateAlarm() {
-  if (!isNative) return;
-  try {
-    await Haptics.impact({ style: ImpactStyle.Heavy });
-    setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }), 300);
-    setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }), 600);
-  } catch (_) {}
-}
-
-export async function vibrateSuccess() {
-  if (!isNative) return;
-  try {
-    await Haptics.impact({ style: ImpactStyle.Light });
-  } catch (_) {}
-}
-
-// ─── Notification tap listener ────────────────────────────────────────────────
-// Kept as a no-op for API compatibility — alarm firing is now handled via
-// AlarmPlugin.getPendingAlarm() (cold start) and the 'alarmFired' document
-// event (backgrounded app).
-
-export function onNotificationTap() {
-  return () => {};
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: Add `checkAndRequestAlarmPermissions` export**
+
+After `dismissAlarm`, add:
+
+```js
+// ─── Alarm permissions (USE_FULL_SCREEN_INTENT, battery opt, notifications) ────
+
+export async function checkAndRequestAlarmPermissions() {
+  if (!isNative) return;
+  try {
+    const result = await AlarmPlugin.checkAlarmPermissions();
+    const needsRequest = !result.postNotifications
+      || !result.fullScreenIntent
+      || !result.batteryOptimization;
+    if (needsRequest) await AlarmPlugin.requestAlarmPermissions();
+  } catch (e) {
+    console.warn('checkAndRequestAlarmPermissions failed:', e);
+  }
+}
+```
+
+- [ ] **Step 3: Commit**
 
 ```bash
 git add src/lib/nativeAlarms.js
-git commit -m "feat(js): replace LocalNotifications scheduling with AlarmPlugin"
+git commit -m "feat(js): add dismissAlarm and checkAndRequestAlarmPermissions to nativeAlarms"
 ```
 
 ---
 
-## Task 7: Update AppContext.jsx
+## Task 7: Update `src/context/AppContext.jsx`
 
 **Files:**
 - Modify: `src/context/AppContext.jsx`
 
-Two changes:
-1. Add `getPendingAlarm` import and call it in `loadUserData` after alarms are fetched (cold-start case).
-2. Add a `document` event listener for `alarmFired` (backgrounded-app case, fired from `MainActivity.onNewIntent`).
+- [ ] **Step 1: Extend the import from `nativeAlarms`**
 
-- [ ] **Step 1: Update the import line at the top of AppContext.jsx**
+Find the existing import block at the top of `AppContext.jsx` (lines 1–13):
 
-Find this import block (lines 1–11):
-```javascript
-import {
-  isNative,
-  requestNotificationPermission,
-  scheduleAlarm,
-  cancelAlarmNotifications,
-  syncAllAlarms,
-  vibrateAlarm,
-  onNotificationTap,
-} from '../lib/nativeAlarms';
-```
-
-Replace with:
-```javascript
+```js
 import {
   isNative,
   requestNotificationPermission,
@@ -817,114 +541,145 @@ import {
 } from '../lib/nativeAlarms';
 ```
 
-- [ ] **Step 2: Add the alarmFired event listener effect**
-
-After the existing `onNotificationTap` effect (around line 186), add this new `useEffect`:
-
-```javascript
-  // ─── alarmFired event (backgrounded-app case) ────────────────────────────────
-  // MainActivity.onNewIntent() fires this when an alarm launches the app
-  // while it is already running in the background.
-
-  useEffect(() => {
-    function handleAlarmFired(e) {
-      let alarmId;
-      try { alarmId = JSON.parse(e.detail).alarmId; } catch (_) { alarmId = e.detail?.alarmId; }
-      if (!alarmId || activeRef.current) return;
-      const alarm = alarmsRef.current.find(a => a.id === alarmId);
-      if (alarm) { vibrateAlarm(); setActiveAlarm(alarm); }
-    }
-    document.addEventListener('alarmFired', handleAlarmFired);
-    return () => document.removeEventListener('alarmFired', handleAlarmFired);
-  }, []); // Uses refs — safe to register once on mount
-```
-
-- [ ] **Step 3: Add pending alarm check inside loadUserData**
-
-Find this block inside `loadUserData` (around line 205–213):
-```javascript
-    if (alarmsResult.data) {
-      const mapped = alarmsResult.data.map(a => ({
-        id: a.id, label: a.label, time: a.time,
-        sound: a.pulse?.sound || 'classic',
-        pulse: a.pulse, active: a.active, days: (a.days || []).map(Number),
-      }));
-      setAlarms(mapped);
-      syncAllAlarms(mapped);
-    }
-```
-
 Replace with:
-```javascript
-    if (alarmsResult.data) {
-      const mapped = alarmsResult.data.map(a => ({
-        id: a.id, label: a.label, time: a.time,
-        sound: a.pulse?.sound || 'classic',
-        pulse: a.pulse, active: a.active, days: (a.days || []).map(Number),
-      }));
+
+```js
+import {
+  isNative,
+  requestNotificationPermission,
+  scheduleAlarm,
+  cancelAlarmNotifications,
+  syncAllAlarms,
+  vibrateAlarm,
+  onNotificationTap,
+  getPendingAlarm,
+  dismissAlarm,
+  checkAndRequestAlarmPermissions,
+} from '../lib/nativeAlarms';
+```
+
+- [ ] **Step 2: Call `checkAndRequestAlarmPermissions` after `syncAllAlarms` in `loadUserData`**
+
+Find this block inside `loadUserData` (around line 229):
+
+```js
       setAlarms(mapped);
       syncAllAlarms(mapped);
 
       // Cold-start: check if an alarm fired while the app was closed
-      const pendingAlarmId = await getPendingAlarm();
-      if (pendingAlarmId) {
-        const alarm = mapped.find(a => a.id === pendingAlarmId);
-        if (alarm) { vibrateAlarm(); setActiveAlarm(alarm); }
-      }
-    }
 ```
 
-- [ ] **Step 4: Commit**
+Replace with:
+
+```js
+      setAlarms(mapped);
+      syncAllAlarms(mapped);
+      checkAndRequestAlarmPermissions(); // request missing alarm permissions once per install
+
+      // Cold-start: check if an alarm fired while the app was closed
+```
+
+- [ ] **Step 3: Update `clearActiveAlarm` to stop the foreground service**
+
+Find (around line 469):
+
+```js
+  function clearActiveAlarm()   { setActiveAlarm(null); }
+```
+
+Replace with:
+
+```js
+  function clearActiveAlarm() {
+    if (activeRef.current) dismissAlarm(activeRef.current.id);
+    setActiveAlarm(null);
+  }
+```
+
+- [ ] **Step 4: Build the web bundle**
 
 ```bash
-git add src/context/AppContext.jsx
-git commit -m "feat(js): handle cold-start and backgrounded alarm firing in AppContext"
+npm run build 2>&1 | tail -20
+```
+
+Expected: no errors.
+
+- [ ] **Step 5: Sync to Android and build APK**
+
+```bash
+npx cap sync android && cd android && ./gradlew assembleDebug 2>&1 | tail -20
+```
+
+Expected: `BUILD SUCCESSFUL`
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/lib/nativeAlarms.js src/context/AppContext.jsx
+git commit -m "feat(js): wire dismissAlarm and alarm permission checks into AppContext"
 ```
 
 ---
 
-## Task 8: Build, Sync, and Test on Emulator
+## Task 8: Test on Emulator
 
-- [ ] **Step 1: Build the React app and sync to Android**
+- [ ] **Step 1: Install the debug APK**
 
-Run from the project root (`C:\dev\MorninMate`):
 ```bash
-npm run build && npx cap sync android
+cd android && ./gradlew installDebug 2>&1 | tail -10
 ```
 
-Expected: no build errors. Android assets updated in `android/app/src/main/assets/public/`.
+Expected: `BUILD SUCCESSFUL`, app installs on emulator.
 
-- [ ] **Step 2: Open Android Studio and sync Gradle**
+- [ ] **Step 2: Grant permissions on first launch**
 
-In Android Studio: **File → Sync Project with Gradle Files** (or click the elephant icon in the toolbar).  
-Expected: Gradle syncs successfully. No compile errors.
+Launch the app and log in. You should see:
+1. A system dialog: "Allow MorninMate to ignore battery optimizations?" — tap **Allow**
+2. A Settings page for full-screen intents — enable the toggle for MorninMate, then press Back
 
-- [ ] **Step 3: Grant "Alarms & Reminders" permission (Android 12+ only)**
+- [ ] **Step 3: Set a test alarm 2 minutes from now (no repeat days)**
 
-On Android 12 (API 31–32), exact alarms require manual permission:
-1. Run the app on the emulator once
-2. Go to **Settings → Apps → MorninMate → Alarms & Reminders**
-3. Toggle it ON
+In the app, add a one-shot alarm set to current emulator time + 2 minutes.
 
-On Android 13+ (`USE_EXACT_ALARM` is in the manifest), this step is not needed.
+- [ ] **Step 4: Kill the app**
 
-- [ ] **Step 4: Test cold-start alarm firing**
+Press the square (recent apps) button on the emulator and swipe MorninMate away.
 
-1. In the app, create an alarm set **2 minutes from the current emulator time**
-2. Press the Android **Home** button to close the app (send to background), then swipe it away from recents to kill it
-3. Wait for the alarm time
-4. Expected: screen turns on, MorninMate opens over the lock screen showing `WakeUpFlow`
+- [ ] **Step 5: Lock the screen**
 
-- [ ] **Step 5: Test backgrounded alarm firing**
+```bash
+adb shell input keyevent 26
+```
 
-1. Create another alarm set **2 minutes from now**
-2. Press Home (app goes to background — do NOT swipe away)
-3. Wait for alarm time
-4. Expected: screen turns on, app comes to foreground, `WakeUpFlow` shows
+- [ ] **Step 6: Wait for the alarm — verify these three things**
 
-- [ ] **Step 6: Test alarm cancellation**
+1. Screen turns on automatically
+2. Alarm notification appears on the lock screen with "MorninMate" title and "Dismiss" button
+3. Alarm ringtone plays on loop
 
-1. Create an alarm 1 minute from now
-2. Toggle it OFF in the Home screen before it fires
-3. Wait past the alarm time
-4. Expected: nothing happens — alarm was cancelled
+- [ ] **Step 7: Tap the notification body**
+
+Expected: App opens, wake-up routine screen shows, ringtone continues playing until you complete the routine.
+
+- [ ] **Step 8: Complete the wake-up routine**
+
+Expected: `clearActiveAlarm()` is called → `dismissAlarm()` runs → ringtone stops, notification is removed.
+
+- [ ] **Step 9: Repeat the test but tap "Dismiss" instead**
+
+Set another alarm 2 minutes out, kill the app, wait for it to fire. When the notification appears, tap **Dismiss**.
+
+Expected: Ringtone stops immediately, notification disappears, app does NOT open.
+
+- [ ] **Step 10: If anything fails, check logcat**
+
+```bash
+adb logcat -s AlarmReceiver AlarmService AlarmPlugin AlarmDismissReceiver
+```
+
+Look for this sequence on success:
+```
+AlarmReceiver: onReceive fired! alarmId=<id>
+AlarmService:  onStartCommand alarmId=<id>
+AlarmService:  onDestroy — stopping ringtone and releasing WakeLock
+```
