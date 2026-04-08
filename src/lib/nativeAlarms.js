@@ -73,6 +73,30 @@ export async function getPendingAlarm() {
   }
 }
 
+// ─── Dismiss (stops AlarmService: ringtone + WakeLock) ────────────────────────
+
+export async function dismissAlarm(id) {
+  if (!isNative) return;
+  try {
+    await AlarmPlugin.dismissAlarm({ id });
+  } catch (_) {}
+}
+
+// ─── Alarm permissions (USE_FULL_SCREEN_INTENT, battery opt, notifications) ────
+
+export async function checkAndRequestAlarmPermissions() {
+  if (!isNative) return;
+  try {
+    const result = await AlarmPlugin.checkAlarmPermissions();
+    const needsRequest = !result.postNotifications
+      || !result.fullScreenIntent
+      || !result.batteryOptimization;
+    if (needsRequest) await AlarmPlugin.requestAlarmPermissions();
+  } catch (e) {
+    console.warn('checkAndRequestAlarmPermissions failed:', e);
+  }
+}
+
 // ─── Haptics ──────────────────────────────────────────────────────────────────
 
 export async function vibrateAlarm() {
