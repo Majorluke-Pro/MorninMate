@@ -9,6 +9,8 @@ import {
   vibrateAlarm,
   onNotificationTap,
   getPendingAlarm,
+  dismissAlarm,
+  checkAndRequestAlarmPermissions,
 } from '../lib/nativeAlarms';
 
 const AppContext = createContext(null);
@@ -227,6 +229,7 @@ export function AppProvider({ children }) {
       }));
       setAlarms(mapped);
       syncAllAlarms(mapped);
+      checkAndRequestAlarmPermissions(); // request missing alarm permissions once per install
 
       // Cold-start: check if an alarm fired while the app was closed
       const pendingAlarmId = await getPendingAlarm();
@@ -340,7 +343,7 @@ export function AppProvider({ children }) {
       .single();
 
     if (error) {
-      console.error('Failed to save alarm:', error);
+      console.error('Failed to save alarm:', JSON.stringify(error));
       return;
     }
     const newAlarm = {
@@ -467,7 +470,10 @@ export function AppProvider({ children }) {
   }
 
   function triggerAlarm(alarm)  { setActiveAlarm(alarm); }
-  function clearActiveAlarm()   { setActiveAlarm(null); }
+  function clearActiveAlarm() {
+    if (activeRef.current) dismissAlarm(activeRef.current.id);
+    setActiveAlarm(null);
+  }
 
   const xpProgress = (user.xp % XP_PER_LEVEL) / XP_PER_LEVEL;
 
