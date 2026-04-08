@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Box, Typography, LinearProgress } from '@mui/material';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import PublicIcon from '@mui/icons-material/Public';
@@ -36,67 +36,91 @@ function buildGrid(difficulty) {
       Icon: item.Icon,
       flipped: false,
       matched: false,
+      mismatch: false,
     }));
 }
 
 function FlipCard({ card, onClick, previewing, selected }) {
   const isFlipped  = card.flipped || card.matched || previewing;
-  const isSelected = selected;
   const FaceIcon = card.Icon;
 
   return (
     <Box
+      onTouchStart={(e) => { e.preventDefault(); onClick(); }}
       onClick={onClick}
       sx={{
         aspectRatio: '1',
-        perspective: '700px',
+        perspective: '800px',
         cursor: card.matched ? 'default' : 'pointer',
+        touchAction: 'manipulation',
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
       }}
     >
-      {/* Flipper */}
       <Box sx={{
         width: '100%',
         height: '100%',
         position: 'relative',
         transformStyle: 'preserve-3d',
-        transition: 'transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
         transform: isFlipped ? 'rotateY(0deg)' : 'rotateY(180deg)',
       }}>
 
-        {/* Front face — emoji */}
+        {/* Front face */}
         <Box sx={{
           position: 'absolute', inset: 0,
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden',
           borderRadius: 3,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '1.75rem',
           bgcolor: card.matched
-            ? 'rgba(6,214,160,0.15)'
-            : 'rgba(255,107,53,0.07)',
+            ? 'rgba(6,214,160,0.13)'
+            : card.mismatch
+            ? 'rgba(239,71,111,0.12)'
+            : 'rgba(255,107,53,0.06)',
           border: '2px solid',
           borderColor: card.matched
             ? '#06D6A0'
-            : isSelected
+            : card.mismatch
+            ? '#EF476F'
+            : selected
             ? '#FF6B35'
-            : 'rgba(255,107,53,0.3)',
+            : 'rgba(255,107,53,0.25)',
           boxShadow: card.matched
-            ? '0 0 18px rgba(6,214,160,0.35)'
-            : isSelected
-            ? '0 0 12px rgba(255,107,53,0.35)'
+            ? '0 0 22px rgba(6,214,160,0.4)'
+            : card.mismatch
+            ? '0 0 16px rgba(239,71,111,0.35)'
+            : selected
+            ? '0 0 14px rgba(255,107,53,0.3)'
             : 'none',
-          transition: 'box-shadow 0.2s, border-color 0.2s',
-          animation: card.matched ? 'matchPop 0.35s cubic-bezier(0.34,1.56,0.64,1)' : 'none',
-          '@keyframes matchPop': {
+          transition: 'box-shadow 0.2s, border-color 0.2s, background-color 0.2s',
+          animation: card.matched
+            ? 'matchBurst 0.5s cubic-bezier(0.34,1.56,0.64,1)'
+            : card.mismatch
+            ? 'mismatchShake 0.35s ease'
+            : 'none',
+          '@keyframes matchBurst': {
             '0%':   { transform: 'scale(1)' },
-            '50%':  { transform: 'scale(1.15)' },
+            '35%':  { transform: 'scale(1.2)' },
+            '65%':  { transform: 'scale(0.96)' },
             '100%': { transform: 'scale(1)' },
           },
+          '@keyframes mismatchShake': {
+            '0%,100%': { transform: 'translateX(0)' },
+            '20%':     { transform: 'translateX(-6px)' },
+            '40%':     { transform: 'translateX(6px)' },
+            '60%':     { transform: 'translateX(-4px)' },
+            '80%':     { transform: 'translateX(4px)' },
+          },
         }}>
-          <FaceIcon sx={{ fontSize: '2.75rem', color: card.matched ? '#06D6A0' : '#FF6B35' }} />
+          <FaceIcon sx={{
+            fontSize: '2.5rem',
+            color: card.matched ? '#06D6A0' : card.mismatch ? '#EF476F' : '#FF6B35',
+            transition: 'color 0.2s',
+          }} />
         </Box>
 
-        {/* Back face — hidden */}
+        {/* Back face */}
         <Box sx={{
           position: 'absolute', inset: 0,
           backfaceVisibility: 'hidden',
@@ -104,13 +128,10 @@ function FlipCard({ card, onClick, previewing, selected }) {
           transform: 'rotateY(180deg)',
           borderRadius: 3,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'linear-gradient(135deg, rgba(255,107,53,0.12) 0%, rgba(255,209,102,0.06) 100%)',
-          border: '2px solid rgba(255,255,255,0.08)',
-          fontSize: '1.3rem',
-          color: 'rgba(255,255,255,0.25)',
-          fontWeight: 700,
+          background: 'linear-gradient(145deg, rgba(255,107,53,0.1) 0%, rgba(255,209,102,0.05) 50%, rgba(255,107,53,0.08) 100%)',
+          border: '2px solid rgba(255,255,255,0.07)',
         }}>
-          ?
+          <Typography sx={{ fontSize: '1.4rem', color: 'rgba(255,255,255,0.18)', fontWeight: 800, lineHeight: 1 }}>?</Typography>
         </Box>
       </Box>
     </Box>
@@ -123,18 +144,27 @@ export default function MemoryGame({ difficulty = 'normal', onComplete, onFail, 
   const previewMs = difficulty === 'easy' ? 2000 : difficulty === 'hard' ? 1000 : 1500;
   const cols      = difficulty === 'easy' ? 2 : difficulty === 'hard' ? 4 : 3;
 
-  const [cards,      setCards]      = useState(() => buildGrid(difficulty));
-  const [selected,   setSelected]   = useState([]);
-  const [locked,     setLocked]     = useState(true);
-  const [moves,      setMoves]      = useState(0);
-  const [timeLeft,   setTimeLeft]   = useState(totalTime);
-  const [previewing, setPreviewing] = useState(true);
+  const [cards,        setCards]        = useState(() => buildGrid(difficulty));
+  const [selected,     setSelected]     = useState([]);
+  const [locked,       setLocked]       = useState(true);
+  const [moves,        setMoves]        = useState(0);
+  const [timeLeft,     setTimeLeft]     = useState(totalTime);
+  const [previewing,   setPreviewing]   = useState(true);
+  const [previewLeft,  setPreviewLeft]  = useState(Math.ceil(previewMs / 1000));
 
   const matched = cards.filter(c => c.matched).length;
   const total   = cards.length;
   const pairs   = total / 2;
 
-  // Brief preview — show all cards, then flip back
+  // Preview countdown
+  useEffect(() => {
+    if (!previewing) return;
+    if (previewLeft <= 0) return;
+    const t = setTimeout(() => setPreviewLeft(p => p - 1), 1000);
+    return () => clearTimeout(t);
+  }, [previewing, previewLeft]);
+
+  // Flip back after preview
   useEffect(() => {
     const t = setTimeout(() => {
       setCards(prev => prev.map(c => ({ ...c, flipped: false })));
@@ -189,9 +219,15 @@ export default function MemoryGame({ difficulty = 'normal', onComplete, onFail, 
         }, 400);
       } else {
         playError();
+        // Flash mismatch state first, then flip back
         setTimeout(() => {
           setCards(prev => prev.map(c =>
-            c.id === a.id || c.id === b.id ? { ...c, flipped: false } : c
+            c.id === a.id || c.id === b.id ? { ...c, mismatch: true } : c
+          ));
+        }, 200);
+        setTimeout(() => {
+          setCards(prev => prev.map(c =>
+            c.id === a.id || c.id === b.id ? { ...c, flipped: false, mismatch: false } : c
           ));
           setSelected([]);
           setLocked(false);
@@ -207,7 +243,7 @@ export default function MemoryGame({ difficulty = 'normal', onComplete, onFail, 
   const movesLeft   = maxMoves - moves;
 
   return (
-    <Box sx={{ textAlign: 'center' }}>
+    <Box sx={{ textAlign: 'center', touchAction: 'manipulation' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
         <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
@@ -215,24 +251,29 @@ export default function MemoryGame({ difficulty = 'normal', onComplete, onFail, 
         </Typography>
         {previewing && (
           <Box sx={{
-            px: 1.5, py: 0.3, borderRadius: 1.5,
-            bgcolor: 'rgba(255,209,102,0.12)',
-            border: '1px solid rgba(255,209,102,0.25)',
-            animation: 'pulse 1s ease-in-out infinite',
-            '@keyframes pulse': {
-              '0%,100%': { opacity: 1 },
-              '50%':     { opacity: 0.6 },
-            },
+            display: 'flex', alignItems: 'center', gap: 1,
+            px: 1.5, py: 0.4, borderRadius: 2,
+            bgcolor: 'rgba(255,209,102,0.1)',
+            border: '1px solid rgba(255,209,102,0.22)',
           }}>
+            <Box sx={{
+              width: 7, height: 7, borderRadius: '50%',
+              bgcolor: '#FFD166',
+              animation: 'dot 1s ease-in-out infinite',
+              '@keyframes dot': {
+                '0%,100%': { opacity: 1, transform: 'scale(1)' },
+                '50%':     { opacity: 0.4, transform: 'scale(0.7)' },
+              },
+            }} />
             <Typography variant="caption" color="secondary.main" fontWeight={800} sx={{ letterSpacing: 1 }}>
-              MEMORISE!
+              MEMORISE — {previewLeft}s
             </Typography>
           </Box>
         )}
       </Box>
 
       {/* Stats row */}
-      <Box sx={{ mt: 0.5, mb: 2.5 }}>
+      <Box sx={{ mt: 0.5, mb: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
           <Typography variant="caption" color="text.secondary">
             {matched / 2} / {pairs} pairs
@@ -250,14 +291,12 @@ export default function MemoryGame({ difficulty = 'normal', onComplete, onFail, 
           </Box>
         </Box>
 
-        {/* Match progress */}
         <LinearProgress
           variant="determinate"
           value={progressPct}
           color="success"
           sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.06)', mb: 0.75 }}
         />
-        {/* Move meter */}
         <LinearProgress
           variant="determinate"
           value={movePct}
@@ -270,7 +309,7 @@ export default function MemoryGame({ difficulty = 'normal', onComplete, onFail, 
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gap: 1.5,
+        gap: 1.25,
         maxWidth: 360,
         mx: 'auto',
       }}>
@@ -286,8 +325,8 @@ export default function MemoryGame({ difficulty = 'normal', onComplete, onFail, 
       </Box>
 
       {previewing && (
-        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 2 }}>
-          Cards flip back soon — remember their positions!
+        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 2, letterSpacing: 0.5 }}>
+          Remember their positions — cards flip in {previewLeft}s
         </Typography>
       )}
     </Box>

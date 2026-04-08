@@ -29,3 +29,6 @@ dist-ssr
 google-services.json
 android/app/google-services.json
 android/app/google-services.json
+android/keystore.properties
+*.jks
+*.keystore
