@@ -1,149 +1,208 @@
-# Background Alarm — Full-Screen Intent Design
+# Background Alarm Design — AlarmService
 
-**Date:** 2026-04-08  
+**Date:** 2026-04-08
 **Status:** Approved
+**Target:** Android (Capacitor), API 33+, tested on API 37
 
 ## Problem
 
-The alarm currently fires only while the app is open. It relies on a JavaScript `setInterval` in `AppContext.jsx`. When the app is closed or backgrounded, no alarm fires. The goal is: set an alarm, close the app, and when it fires, the screen turns on, the app opens over the lock screen, and the WakeUpFlow plays custom sounds.
+Alarms only fire while the app is open. The JS `setInterval` in `AppContext.jsx` triggers the alarm UI, but when the app is closed or the screen is locked nothing happens — no notification, no sound, no screen wake.
 
-## Approach
+Root causes:
+1. `USE_FULL_SCREEN_INTENT` permission not requested at runtime (API 34+ requires explicit user grant in Settings)
+2. No foreground `AlarmService` — without one there is no WakeLock, no continuous sound, and Android's battery optimiser can suppress the broadcast entirely
+3. `POST_NOTIFICATIONS` not requested early enough
+4. Battery optimisation not exempted
 
-Custom Capacitor plugin using Android `AlarmManager` + full-screen intent. Replaces the `@capacitor/local-notifications` scheduling path. The JS public API in `nativeAlarms.js` stays the same so `AppContext` changes are minimal.
+## Goal
+
+When an alarm fires while the app is closed or the screen is locked:
+- A high-priority notification appears on the lock screen and as a heads-up
+- The default alarm ringtone plays on loop until the user acts
+- Tapping the notification OR the "Dismiss" action button stops the ringtone
+- Tapping the notification opens MorninMate and shows the wake-up routine
+- Completing the routine calls `dismissAlarm()` which stops the service
 
 ---
 
 ## Architecture
 
-### Scheduling Phase (JS → Native)
+### New components
 
-```
-nativeAlarms.js
-  └─ AlarmPlugin.schedule({ id, label, time, days })
-       └─ AlarmPlugin.java
-            └─ AlarmManager.setExactAndAllowWhileIdle()
-            └─ SharedPreferences.putString(id, alarmJson)
-```
+| Component | Type | Purpose |
+|---|---|---|
+| `AlarmService.java` | Foreground Service | WakeLock + ringtone loop + alarm notification |
+| `AlarmDismissReceiver.java` | BroadcastReceiver | Handles notification "Dismiss" action button |
 
-### Firing Phase (Native → JS)
+### Modified components
 
-```
-AlarmManager fires at scheduled time
-  └─ AlarmReceiver.java
-       └─ builds full-screen intent → MainActivity (with alarmId extra)
-            └─ Cold start: MainActivity.onCreate() reads alarmId
-            └─ Backgrounded: MainActivity.onNewIntent() reads alarmId
-                 └─ bridge.triggerJSEvent("alarmFired", { alarmId })
-                      └─ AppContext.jsx listener → setActiveAlarm(alarm)
-                           └─ WakeUpFlow renders + plays custom sound
-```
-
-### Reboot Resilience
-
-```
-BOOT_COMPLETED broadcast
-  └─ BootReceiver.java
-       └─ reads all alarms from SharedPreferences
-            └─ re-registers each with AlarmManager
-```
+| Component | Change |
+|---|---|
+| `AndroidManifest.xml` | Add permissions, register AlarmService + AlarmDismissReceiver |
+| `AlarmReceiver.java` | Replace notification code with `startForegroundService(AlarmService)` |
+| `AlarmPlugin.java` | Add `dismissAlarm`, `checkAlarmPermissions`, `requestAlarmPermissions` |
+| `src/lib/nativeAlarms.js` | Add `dismissAlarm`, `checkAndRequestAlarmPermissions` |
+| `src/context/AppContext.jsx` | Call permissions check on load; call `dismissAlarm` in `clearActiveAlarm` |
 
 ---
 
-## Components
+## Detailed Design
 
-### New Native Files
+### `AndroidManifest.xml`
 
-| File | Purpose |
-|------|---------|
-| `android/app/src/main/java/com/morninmate/app/AlarmPlugin.java` | Capacitor plugin — JS bridge for schedule/cancel/cancelAll |
-| `android/app/src/main/java/com/morninmate/app/AlarmReceiver.java` | BroadcastReceiver — fires at alarm time, shows full-screen intent |
-| `android/app/src/main/java/com/morninmate/app/BootReceiver.java` | BroadcastReceiver — reschedules alarms after phone reboot |
-
-### Modified Files
-
-| File | Change |
-|------|--------|
-| `android/app/src/main/AndroidManifest.xml` | Add permissions + register receivers |
-| `android/app/src/main/java/com/morninmate/app/MainActivity.java` | Read alarmId from launch intent, fire bridge event |
-| `src/lib/nativeAlarms.js` | Replace LocalNotifications.schedule() with AlarmPlugin calls |
-| `src/context/AppContext.jsx` | Add `alarmFired` bridge event listener on startup |
-
----
-
-## Data Flow
-
-### Scheduling
-
-`addAlarm()` in AppContext calls `scheduleAlarm(alarm)` in `nativeAlarms.js`, which calls `AlarmPlugin.schedule()` with:
-- `id` — UUID string
-- `label` — alarm label string
-- `time` — `"HH:MM"` string
-- `days` — array of 0–6 integers (empty = one-shot)
-
-For **repeating alarms**: one `AlarmManager` entry per day, each set to fire weekly (`setExactAndAllowWhileIdle` + reschedule in receiver).  
-For **one-shot alarms**: single entry at next occurrence of `HH:MM`.
-
-All alarm data is serialized as JSON and saved to `SharedPreferences` under key `alarm_<id>`.
-
-### Firing
-
-`AlarmReceiver` receives the broadcast with `alarmId` as an intent extra. It constructs a `PendingIntent` to launch `MainActivity` with `alarmId`. It posts a high-priority notification with `setFullScreenIntent(pendingIntent, true)` and acquires a `WAKE_LOCK` to turn on the screen.
-
-Two launch cases handled in `MainActivity`:
-
-- **Cold start** (`onCreate`): reads `getIntent().getStringExtra("alarmId")`, calls `bridge.triggerJSEvent("alarmFired", "{ \"alarmId\": \"...\", \"channel\": \"document\" }")`
-- **Backgrounded** (`onNewIntent`): same logic on the new intent
-
-`AppContext.jsx` registers a listener for `"alarmFired"` on `document` at startup. On receiving it, finds the alarm in state and calls `setActiveAlarm`.
-
-### Repeat Scheduling
-
-After each weekly repeating alarm fires, `AlarmReceiver` re-schedules itself for the next week using `AlarmManager.setExactAndAllowWhileIdle()`. For one-shot alarms, `AlarmReceiver` removes the alarm from `SharedPreferences` after firing.
-
----
-
-## Android Manifest Changes
-
-### Permissions to add
-
+Add permissions:
 ```xml
-<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-<uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-<uses-permission android:name="android.permission.WAKE_LOCK" />
-<uses-permission android:name="android.permission.VIBRATE" />
-<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 ```
 
-### Receivers to register (inside `<application>`)
-
+Register service and dismiss receiver inside `<application>`:
 ```xml
-<receiver android:name=".AlarmReceiver" android:exported="false" />
-<receiver android:name=".BootReceiver" android:exported="true">
-    <intent-filter>
-        <action android:name="android.intent.action.BOOT_COMPLETED" />
-    </intent-filter>
-</receiver>
+<service
+    android:name=".AlarmService"
+    android:foregroundServiceType="mediaPlayback"
+    android:exported="false" />
+
+<receiver android:name=".AlarmDismissReceiver" android:exported="false" />
+```
+
+### `AlarmService.java` (new)
+
+`onStartCommand`:
+1. Extract `alarmId` and `label` from intent extras
+2. Acquire `PowerManager.PARTIAL_WAKE_LOCK`
+3. Get `RingtoneManager.getDefaultUri(TYPE_ALARM)` and play on loop (`setLooping(true)` API 28+)
+4. Build foreground notification:
+   - Channel `morninmate_alarm` (IMPORTANCE_HIGH, bypass DnD, vibration enabled)
+   - `CATEGORY_ALARM`, `PRIORITY_MAX`, `VISIBILITY_PUBLIC`, `setOngoing(true)`
+   - Content intent + full-screen intent → `MainActivity` with `alarmId` extra
+   - Action "Dismiss" → `AlarmDismissReceiver` broadcast with `alarmId`
+5. Call `startForeground(notificationId, notification, FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)`
+6. Call `startActivity(mainIntent)` directly to force the screen on
+
+`onDestroy`:
+- Stop ringtone
+- Release WakeLock
+
+### `AlarmDismissReceiver.java` (new)
+
+On receive:
+1. `stopService(new Intent(context, AlarmService.class))`
+2. `SharedPreferences.edit().remove("pending_alarm").apply()` so cold-start doesn't re-trigger
+
+### `AlarmReceiver.java` (update)
+
+Remove all notification-building code. Replace with:
+```java
+Intent serviceIntent = new Intent(context, AlarmService.class);
+serviceIntent.putExtra("alarmId", alarmId);
+serviceIntent.putExtra("label", label);
+context.startForegroundService(serviceIntent);
+```
+
+Keep: `pending_alarm` SharedPreferences write + repeating alarm reschedule logic.
+
+### `AlarmPlugin.java` (update)
+
+**`dismissAlarm`:**
+```java
+@PluginMethod
+public void dismissAlarm(PluginCall call) {
+    String id = call.getString("id");
+    getContext().stopService(new Intent(getContext(), AlarmService.class));
+    getPrefs().edit().remove("pending_alarm").apply();
+    call.resolve();
+}
+```
+
+**`checkAlarmPermissions`:** returns a `JSObject` with:
+- `postNotifications` — `NotificationManagerCompat.areNotificationsEnabled()`
+- `fullScreenIntent` — `notificationManager.canUseFullScreenIntent()` (API 34+, else `true`)
+- `batteryOptimization` — `powerManager.isIgnoringBatteryOptimizations(packageName)`
+
+**`requestAlarmPermissions`:**
+- `POST_NOTIFICATIONS` → `ActivityCompat.requestPermissions()`
+- `USE_FULL_SCREEN_INTENT` → `startActivity(ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)`
+- Battery optimization → `startActivity(ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)`
+
+### `nativeAlarms.js` (update)
+
+```js
+export async function dismissAlarm(id) {
+  if (!isNative) return;
+  await AlarmPlugin.dismissAlarm({ id });
+}
+
+export async function checkAndRequestAlarmPermissions() {
+  if (!isNative) return;
+  const result = await AlarmPlugin.checkAlarmPermissions();
+  const needsRequest = !result.postNotifications
+    || !result.fullScreenIntent
+    || !result.batteryOptimization;
+  if (needsRequest) await AlarmPlugin.requestAlarmPermissions();
+}
+```
+
+### `AppContext.jsx` (update)
+
+After `syncAllAlarms()` in `loadUserData`:
+```js
+checkAndRequestAlarmPermissions(); // fire-and-forget, native only
+```
+
+Update `clearActiveAlarm`:
+```js
+function clearActiveAlarm() {
+  if (activeAlarm) dismissAlarm(activeAlarm.id);
+  setActiveAlarm(null);
+}
 ```
 
 ---
 
-## Error Handling & Edge Cases
+## Full Data Flow
 
-| Scenario | Handling |
-|----------|---------|
-| `SCHEDULE_EXACT_ALARM` permission denied (Android 12+) | `AlarmPlugin.schedule()` returns error to JS; `nativeAlarms.js` logs warning; app doesn't crash |
-| Multiple alarms fire at same minute | Each has unique `alarmId`; first sets `activeAlarm`; rest ignored by `activeRef` guard in AppContext |
-| Alarm cancelled while app is closed | `AlarmPlugin.cancel(id)` removes PendingIntent from AlarmManager + deletes from SharedPreferences |
-| Phone rebooted before alarm fires | `BootReceiver` re-reads SharedPreferences, re-registers all active alarms |
-| Alarm fires but scheduled time already passed (post-reboot) | AlarmReceiver / scheduling logic recalculates next valid occurrence |
-| App already in WakeUpFlow when second alarm fires | `activeRef.current` guard in AppContext prevents double-trigger |
+```
+AlarmManager fires
+  → AlarmReceiver.onReceive()
+      writes pending_alarm to SharedPreferences
+      startForegroundService(AlarmService)
+          acquires WakeLock
+          plays ringtone on loop
+          posts foreground notification (full-screen intent on lock screen)
+          startActivity(MainActivity, alarmId)
+
+App opens
+  cold-start  → AppContext.loadUserData() → getPendingAlarm() → setActiveAlarm()
+  backgrounded → MainActivity.onNewIntent() → JS "alarmFired" event → setActiveAlarm()
+
+User acts
+  completes wake-up game → clearActiveAlarm() → dismissAlarm(id)
+                                                    → stopService(AlarmService)
+                                                        ringtone stops, WakeLock released
+  taps "Dismiss" on notification
+      → AlarmDismissReceiver → stopService(AlarmService)
+```
+
+---
+
+## Permission Sequence
+
+| Permission | API requirement | How requested |
+|---|---|---|
+| `POST_NOTIFICATIONS` | API 33+ | `requestPermissions()` call |
+| `USE_FULL_SCREEN_INTENT` | API 34+ explicit grant | Open `ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT` |
+| Battery optimization exemption | All APIs | `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` dialog |
+| `USE_EXACT_ALARM` | Auto-granted API 33+ | No action needed |
+
+All three are requested once per install, on first alarm load (not on every launch).
 
 ---
 
 ## Out of Scope
 
+- iOS support
 - Snooze functionality
-- Custom alarm sound played from the notification channel (sounds play via app JS once WakeUpFlow renders)
-- iOS implementation (separate effort)
+- Custom alarm sounds (uses system default alarm ringtone)
+- Web/PWA alarm sound (existing browser `Notification` path unchanged)
