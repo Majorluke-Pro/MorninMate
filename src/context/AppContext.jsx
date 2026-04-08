@@ -8,6 +8,7 @@ import {
   syncAllAlarms,
   vibrateAlarm,
   onNotificationTap,
+  getPendingAlarm,
 } from '../lib/nativeAlarms';
 
 const AppContext = createContext(null);
@@ -162,6 +163,22 @@ export function AppProvider({ children }) {
     return () => clearInterval(interval);
   }, [session]);
 
+  // ─── alarmFired event (backgrounded-app case) ────────────────────────────────
+  // MainActivity.onNewIntent() fires this when an alarm launches the app
+  // while it is already running in the background.
+
+  useEffect(() => {
+    function handleAlarmFired(e) {
+      let alarmId;
+      try { alarmId = JSON.parse(e.detail).alarmId; } catch (_) { alarmId = e.detail?.alarmId; }
+      if (!alarmId || activeRef.current) return;
+      const alarm = alarmsRef.current.find(a => a.id === alarmId);
+      if (alarm) { vibrateAlarm(); setActiveAlarm(alarm); }
+    }
+    document.addEventListener('alarmFired', handleAlarmFired);
+    return () => document.removeEventListener('alarmFired', handleAlarmFired);
+  }, []); // Uses refs — safe to register once on mount
+
   // ─── Notification permission ─────────────────────────────────────────────────
   // Ask once, 4 s after the user logs in, so it doesn't feel intrusive.
 
@@ -210,6 +227,13 @@ export function AppProvider({ children }) {
       }));
       setAlarms(mapped);
       syncAllAlarms(mapped);
+
+      // Cold-start: check if an alarm fired while the app was closed
+      const pendingAlarmId = await getPendingAlarm();
+      if (pendingAlarmId) {
+        const alarm = mapped.find(a => a.id === pendingAlarmId);
+        if (alarm) { vibrateAlarm(); setActiveAlarm(alarm); }
+      }
     }
 
     refreshWakeStats(userId);
