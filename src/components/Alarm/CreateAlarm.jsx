@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Box, Typography, Button, TextField, IconButton, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Typography, Button, TextField, IconButton, ToggleButton, ToggleButtonGroup, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckIcon from '@mui/icons-material/Check';
 import CalculateIcon from '@mui/icons-material/Calculate';
@@ -72,6 +72,8 @@ const QUICK_PRESETS = [
 export default function CreateAlarm() {
   const navigate = useNavigate();
   const { addAlarm } = useApp();
+
+  const [hardcoreWarningOpen, setHardcoreWarningOpen] = useState(false);
 
   const [form, setForm] = useState({
     label: '',
@@ -413,7 +415,13 @@ export default function CreateAlarm() {
               return (
                 <Box
                   key={opt.value}
-                  onClick={() => setIntensity(opt.value)}
+                  onClick={() => {
+                    if (opt.value === 'hardcore') {
+                      setHardcoreWarningOpen(true);
+                    } else {
+                      setIntensity(opt.value);
+                    }
+                  }}
                   sx={{
                     p: 2.5, borderRadius: 3, cursor: 'pointer',
                     border: selected ? `1.5px solid ${opt.color}55` : '1.5px solid rgba(255,255,255,0.07)',
@@ -522,6 +530,47 @@ export default function CreateAlarm() {
           </Box>
         </Section>
       </Box>
+
+      <Dialog
+        open={hardcoreWarningOpen}
+        onClose={() => setHardcoreWarningOpen(false)}
+        PaperProps={{
+          sx: {
+            bgcolor: '#1A0808',
+            border: '1.5px solid rgba(239,28,28,0.4)',
+            borderRadius: 4,
+            mx: 2,
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pb: 1 }}>
+          <LocalFireDepartmentIcon sx={{ color: '#EF1C1C', fontSize: '1.8rem' }} />
+          <Typography fontWeight={900} fontSize="1.15rem">Are you sure?</Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" lineHeight={1.7}>
+            <strong style={{ color: '#EF1C1C' }}>Hardcore Mode</strong> forces{' '}
+            <strong>maximum volume</strong> and locks your phone to this app until all 3 games
+            are completed. There is <strong>no way out</strong>.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setHardcoreWarningOpen(false)}
+            sx={{ borderColor: 'rgba(255,255,255,0.15)', color: 'text.secondary', borderRadius: 2 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => { setIntensity('hardcore'); setHardcoreWarningOpen(false); }}
+            sx={{ bgcolor: '#EF1C1C', '&:hover': { bgcolor: '#CC1818' }, borderRadius: 2, fontWeight: 800 }}
+          >
+            Lock It In
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Fixed save button */}
       <Box
