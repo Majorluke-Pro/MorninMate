@@ -8,6 +8,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import SpaIcon from '@mui/icons-material/Spa';
 import WhatshotIcon from '@mui/icons-material/Whatshot';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import MusicNoteIcon            from '@mui/icons-material/MusicNote';
 import TuneIcon                 from '@mui/icons-material/Tune';
@@ -33,9 +34,10 @@ import TimePicker from '../common/TimePicker';
 // ─── Static data ──────────────────────────────────────────────────────────────
 
 const INTENSITY = [
-  { value: 'gentle',   Icon: SpaIcon,      label: 'Gentle',   desc: '1 game · Easy mode',   xp: 20, color: '#06D6A0' },
-  { value: 'moderate', Icon: WhatshotIcon,  label: 'Moderate', desc: '2 games · Normal mode', xp: 35, color: '#FFD166' },
-  { value: 'intense',  Icon: FlashOnIcon,   label: 'Intense',  desc: '3 games · Hard mode',  xp: 60, color: '#EF476F' },
+  { value: 'gentle',   Icon: SpaIcon,                   label: 'Gentle',   desc: '1 game · Easy mode',         xp: 20,  color: '#06D6A0' },
+  { value: 'moderate', Icon: WhatshotIcon,               label: 'Moderate', desc: '2 games · Normal mode',       xp: 35,  color: '#FFD166' },
+  { value: 'intense',  Icon: FlashOnIcon,                label: 'Intense',  desc: '3 games · Hard mode',         xp: 60,  color: '#EF476F' },
+  { value: 'hardcore', Icon: LocalFireDepartmentIcon,    label: 'Hardcore', desc: '3 games · Hard · No escape',  xp: 100, color: '#EF1C1C' },
 ];
 
 const GAMES = [
@@ -102,7 +104,12 @@ export default function CreateAlarm() {
   // ── Pulse helpers ─────────────────────────────────────────────────────────
 
   function setIntensity(intensity) {
-    const map = { gentle: ['math'], moderate: ['math', 'memory'], intense: ['math', 'memory', 'reaction'] };
+    const map = {
+      gentle:   ['math'],
+      moderate: ['math', 'memory'],
+      intense:  ['math', 'memory', 'reaction'],
+      hardcore: ['math', 'memory', 'reaction'],
+    };
     setForm(f => ({ ...f, pulse: { intensity, games: map[intensity] } }));
   }
 
