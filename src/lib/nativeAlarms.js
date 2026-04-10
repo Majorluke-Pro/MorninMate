@@ -122,3 +122,20 @@ export async function vibrateSuccess() {
 export function onNotificationTap() {
   return () => {};
 }
+
+// ─── Hardcore Mode ────────────────────────────────────────────────────────────
+
+export async function setHardcoreVolume() {
+  if (!isNative) return;
+  try { await AlarmPlugin.setHardcoreVolume(); } catch (_) {}
+}
+
+export async function enableHardcoreLock() {
+  if (!isNative) return;
+  try { await AlarmPlugin.enableHardcoreLock(); } catch (_) {}
+}
+
+export async function disableHardcoreLock() {
+  if (!isNative) return;
+  try { await AlarmPlugin.disableHardcoreLock(); } catch (_) {}
+}
