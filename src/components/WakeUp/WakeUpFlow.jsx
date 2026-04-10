@@ -24,8 +24,9 @@ const INACTIVITY_LIMIT = 30; // seconds before alarm restarts
 const GAME_LABELS = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush' };
 const GAME_ICONS  = { math: CalculateIcon, memory: StyleIcon, reaction: BoltIcon };
 const GAME_COLORS = { math: '#FF6B35', memory: '#FFD166', reaction: '#06D6A0' };
-const DIFFICULTY_MAP = { gentle: 'easy', moderate: 'normal', intense: 'hard' };
-const XP_REWARD = { gentle: 20, moderate: 35, intense: 60 };
+const DIFFICULTY_MAP = { gentle: 'easy', moderate: 'normal', intense: 'hard', hardcore: 'hard' };
+const XP_REWARD      = { gentle: 20, moderate: 35, intense: 60, hardcore: 100 };
+const INACTIVITY_BY_INTENSITY = { gentle: 30, moderate: 30, intense: 30, hardcore: 10 };
 
 export default function WakeUpFlow() {
   const { session, activeAlarm, clearActiveAlarm, awardXP, addDemerit, refreshWakeStats } = useApp();
