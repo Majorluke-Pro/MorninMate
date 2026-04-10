@@ -9,6 +9,8 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
 
+    public static boolean isHardcoreLocked = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(AlarmPlugin.class);
@@ -31,6 +33,12 @@ public class MainActivity extends BridgeActivity {
                     "{\"alarmId\":\"" + alarmId + "\"}")
             );
         }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (isHardcoreLocked) return;
+        super.onBackPressed();
     }
 
     private void applyAlarmWindowFlags(Intent intent) {
