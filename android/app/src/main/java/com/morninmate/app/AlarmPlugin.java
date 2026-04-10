@@ -1,6 +1,7 @@
 package com.morninmate.app;
 
 import android.app.AlarmManager;
+import android.media.AudioManager;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -32,6 +33,7 @@ import java.util.Map;
 public class AlarmPlugin extends Plugin {
 
     private static final String PREFS_NAME = "MorninMateAlarms";
+    private int savedAlarmVolume = -1;
 
     private AlarmManager getAlarmManager() {
         return (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
@@ -254,6 +256,42 @@ public class AlarmPlugin extends Plugin {
             getContext().startActivity(intent);
         }
 
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void setHardcoreVolume(PluginCall call) {
+        AudioManager audio = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+        savedAlarmVolume = audio.getStreamVolume(AudioManager.STREAM_ALARM);
+        int maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM);
+        audio.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            audio.adjustStreamVolume(AudioManager.STREAM_ALARM, AudioManager.ADJUST_UNMUTE, 0);
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void enableHardcoreLock(PluginCall call) {
+        MainActivity.isHardcoreLocked = true;
+        Intent guardIntent = new Intent(getContext(), HardcoreGuardService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getContext().startForegroundService(guardIntent);
+        } else {
+            getContext().startService(guardIntent);
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void disableHardcoreLock(PluginCall call) {
+        MainActivity.isHardcoreLocked = false;
+        getContext().stopService(new Intent(getContext(), HardcoreGuardService.class));
+        if (savedAlarmVolume >= 0) {
+            AudioManager audio = (AudioManager) getContext().getSystemService(Context.AUDIO_SERVICE);
+            audio.setStreamVolume(AudioManager.STREAM_ALARM, savedAlarmVolume, 0);
+            savedAlarmVolume = -1;
+        }
         call.resolve();
     }
 }
