@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
@@ -56,6 +57,12 @@
         <!-- Foreground service — plays ringtone while alarm is ringing -->
         <service
             android:name=".AlarmService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false" />
+
+        <!-- Hardcore guard — re-launches app if user backgrounds during hardcore alarm -->
+        <service
+            android:name=".HardcoreGuardService"
             android:foregroundServiceType="mediaPlayback"
             android:exported="false" />
 
