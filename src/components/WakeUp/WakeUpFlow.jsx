@@ -20,7 +20,6 @@ import ReactionGame from '../Games/ReactionGame';
 import { supabase } from '../../lib/supabase';
 
 const GAME_MAP    = { math: MathGame, memory: MemoryGame, reaction: ReactionGame };
-const INACTIVITY_LIMIT = 30; // seconds before alarm restarts
 const GAME_LABELS = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush' };
 const GAME_ICONS  = { math: CalculateIcon, memory: StyleIcon, reaction: BoltIcon };
 const GAME_COLORS = { math: '#FF6B35', memory: '#FFD166', reaction: '#06D6A0' };
@@ -31,10 +30,12 @@ const INACTIVITY_BY_INTENSITY = { gentle: 30, moderate: 30, intense: 30, hardcor
 export default function WakeUpFlow() {
   const { session, activeAlarm, clearActiveAlarm, awardXP, addDemerit, refreshWakeStats } = useApp();
 
-  const games      = activeAlarm?.pulse?.games || ['math'];
-  const intensity  = activeAlarm?.pulse?.intensity || 'moderate';
-  const difficulty = DIFFICULTY_MAP[intensity];
-  const xpReward   = XP_REWARD[intensity];
+  const games            = activeAlarm?.pulse?.games || ['math'];
+  const intensity        = activeAlarm?.pulse?.intensity || 'moderate';
+  const difficulty       = DIFFICULTY_MAP[intensity];
+  const xpReward         = XP_REWARD[intensity];
+  const isHardcore       = intensity === 'hardcore';
+  const INACTIVITY_LIMIT = INACTIVITY_BY_INTENSITY[intensity] ?? 30;
 
   // Start alarm sound immediately; stop when the flow is dismissed
   useEffect(() => {
@@ -193,15 +194,17 @@ export default function WakeUpFlow() {
           <Typography variant="caption" color="text.secondary">
             Game {gameIndex + 1} of {games.length}
           </Typography>
-          <Button
-            variant="text"
-            size="small"
-            disabled={ending}
-            onClick={handleEndEarly}
-            sx={{ color: 'rgba(255,255,255,0.55)', fontWeight: 800, px: 1, minWidth: 0 }}
-          >
-            End
-          </Button>
+          {!isHardcore && (
+            <Button
+              variant="text"
+              size="small"
+              disabled={ending}
+              onClick={handleEndEarly}
+              sx={{ color: 'rgba(255,255,255,0.55)', fontWeight: 800, px: 1, minWidth: 0 }}
+            >
+              End
+            </Button>
+          )}
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
             {failCount > 0 && (
               <Box sx={{ display:'flex', alignItems:'center', gap:0.5 }}>
