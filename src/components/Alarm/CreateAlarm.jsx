@@ -469,6 +469,7 @@ export default function CreateAlarm() {
         <Separator />
 
         {/* ── Games ────────────────────────────────────────────────────────── */}
+        {form.pulse.intensity !== 'hardcore' && (
         <Section delay={0.26}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <SectionLabel>Wake-Up Games</SectionLabel>
@@ -529,6 +530,7 @@ export default function CreateAlarm() {
             })}
           </Box>
         </Section>
+        )}
       </Box>
 
       <Dialog
