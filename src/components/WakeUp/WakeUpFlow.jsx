@@ -12,6 +12,7 @@ import AlarmIcon from '@mui/icons-material/Alarm';
 import SpaIcon from '@mui/icons-material/Spa';
 import WhatshotIcon from '@mui/icons-material/Whatshot';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import CheckIcon from '@mui/icons-material/Check';
 import { useApp } from '../../context/AppContext';
 import MathGame from '../Games/MathGame';
@@ -166,6 +167,7 @@ export default function WakeUpFlow() {
         games={games}
         intensity={intensity}
         xpReward={xpReward}
+        isHardcore={isHardcore}
         onStart={async () => {
           await startWakeSession();
           stopAlarm();
@@ -181,6 +183,7 @@ export default function WakeUpFlow() {
         results={results}
         xpReward={xpReward}
         totalFails={totalFails}
+        isHardcore={isHardcore}
         onDone={clearActiveAlarm}
       />
     );
@@ -286,9 +289,9 @@ export default function WakeUpFlow() {
   );
 }
 
-function IntroScreen({ alarm, games, intensity, xpReward, onStart }) {
-  const INTENSITY_ICON  = { gentle: SpaIcon, moderate: WhatshotIcon, intense: FlashOnIcon };
-  const INTENSITY_COLOR = { gentle: '#06D6A0', moderate: '#FFD166', intense: '#EF476F' };
+function IntroScreen({ alarm, games, intensity, xpReward, isHardcore, onStart }) {
+  const INTENSITY_ICON  = { gentle: SpaIcon, moderate: WhatshotIcon, intense: FlashOnIcon, hardcore: LocalFireDepartmentIcon };
+  const INTENSITY_COLOR = { gentle: '#06D6A0', moderate: '#FFD166', intense: '#EF476F', hardcore: '#EF1C1C' };
   const IntensityIcon   = INTENSITY_ICON[intensity];
   const intensityColor  = INTENSITY_COLOR[intensity];
 
@@ -348,6 +351,17 @@ function IntroScreen({ alarm, games, intensity, xpReward, onStart }) {
           {intensity.charAt(0).toUpperCase() + intensity.slice(1)} Pulse
         </Typography>
       </Box>
+      {isHardcore && (
+        <Box sx={{
+          mb: 2, px: 2.5, py: 1.25, borderRadius: 2.5,
+          bgcolor: 'rgba(239,28,28,0.12)', border: '1.5px solid rgba(239,28,28,0.4)',
+          display: 'flex', alignItems: 'center', gap: 1,
+        }}>
+          <Typography variant="body2" fontWeight={800} color="#EF1C1C">
+            Hardcore Mode — Full volume. No escape. Finish or suffer.
+          </Typography>
+        </Box>
+      )}
       <Typography variant="caption" color="text.disabled" sx={{ mb: 4 }}>
         No dodging it, mate — finish all games to dismiss.
       </Typography>
@@ -426,13 +440,13 @@ function IntroScreen({ alarm, games, intensity, xpReward, onStart }) {
         variant="contained" size="large" onClick={onStart}
         sx={{ px: 7, py: 1.75, fontSize: '1rem', borderRadius: 3 }}
       >
-        Start Wake-Up Routine
+        {isHardcore ? 'Begin (No Going Back)' : 'Start Wake-Up Routine'}
       </Button>
     </Box>
   );
 }
 
-function ResultScreen({ results, xpReward, totalFails, onDone }) {
+function ResultScreen({ results, xpReward, totalFails, isHardcore, onDone }) {
   return (
     <Box sx={{
       minHeight: '100vh',
@@ -481,10 +495,10 @@ function ResultScreen({ results, xpReward, totalFails, onDone }) {
       </Box>
 
       <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-0.5px', mb: 0.5 }}>
-        Bonzer, you're up!
+        {isHardcore ? 'You survived.' : "Bonzer, you're up!"}
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Ripper morning routine, mate
+        {isHardcore ? 'That was brutal. Respect.' : 'Ripper morning routine, mate'}
       </Typography>
 
       {/* XP card */}
