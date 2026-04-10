@@ -19,6 +19,7 @@ import MathGame from '../Games/MathGame';
 import MemoryGame from '../Games/MemoryGame';
 import ReactionGame from '../Games/ReactionGame';
 import { supabase } from '../../lib/supabase';
+import { setHardcoreVolume, enableHardcoreLock, disableHardcoreLock } from '../../lib/nativeAlarms';
 
 const GAME_MAP    = { math: MathGame, memory: MemoryGame, reaction: ReactionGame };
 const GAME_LABELS = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush' };
@@ -41,7 +42,14 @@ export default function WakeUpFlow() {
   // Start alarm sound immediately; stop when the flow is dismissed
   useEffect(() => {
     startAlarm(activeAlarm?.sound ?? 'classic');
-    return () => stopAlarm();
+    if (isHardcore) {
+      setHardcoreVolume();
+      enableHardcoreLock();
+    }
+    return () => {
+      stopAlarm();
+      if (isHardcore) disableHardcoreLock();
+    };
   }, []);
 
   const [gameIndex,  setGameIndex]  = useState(0);
