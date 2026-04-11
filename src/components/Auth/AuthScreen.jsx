@@ -131,7 +131,7 @@ export default function AuthScreen() {
                 fullWidth
                 variant="outlined"
                 size="large"
-                onClick={() => { setSent(false); setEmail(''); }}
+                onClick={() => { setSent(false); setEmail(''); setError(''); }}
                 sx={{ mt: 3, py: 1.5, borderColor: 'rgba(255,255,255,0.15)', color: 'text.secondary' }}
               >
                 Use a different email

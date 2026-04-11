@@ -83,8 +83,9 @@ export function AppProvider({ children }) {
 
   // Lets a returning user skip onboarding and go straight to the auth screen
   const [showAuthDirectly, setShowAuthDirectly] = useState(false);
-  const loadingData  = useRef(false);
-  const lastFiredRef = useRef(null); // "alarmId-HH:MM" — prevents double-fire
+  const loadingData      = useRef(false);
+  const appUrlListenerRef = useRef(null);
+  const lastFiredRef     = useRef(null); // "alarmId-HH:MM" — prevents double-fire
   const alarmsRef    = useRef(alarms);
   const activeRef    = useRef(activeAlarm);
   alarmsRef.current  = alarms;
@@ -129,7 +130,6 @@ export function AppProvider({ children }) {
   // deep link after the user taps their magic link email.
 
   useEffect(() => {
-    let listenerHandle;
     CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
       if (url && url.includes('login-callback')) {
         try {
@@ -143,9 +143,9 @@ export function AppProvider({ children }) {
           console.error('Magic link session error:', err);
         }
       }
-    }).then(handle => { listenerHandle = handle; });
+    }).then(h => { appUrlListenerRef.current = h; });
 
-    return () => { listenerHandle?.remove(); };
+    return () => { appUrlListenerRef.current?.remove(); };
   }, []);
 
   // ─── Alarm scheduler ────────────────────────────────────────────────────────
@@ -279,44 +279,61 @@ export function AppProvider({ children }) {
   // Saves pending onboarding profile (if present) then fetches user data.
   // Called internally from onAuthStateChange when mm_pending_onboarding exists.
   async function handlePostAuth(session) {
-    setSession(session);
+    if (loadingData.current) return;
+    loadingData.current = true;
 
     const userId = session.user.id;
 
-    // Save pending onboarding profile if present
-    const pendingRaw = sessionStorage.getItem('mm_pending_onboarding');
-    if (pendingRaw) {
-      const pending = JSON.parse(pendingRaw);
-      const { error } = await supabase.from('profiles').upsert(newProfilePayload(userId, pending));
-      if (error) {
-        console.error('Failed to save profile:', error);
-      } else {
+    try {
+      // Guard: if the user already has a completed profile, don't overwrite it
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('onboarding_complete')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (existing?.onboarding_complete) {
         sessionStorage.removeItem('mm_pending_onboarding');
         setPendingOnboardingState(null);
+        await loadUserData(userId);
+        return;
       }
+
+      // Save pending onboarding profile if present
+      const pendingRaw = sessionStorage.getItem('mm_pending_onboarding');
+      if (pendingRaw) {
+        const pending = JSON.parse(pendingRaw);
+        const { error } = await supabase.from('profiles').upsert(newProfilePayload(userId, pending));
+        if (error) {
+          console.error('Failed to save profile:', error);
+        } else {
+          sessionStorage.removeItem('mm_pending_onboarding');
+          setPendingOnboardingState(null);
+        }
+      }
+
+      // Now fetch — profile is guaranteed to be in DB
+      const [profileResult, alarmsResult] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.from('alarms').select('*').eq('user_id', userId).order('created_at'),
+      ]);
+
+      if (profileResult.data) setUser(rowToUser(profileResult.data));
+      if (alarmsResult.data) {
+        const mapped = alarmsResult.data.map(a => ({
+          id: a.id, label: a.label, time: a.time,
+          sound: a.pulse?.sound || 'classic',
+          pulse: a.pulse, active: a.active, days: (a.days || []).map(Number),
+        }));
+        setAlarms(mapped);
+        syncAllAlarms(mapped);
+      }
+
+      refreshWakeStats(userId);
+    } finally {
+      loadingData.current = false;
+      setLoading(false);
     }
-
-    // Now fetch — profile is guaranteed to be in DB
-    const [profileResult, alarmsResult] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-      supabase.from('alarms').select('*').eq('user_id', userId).order('created_at'),
-    ]);
-
-    if (profileResult.data) setUser(rowToUser(profileResult.data));
-    if (alarmsResult.data) {
-      const mapped = alarmsResult.data.map(a => ({
-        id: a.id, label: a.label, time: a.time,
-        sound: a.pulse?.sound || 'classic',
-        pulse: a.pulse, active: a.active, days: (a.days || []).map(Number),
-      }));
-      setAlarms(mapped);
-      syncAllAlarms(mapped);
-    }
-
-    refreshWakeStats(userId);
-
-    loadingData.current = false;
-    setLoading(false);
   }
 
   // ─── Pending onboarding ─────────────────────────────────────────────────────
