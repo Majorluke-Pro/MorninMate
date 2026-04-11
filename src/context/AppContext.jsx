@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { supabase } from '../lib/supabase';
 import {
   isNative,
@@ -115,6 +116,26 @@ export function AppProvider({ children }) {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // ─── Magic link deep-link handler ────────────────────────────────────────────
+  // Listens for the app being opened via the com.morninmate.app://login-callback
+  // deep link after the user taps their magic link email.
+
+  useEffect(() => {
+    let listenerHandle;
+    CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
+      if (url && url.includes('login-callback')) {
+        try {
+          await supabase.auth.getSessionFromUrl({ storeSession: true });
+          // onAuthStateChange will fire automatically with the new session
+        } catch (err) {
+          console.error('Magic link session error:', err);
+        }
+      }
+    }).then(handle => { listenerHandle = handle; });
+
+    return () => { listenerHandle?.remove(); };
   }, []);
 
   // ─── Alarm scheduler ────────────────────────────────────────────────────────

@@ -5,11 +5,10 @@ import { supabase } from '../../lib/supabase';
 import { useApp } from '../../context/AppContext';
 
 export default function AuthScreen() {
-  const { pendingOnboarding, setShowAuthDirectly, handlePostAuth, lockAuth, unlockAuth } = useApp();
-  const [mode, setMode] = useState(pendingOnboarding ? 'signup' : 'signin');
+  const { pendingOnboarding, setShowAuthDirectly } = useApp();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
 
   const firstName = pendingOnboarding?.name?.split(' ')[0];
@@ -19,28 +18,17 @@ export default function AuthScreen() {
     setError('');
     setLoading(true);
 
-    if (mode === 'signup') {
-      lockAuth();
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        unlockAuth();
-        setError(error.message);
-        setLoading(false);
-      } else if (!data.session) {
-        unlockAuth();
-        setError('Check your email to confirm your account, then sign in here.');
-        setLoading(false);
-      } else {
-        await handlePostAuth(data.session);
-      }
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: 'com.morninmate.app://login-callback' },
+    });
+
+    if (otpError) {
+      setError(otpError.message);
+      setLoading(false);
     } else {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-      } else if (data.session) {
-        await handlePostAuth(data.session);
-      }
+      setSent(true);
+      setLoading(false);
     }
   }
 
@@ -111,10 +99,10 @@ export default function AuthScreen() {
           ) : (
             <>
               <Typography variant="h5" fontWeight={900} sx={{ letterSpacing: '-0.5px', mb: 0.5 }}>
-                {mode === 'signin' ? 'Welcome back' : 'Create account'}
+                {sent ? 'Check your inbox' : 'Welcome'}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {mode === 'signin' ? "Let's get you up." : 'Start your morning ritual.'}
+                {sent ? 'Your magic link is on its way.' : "Sign in or sign up — no password needed."}
               </Typography>
             </>
           )}
@@ -128,67 +116,64 @@ export default function AuthScreen() {
           backdropFilter: 'blur(24px)',
           boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
         }}>
-          <Box
-            component="form"
-            onSubmit={handleSubmit}
-            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-          >
-            {error && (
-              <Alert severity="error" sx={{ borderRadius: 2, fontSize: '0.82rem' }}>
-                {error}
-              </Alert>
-            )}
-
-            <TextField
-              label="Email"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              fullWidth
-              sx={inputSx}
-            />
-
-            <TextField
-              label="Password"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-              inputProps={{ minLength: 6 }}
-              fullWidth
-              sx={inputSx}
-            />
-
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              size="large"
-              disabled={loading || !email || !password}
-              sx={{ mt: 0.5, py: 1.75, fontSize: '1rem' }}
-            >
-              {loading
-                ? <CircularProgress size={22} sx={{ color: '#fff' }} />
-                : mode === 'signin' ? 'Sign In' : 'Sign Up'}
-            </Button>
-          </Box>
-        </Box>
-
-        {/* Toggle */}
-        <Box sx={{ textAlign: 'center', mt: 2.5 }}>
-          <Typography variant="body2" color="text.secondary">
-            {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
-            <Box
-              component="span"
-              onClick={() => { setMode(mode === 'signin' ? 'signup' : 'signin'); setError(''); }}
-              sx={{ color: 'primary.main', fontWeight: 700, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-            >
-              {mode === 'signin' ? 'Sign up' : 'Sign in'}
+          {sent ? (
+            <Box sx={{ textAlign: 'center', py: 1 }}>
+              <Typography variant="body1" sx={{ color: 'text.primary', lineHeight: 1.7 }}>
+                We sent a link to
+              </Typography>
+              <Typography variant="body1" fontWeight={700} sx={{ color: '#FF6B35', wordBreak: 'break-all' }}>
+                {email}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+                Tap the link in the email to sign in. You can close this screen.
+              </Typography>
+              <Button
+                fullWidth
+                variant="outlined"
+                size="large"
+                onClick={() => { setSent(false); setEmail(''); }}
+                sx={{ mt: 3, py: 1.5, borderColor: 'rgba(255,255,255,0.15)', color: 'text.secondary' }}
+              >
+                Use a different email
+              </Button>
             </Box>
-          </Typography>
+          ) : (
+            <Box
+              component="form"
+              onSubmit={handleSubmit}
+              sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+            >
+              {error && (
+                <Alert severity="error" sx={{ borderRadius: 2, fontSize: '0.82rem' }}>
+                  {error}
+                </Alert>
+              )}
+
+              <TextField
+                label="Email"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                fullWidth
+                sx={inputSx}
+              />
+
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                size="large"
+                disabled={loading || !email}
+                sx={{ mt: 0.5, py: 1.75, fontSize: '1rem' }}
+              >
+                {loading
+                  ? <CircularProgress size={22} sx={{ color: '#fff' }} />
+                  : 'Send Magic Link'}
+              </Button>
+            </Box>
+          )}
         </Box>
 
         {!pendingOnboarding && (
