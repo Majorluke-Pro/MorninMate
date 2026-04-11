@@ -105,7 +105,13 @@ export function AppProvider({ children }) {
       setSession(session);
       if (session) {
         setLoading(true); // prevent flash of OnboardingFlow before data loads
-        loadUserData(session.user.id);
+        // For new magic-link users: if pending onboarding data exists, write it
+        // to the profiles table before loading user data (handlePostAuth handles both).
+        if (event === 'SIGNED_IN' && sessionStorage.getItem('mm_pending_onboarding')) {
+          handlePostAuth(session);
+        } else {
+          loadUserData(session.user.id);
+        }
       } else {
         loadingData.current = false;
         setUser(INITIAL_USER);
@@ -127,8 +133,12 @@ export function AppProvider({ children }) {
     CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
       if (url && url.includes('login-callback')) {
         try {
-          await supabase.auth.getSessionFromUrl({ storeSession: true });
-          // onAuthStateChange will fire automatically with the new session
+          const urlObj = new URL(url);
+          const code = urlObj.searchParams.get('code');
+          if (code) {
+            await supabase.auth.exchangeCodeForSession(code);
+            // onAuthStateChange fires automatically with the new session
+          }
         } catch (err) {
           console.error('Magic link session error:', err);
         }
@@ -266,9 +276,8 @@ export function AppProvider({ children }) {
     setLoading(false);
   }
 
-  // Called by AuthScreen after signup/signin — saves pending profile then fetches data.
-  // lockAuth() must be called before the supabase auth call to ensure loadUserData
-  // from onAuthStateChange cannot race with this function.
+  // Saves pending onboarding profile (if present) then fetches user data.
+  // Called internally from onAuthStateChange when mm_pending_onboarding exists.
   async function handlePostAuth(session) {
     setSession(session);
 
@@ -316,13 +325,6 @@ export function AppProvider({ children }) {
     sessionStorage.setItem('mm_pending_onboarding', JSON.stringify(data));
     setPendingOnboardingState(data);
   }
-
-  // ─── Auth helpers ───────────────────────────────────────────────────────────
-
-  // Call this BEFORE supabase.auth.signUp/signInWithPassword to prevent
-  // onAuthStateChange from triggering loadUserData before handlePostAuth runs.
-  function lockAuth() { loadingData.current = true; setLoading(true); }
-  function unlockAuth() { loadingData.current = false; setLoading(false); }
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -530,9 +532,6 @@ export function AppProvider({ children }) {
         refreshWakeStats,
         pendingOnboarding,
         setPendingOnboarding,
-        handlePostAuth,
-        lockAuth,
-        unlockAuth,
         showAuthDirectly,
         setShowAuthDirectly,
         completeOnboarding,
