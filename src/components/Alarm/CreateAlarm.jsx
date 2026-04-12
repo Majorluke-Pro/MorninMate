@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Box, Typography, Button, TextField, IconButton, ToggleButton, ToggleButtonGroup, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import CheckIcon from '@mui/icons-material/Check';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import StyleIcon from '@mui/icons-material/Style';
@@ -67,27 +68,34 @@ const QUICK_PRESETS = [
   { label: 'Weekend',   days: [0, 6] },
 ];
 
+const REQUIRED_GAMES_BY_INTENSITY = {
+  gentle: 1,
+  moderate: 2,
+  intense: 3,
+  hardcore: 3,
+};
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function CreateAlarm() {
   const navigate = useNavigate();
-  const { addAlarm } = useApp();
+  const { addAlarm, user } = useApp();
 
   const [hardcoreWarningOpen, setHardcoreWarningOpen] = useState(false);
+  const [showScrollCue, setShowScrollCue] = useState(true);
+  const [repeatMode, setRepeatMode] = useState('');
 
   const [form, setForm] = useState({
     label: '',
-    time: '07:00',
-    days: [1, 2, 3, 4, 5],
-    sound: 'classic',
-    pulse: { intensity: 'moderate', games: ['math', 'memory'] },
+    time: user?.wakeTime || '07:00',
+    days: [],
+    sound: '',
+    pulse: { intensity: '', games: [] },
   });
 
   // ── Time helpers ──────────────────────────────────────────────────────────
 
-  const [h, m] = form.time.split(':').map(Number);
-  const isPM   = h >= 12;
-  const hour12 = h % 12 || 12;
+  const [h] = form.time ? form.time.split(':').map(Number) : [null];
 
 
   // ── Day helpers ───────────────────────────────────────────────────────────
@@ -99,59 +107,108 @@ export default function CreateAlarm() {
     }));
   }
 
-  function applyPreset(days) {
-    setForm(f => ({ ...f, days }));
+  function applyRepeatMode(mode) {
+    setRepeatMode(mode);
+    if (mode === 'once') {
+      setForm(f => ({ ...f, days: [] }));
+      return;
+    }
+    if (mode === 'custom') {
+      setForm(f => ({ ...f, days: [] }));
+      return;
+    }
+
+    const presetMap = {
+      every: QUICK_PRESETS[0].days,
+      weekdays: QUICK_PRESETS[1].days,
+      weekend: QUICK_PRESETS[2].days,
+    };
+    setForm(f => ({ ...f, days: presetMap[mode] || [] }));
   }
 
   // ── Pulse helpers ─────────────────────────────────────────────────────────
 
   function setIntensity(intensity) {
-    const map = {
-      gentle:   ['math'],
-      moderate: ['math', 'memory'],
-      intense:  ['math', 'memory', 'reaction'],
-      hardcore: ['math', 'memory', 'reaction'],
-    };
-    setForm(f => ({ ...f, pulse: { intensity, games: map[intensity] } }));
+    setForm(f => ({
+      ...f,
+      pulse: {
+        intensity,
+        games: intensity === 'hardcore' ? ['math', 'memory', 'reaction'] : [],
+      },
+    }));
   }
 
   function toggleGame(game) {
     setForm(f => {
       const curr = f.pulse.games;
+      const requiredCount = REQUIRED_GAMES_BY_INTENSITY[f.pulse.intensity] ?? 0;
+      if (!requiredCount || f.pulse.intensity === 'hardcore') return f;
+      if (curr.includes(game)) {
+        return { ...f, pulse: { ...f.pulse, games: curr.filter(g => g !== game) } };
+      }
+      if (curr.length >= requiredCount) return f;
       const next = curr.includes(game) ? curr.filter(g => g !== game) : [...curr, game];
-      return { ...f, pulse: { ...f.pulse, games: next.length ? next : curr } };
+      return { ...f, pulse: { ...f.pulse, games: next } };
     });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
 
   function handleSave() {
+    if (!canSave) return;
     addAlarm(form);
     navigate('/');
   }
 
-  const timeCtx =
-    h >= 0  && h < 4  ? { label: 'Deep night',        color: '#8B5CF6', Icon: NightsStayIcon  } :
-    h >= 4  && h < 6  ? { label: 'Before dawn',       color: '#EF476F', Icon: WbTwilightIcon  } :
-    h >= 6  && h < 8  ? { label: 'Early riser',       color: '#FF6B35', Icon: WbTwilightIcon  } :
-    h >= 8  && h < 10 ? { label: 'Morning sweet spot',color: '#FFD166', Icon: WbSunnyIcon     } :
-    h >= 10 && h < 12 ? { label: 'Late morning',      color: '#06D6A0', Icon: WbSunnyIcon     } :
-    h >= 12 && h < 14 ? { label: 'Midday',            color: '#FFD166', Icon: LightModeIcon   } :
-    h >= 14 && h < 17 ? { label: 'Afternoon',         color: '#FF8C5A', Icon: WbCloudyIcon    } :
-    h >= 17 && h < 20 ? { label: 'Evening',           color: '#FF6B35', Icon: Brightness4Icon } :
-    h >= 20 && h < 22 ? { label: 'Night',             color: '#8B5CF6', Icon: NightsStayIcon  } :
-                        { label: 'Late night',         color: '#A0A0B8', Icon: HotelIcon       };
+  const timeCtx = form.time && h !== null
+    ? h >= 0  && h < 4  ? { label: 'Deep night',        color: '#8B5CF6', Icon: NightsStayIcon  } :
+      h >= 4  && h < 6  ? { label: 'Before dawn',       color: '#EF476F', Icon: WbTwilightIcon  } :
+      h >= 6  && h < 8  ? { label: 'Early riser',       color: '#FF6B35', Icon: WbTwilightIcon  } :
+      h >= 8  && h < 10 ? { label: 'Morning sweet spot',color: '#FFD166', Icon: WbSunnyIcon     } :
+      h >= 10 && h < 12 ? { label: 'Late morning',      color: '#06D6A0', Icon: WbSunnyIcon     } :
+      h >= 12 && h < 14 ? { label: 'Midday',            color: '#FFD166', Icon: LightModeIcon   } :
+      h >= 14 && h < 17 ? { label: 'Afternoon',         color: '#FF8C5A', Icon: WbCloudyIcon    } :
+      h >= 17 && h < 20 ? { label: 'Evening',           color: '#FF6B35', Icon: Brightness4Icon } :
+      h >= 20 && h < 22 ? { label: 'Night',             color: '#8B5CF6', Icon: NightsStayIcon  } :
+                          { label: 'Late night',         color: '#A0A0B8', Icon: HotelIcon       }
+    : null;
 
-  const activePreset = QUICK_PRESETS.find(p =>
-    p.days.length === form.days.length && p.days.every(d => form.days.includes(d))
-  );
+  const requiredGameCount = REQUIRED_GAMES_BY_INTENSITY[form.pulse.intensity] ?? 0;
+  const gamesComplete = form.pulse.intensity === 'hardcore'
+    ? true
+    : requiredGameCount > 0 && form.pulse.games.length === requiredGameCount;
+  const repeatComplete = repeatMode === 'custom' ? form.days.length > 0 : Boolean(repeatMode);
+  const canSave = Boolean(form.time)
+    && Boolean(form.sound)
+    && Boolean(form.pulse.intensity)
+    && repeatComplete
+    && gamesComplete;
+  const missingRequirements = [
+    !repeatComplete && 'repeat',
+    !form.sound && 'sound',
+    !form.pulse.intensity && 'intensity',
+    !gamesComplete && 'games',
+  ].filter(Boolean);
+  const requirementMessage = `Still choose: ${missingRequirements.join(', ')}.`;
 
-  const repeatModeValue =
-    form.days.length === 0 ? 'once' :
-    activePreset?.label === 'Every day' ? 'every' :
-    activePreset?.label === 'Weekdays'  ? 'weekdays' :
-    activePreset?.label === 'Weekend'   ? 'weekend' :
-    'custom';
+  useEffect(() => {
+    function updateScrollCue() {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+      const viewportBottom = scrollTop + window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      const nearBottom = viewportBottom >= docHeight - 140;
+      setShowScrollCue(scrollTop < 160 && !nearBottom);
+    }
+
+    updateScrollCue();
+    window.addEventListener('scroll', updateScrollCue, { passive: true });
+    window.addEventListener('resize', updateScrollCue);
+
+    return () => {
+      window.removeEventListener('scroll', updateScrollCue);
+      window.removeEventListener('resize', updateScrollCue);
+    };
+  }, []);
 
   return (
     <Box sx={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', bgcolor: 'background.default' }}>
@@ -178,11 +235,19 @@ export default function CreateAlarm() {
         <Section delay={0.04}>
           <SectionLabel>Time</SectionLabel>
           <TimePicker value={form.time} onChange={t => setForm(f => ({ ...f, time: t }))} />
-          <Box sx={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0.75, mt:1.5 }}>
-            <timeCtx.Icon sx={{ fontSize:'1rem', color: timeCtx.color, transition:'color 0.3s' }}/>
-            <Typography variant="body2" fontWeight={600} sx={{ color: timeCtx.color, transition:'color 0.3s' }}>
-              {timeCtx.label}
-            </Typography>
+          <Box sx={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0.75, mt:1.5, minHeight: 24 }}>
+            {timeCtx ? (
+              <>
+                <timeCtx.Icon sx={{ fontSize:'1rem', color: timeCtx.color, transition:'color 0.3s' }}/>
+                <Typography variant="body2" fontWeight={600} sx={{ color: timeCtx.color, transition:'color 0.3s' }}>
+                  {timeCtx.label}
+                </Typography>
+              </>
+            ) : (
+              <Typography variant="body2" fontWeight={600} sx={{ color: 'rgba(255,255,255,0.38)' }}>
+                Tap the clock to choose a wake-up time
+              </Typography>
+            )}
           </Box>
         </Section>
 
@@ -227,7 +292,7 @@ export default function CreateAlarm() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <SectionLabel>Alarm Sound</SectionLabel>
             <Typography variant="caption" color="text.disabled">
-              {ALARM_SOUNDS.find(s => s.id === form.sound)?.label}
+              {ALARM_SOUNDS.find(s => s.id === form.sound)?.label || 'Required'}
             </Typography>
           </Box>
           <Box
@@ -308,8 +373,12 @@ export default function CreateAlarm() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <SectionLabel>Repeat</SectionLabel>
             <Typography variant="caption" color="text.disabled">
-              {form.days.length === 0
+              {!repeatMode
+                ? 'Required'
+                : repeatMode === 'once'
                 ? 'One-time alarm'
+                : form.days.length === 0
+                ? 'Choose day(s)'
                 : form.days.length === 7
                 ? 'Every day'
                 : `${form.days.length} day${form.days.length > 1 ? 's' : ''}`}
@@ -320,13 +389,10 @@ export default function CreateAlarm() {
           <Box sx={{ mt: 2, mb: 2.5, display: 'flex', justifyContent: 'center' }}>
             <ToggleButtonGroup
               exclusive
-              value={repeatModeValue}
+              value={repeatMode}
               onChange={(_, next) => {
                 if (!next) return;
-                if (next === 'once') applyPreset([]);
-                if (next === 'every') applyPreset(QUICK_PRESETS[0].days);
-                if (next === 'weekdays') applyPreset(QUICK_PRESETS[1].days);
-                if (next === 'weekend') applyPreset(QUICK_PRESETS[2].days);
+                applyRepeatMode(next);
               }}
               sx={{
                 bgcolor: 'rgba(255,255,255,0.04)',
@@ -356,6 +422,7 @@ export default function CreateAlarm() {
               }}
             >
               <ToggleButton value="once">Once</ToggleButton>
+              <ToggleButton value="custom">Custom</ToggleButton>
               <ToggleButton value="weekdays">Weekdays</ToggleButton>
               <ToggleButton value="weekend">Weekend</ToggleButton>
               <ToggleButton value="every">Every day</ToggleButton>
@@ -363,7 +430,7 @@ export default function CreateAlarm() {
           </Box>
 
           {/* Day circles (custom) */}
-          <Box sx={{ display: 'flex', gap: 1, opacity: repeatModeValue === 'once' ? 0.45 : 1, transition: 'opacity 180ms ease' }}>
+          <Box sx={{ display: 'flex', gap: 1, opacity: repeatMode !== 'custom' ? 0.45 : 1, transition: 'opacity 180ms ease' }}>
             {DAY_LABELS.map((d, i) => {
               const on = form.days.includes(i);
               return (
@@ -371,7 +438,7 @@ export default function CreateAlarm() {
                   key={i}
                   value={i}
                   selected={on}
-                  disabled={repeatModeValue === 'once'}
+                  disabled={repeatMode !== 'custom'}
                   onChange={() => toggleDay(i)}
                   sx={{
                     flex: 1,
@@ -402,6 +469,11 @@ export default function CreateAlarm() {
               );
             })}
           </Box>
+          {repeatMode === 'custom' && form.days.length === 0 && (
+            <Typography variant="caption" sx={{ color: '#FFD166', display: 'block', mt: 1.1 }}>
+              Pick at least one day for a custom repeat.
+            </Typography>
+          )}
         </Section>
 
         <Separator />
@@ -409,26 +481,18 @@ export default function CreateAlarm() {
         {/* ── Intensity ────────────────────────────────────────────────────── */}
         <Section delay={0.2}>
           <SectionLabel>Wake-up Intensity</SectionLabel>
+          {!form.pulse.intensity && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: 'block' }}>
+              Choose how tough this alarm should be.
+            </Typography>
+          )}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 2.5 }}>
             {INTENSITY.map((opt, i) => {
               const selected = form.pulse.intensity === opt.value;
               return (
                 <Box
                   key={opt.value}
-                  onClick={() => {
-                    if (opt.value === 'hardcore') {
-                      setHardcoreWarningOpen(true);
-                    } else {
-                      setIntensity(opt.value);
-                    }
-                  }}
                   sx={{
-                    p: 2.5, borderRadius: 3, cursor: 'pointer',
-                    border: selected ? `1.5px solid ${opt.color}55` : '1.5px solid rgba(255,255,255,0.07)',
-                    bgcolor: selected ? `${opt.color}0D` : 'rgba(255,255,255,0.03)',
-                    display: 'flex', alignItems: 'center', gap: 2,
-                    transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
-                    transform: selected ? 'scale(1.02)' : 'scale(1)',
                     '@keyframes intIn': {
                       from: { opacity: 0, transform: 'translateX(-14px)' },
                       to:   { opacity: 1, transform: 'translateX(0)' },
@@ -437,28 +501,51 @@ export default function CreateAlarm() {
                   }}
                 >
                   <Box
+                    onClick={() => {
+                      if (opt.value === 'hardcore') {
+                        setHardcoreWarningOpen(true);
+                      } else {
+                        setIntensity(opt.value);
+                      }
+                    }}
                     sx={{
-                      width: 50, height: 50, borderRadius: 3, flexShrink: 0,
-                      bgcolor: `${opt.color}18`, border: `1px solid ${opt.color}30`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      p: 2.5,
+                      borderRadius: 3,
+                      cursor: 'pointer',
+                      border: selected ? `1.5px solid ${opt.color}55` : '1.5px solid rgba(255,255,255,0.07)',
+                      bgcolor: selected ? `${opt.color}0D` : 'rgba(255,255,255,0.03)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      transition: 'border-color 0.22s ease, background-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                      transform: selected ? 'scale(1.02)' : 'scale(1)',
+                      boxShadow: selected ? `0 12px 26px ${opt.color}18` : 'none',
                     }}
                   >
-                    <opt.Icon sx={{ fontSize: '1.9rem', color: opt.color }} />
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography fontWeight={700} sx={{ color: selected ? opt.color : 'text.primary' }}>
-                      {opt.label}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">{opt.desc}</Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      px: 1.25, py: 0.35, borderRadius: 1.5, flexShrink: 0,
-                      bgcolor: `${opt.color}20`, color: opt.color,
-                      fontSize: '0.68rem', fontWeight: 800,
-                    }}
-                  >
-                    +{opt.xp} XP
+                    <Box
+                      sx={{
+                        width: 50, height: 50, borderRadius: 3, flexShrink: 0,
+                        bgcolor: `${opt.color}18`, border: `1px solid ${opt.color}30`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >
+                      <opt.Icon sx={{ fontSize: '1.9rem', color: opt.color }} />
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography fontWeight={700} sx={{ color: selected ? opt.color : 'text.primary' }}>
+                        {opt.label}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">{opt.desc}</Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        px: 1.25, py: 0.35, borderRadius: 1.5, flexShrink: 0,
+                        bgcolor: `${opt.color}20`, color: opt.color,
+                        fontSize: '0.68rem', fontWeight: 800,
+                      }}
+                    >
+                      +{opt.xp} XP
+                    </Box>
                   </Box>
                 </Box>
               );
@@ -474,19 +561,22 @@ export default function CreateAlarm() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <SectionLabel>Wake-Up Games</SectionLabel>
             <Typography variant="caption" color="text.disabled">
-              {form.pulse.games.length} selected
+              {requiredGameCount ? `${form.pulse.games.length}/${requiredGameCount} selected` : 'Choose intensity first'}
             </Typography>
           </Box>
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', mb: 0.5 }}>
-            All selected games must be completed to dismiss.
+            {requiredGameCount
+              ? `Choose ${requiredGameCount} game${requiredGameCount > 1 ? 's' : ''}. All selected games must be completed to dismiss.`
+              : 'Pick an intensity first so we know how many games this alarm requires.'}
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 2 }}>
             {GAMES.map((game, i) => {
               const selected = form.pulse.games.includes(game.value);
+              const disabled = !requiredGameCount;
               return (
                 <Box
                   key={game.value}
-                  onClick={() => toggleGame(game.value)}
+                  onClick={() => !disabled && toggleGame(game.value)}
                   sx={{
                     p: 2.5, borderRadius: 3, cursor: 'pointer',
                     border: selected ? `1.5px solid ${game.color}55` : '1.5px solid rgba(255,255,255,0.07)',
@@ -494,6 +584,7 @@ export default function CreateAlarm() {
                     display: 'flex', alignItems: 'center', gap: 2.5,
                     transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
                     transform: selected ? 'scale(1.01)' : 'scale(1)',
+                    opacity: disabled ? 0.45 : 1,
                     '@keyframes gameCardIn': {
                       from: { opacity: 0, transform: 'translateY(12px)' },
                       to:   { opacity: 1, transform: 'translateY(0)' },
@@ -529,6 +620,11 @@ export default function CreateAlarm() {
               );
             })}
           </Box>
+          {requiredGameCount > 0 && !gamesComplete && (
+            <Typography variant="caption" sx={{ color: '#FFD166', display: 'block', mt: 1.1 }}>
+              Choose {requiredGameCount} game{requiredGameCount > 1 ? 's' : ''} to finish this alarm setup.
+            </Typography>
+          )}
         </Section>
         )}
       </Box>
@@ -574,6 +670,48 @@ export default function CreateAlarm() {
         </DialogActions>
       </Dialog>
 
+      <Box sx={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        bottom: 98,
+        zIndex: 9,
+        px: 3,
+        pointerEvents: 'none',
+        opacity: showScrollCue ? 1 : 0,
+        transform: showScrollCue ? 'translateY(0)' : 'translateY(12px)',
+        transition: 'opacity 180ms ease, transform 180ms ease',
+      }}>
+        <Box sx={{
+          mx: 'auto',
+          width: 'fit-content',
+          maxWidth: '100%',
+          px: 1.4,
+          py: 0.85,
+          borderRadius: 999,
+          bgcolor: 'rgba(10,10,22,0.88)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          backdropFilter: 'blur(14px)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.6,
+          boxShadow: '0 10px 30px rgba(0,0,0,0.28)',
+        }}>
+          <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'rgba(255,255,255,0.86)' }}>
+            Scroll for the rest of the required alarm settings
+          </Typography>
+          <KeyboardArrowDownIcon sx={{
+            fontSize: '1rem',
+            color: '#FF6B35',
+            animation: 'scrollCueFloat 1.1s ease-in-out infinite',
+            '@keyframes scrollCueFloat': {
+              '0%,100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(3px)' },
+            },
+          }} />
+        </Box>
+      </Box>
+
       {/* Fixed save button */}
       <Box
         sx={{
@@ -585,11 +723,31 @@ export default function CreateAlarm() {
           zIndex: 10,
         }}
       >
+        {!canSave && (
+          <Box sx={{
+            mb: 1.2,
+            px: 1.2,
+            py: 0.9,
+            borderRadius: 2.5,
+            bgcolor: 'rgba(255,209,102,0.09)',
+            border: '1px solid rgba(255,209,102,0.2)',
+          }}>
+            <Typography sx={{
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              color: '#FFD166',
+              textAlign: 'center',
+            }}>
+              {requirementMessage}
+            </Typography>
+          </Box>
+        )}
         <Button
           fullWidth
           variant="contained"
           size="large"
           onClick={handleSave}
+          disabled={!canSave}
           sx={{
             py: 1.75,
             fontWeight: 700,
@@ -601,7 +759,8 @@ export default function CreateAlarm() {
             '&:hover': { boxShadow: '0 12px 40px rgba(255,107,53,0.45)' },
           }}
         >
-          <CheckIcon sx={{ mr:0.75, fontSize:'1.1rem' }}/> Set Alarm
+          <CheckIcon sx={{ mr:0.75, fontSize:'1.1rem' }}/>
+          {canSave ? 'Set Alarm' : 'Choose All Required Settings'}
         </Button>
       </Box>
     </Box>

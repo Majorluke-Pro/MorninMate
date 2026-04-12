@@ -67,6 +67,24 @@ function rowToUser(row) {
   };
 }
 
+function normalizeAlarmDays(days) {
+  return (days || [])
+    .map(Number)
+    .filter(day => Number.isInteger(day) && day >= 0 && day <= 6);
+}
+
+function rowToAlarm(row) {
+  return {
+    id: row.id,
+    label: row.label,
+    time: row.time,
+    sound: row.pulse?.sound || 'classic',
+    pulse: row.pulse,
+    active: row.active,
+    days: normalizeAlarmDays(row.days),
+  };
+}
+
 export function AppProvider({ children }) {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(INITIAL_USER);
@@ -253,11 +271,7 @@ export function AppProvider({ children }) {
     if (profileResult.data) setUser(rowToUser(profileResult.data));
 
     if (alarmsResult.data) {
-      const mapped = alarmsResult.data.map(a => ({
-        id: a.id, label: a.label, time: a.time,
-        sound: a.pulse?.sound || 'classic',
-        pulse: a.pulse, active: a.active, days: (a.days || []).map(Number),
-      }));
+      const mapped = alarmsResult.data.map(rowToAlarm);
       setAlarms(mapped);
       syncAllAlarms(mapped);
       checkAndRequestAlarmPermissions(); // request missing alarm permissions once per install
@@ -320,11 +334,7 @@ export function AppProvider({ children }) {
 
       if (profileResult.data) setUser(rowToUser(profileResult.data));
       if (alarmsResult.data) {
-        const mapped = alarmsResult.data.map(a => ({
-          id: a.id, label: a.label, time: a.time,
-          sound: a.pulse?.sound || 'classic',
-          pulse: a.pulse, active: a.active, days: (a.days || []).map(Number),
-        }));
+        const mapped = alarmsResult.data.map(rowToAlarm);
         setAlarms(mapped);
         syncAllAlarms(mapped);
       }
@@ -386,15 +396,7 @@ export function AppProvider({ children }) {
       console.error('Failed to save alarm:', JSON.stringify(error));
       return;
     }
-    const newAlarm = {
-      id: data.id,
-      label: data.label,
-      time: data.time,
-      sound: data.pulse?.sound || 'classic',
-      pulse: data.pulse,
-      active: data.active,
-      days: data.days || [],
-    };
+    const newAlarm = rowToAlarm(data);
     setAlarms(prev => [...prev, newAlarm]);
     scheduleAlarm(newAlarm);
   }
@@ -421,7 +423,7 @@ export function AppProvider({ children }) {
     if (updates.label  !== undefined) dbUpdates.label  = updates.label;
     if (updates.time   !== undefined) dbUpdates.time   = updates.time;
     if (updates.active !== undefined) dbUpdates.active = updates.active;
-    if (updates.days   !== undefined) dbUpdates.days   = updates.days;
+    if (updates.days   !== undefined) dbUpdates.days   = normalizeAlarmDays(updates.days);
     if (updates.pulse  !== undefined || updates.sound !== undefined) {
       const existing = alarms.find(a => a.id === id);
       const basePulse = updates.pulse ?? existing?.pulse ?? {};
@@ -430,7 +432,11 @@ export function AppProvider({ children }) {
 
     await supabase.from('alarms').update(dbUpdates).eq('id', id);
     setAlarms(prev => {
-      const updated = prev.map(a => a.id === id ? { ...a, ...updates } : a);
+      const normalizedUpdates = {
+        ...updates,
+        ...(updates.days !== undefined ? { days: normalizeAlarmDays(updates.days) } : {}),
+      };
+      const updated = prev.map(a => a.id === id ? { ...a, ...normalizedUpdates } : a);
       const alarm = updated.find(a => a.id === id);
       if (alarm) scheduleAlarm(alarm);
       return updated;

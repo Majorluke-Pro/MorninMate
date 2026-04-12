@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, InputBase, Typography } from '@mui/material';
 
 const SIZE    = 256;
 const CENTER  = SIZE / 2;
@@ -33,14 +33,20 @@ function getAngleFromCenter(clientX, clientY, rect) {
 }
 
 export default function TimePicker({ value, onChange }) {
-  const [h24, m] = value.split(':').map(Number);
-  const isPM   = h24 >= 12;
-  const hour12 = h24 % 12 || 12;
+  const hasValue = Boolean(value);
+  const [h24, m] = hasValue ? value.split(':').map(Number) : [null, null];
+  const isPM   = h24 != null ? h24 >= 12 : false;
+  const hour12 = h24 != null ? (h24 % 12 || 12) : null;
+  const minuteTick = Number.isInteger(m) ? Math.round(m / 5) * 5 : null;
+  const minuteDisplayTick = minuteTick === 60 ? 0 : minuteTick;
   const [mode, setMode] = useState('hour');
+  const [editingPart, setEditingPart] = useState(null);
+  const [draftValue, setDraftValue] = useState('');
   const [dragAngle, setDragAngle] = useState(null); // degrees, null when not dragging
   const dragAngleRef = useRef(null);
   const draggingRef = useRef(false);
   const rafRef = useRef(0);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     return () => {
@@ -48,10 +54,19 @@ export default function TimePicker({ value, onChange }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (editingPart && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingPart]);
+
   // selected index on the clock face
-  const selIdx = mode === 'hour'
+  const selIdx = !hasValue
+    ? 0
+    : mode === 'hour'
     ? HOURS.indexOf(hour12)
-    : MINUTES.indexOf(m) >= 0 ? MINUTES.indexOf(m) : 0;
+    : MINUTES.indexOf(minuteDisplayTick) >= 0 ? MINUTES.indexOf(minuteDisplayTick) : 0;
   const snappedHandPos = itemPos(selIdx);
   const handPos = dragAngle == null ? snappedHandPos : angleToHandPos(dragAngle);
   const liveIdx = dragAngle == null ? selIdx : (Math.round(angleToTickFloat(dragAngle)) + 12) % 12;
@@ -60,10 +75,12 @@ export default function TimePicker({ value, onChange }) {
     if (mode === 'hour') {
       const h = HOURS[tickIdx];
       const h24new = isPM ? (h % 12) + 12 : h % 12;
-      onChange(`${String(h24new).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+      const nextMinute = Number.isInteger(m) ? m : 0;
+      onChange(`${String(h24new).padStart(2,'0')}:${String(nextMinute).padStart(2,'0')}`);
     } else {
       const min = MINUTES[tickIdx];
-      onChange(`${String(h24).padStart(2,'0')}:${String(min).padStart(2,'0')}`);
+      const nextHour = Number.isInteger(h24) ? h24 : 0;
+      onChange(`${String(nextHour).padStart(2,'0')}:${String(min).padStart(2,'0')}`);
     }
   }
 
@@ -103,8 +120,60 @@ export default function TimePicker({ value, onChange }) {
   }
 
   function togglePeriod() {
+    if (h24 == null || m == null) return;
     const nh = isPM ? h24 - 12 : h24 + 12;
     onChange(`${String(nh).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+  }
+
+  function startManualEdit(part) {
+    setMode(part);
+    setEditingPart(part);
+    setDraftValue(
+      part === 'hour'
+        ? hour12 == null ? '' : String(hour12).padStart(2, '0')
+        : m == null ? '' : String(m).padStart(2, '0')
+    );
+  }
+
+  function commitManualEdit() {
+    if (!editingPart) return;
+
+    const trimmed = draftValue.trim();
+    if (trimmed === '') {
+      setEditingPart(null);
+      return;
+    }
+
+    if (editingPart === 'hour') {
+      const parsedHour = Number(trimmed);
+      if (!Number.isInteger(parsedHour) || parsedHour < 1 || parsedHour > 12) return;
+      const nextHour24 = isPM ? (parsedHour % 12) + 12 : parsedHour % 12;
+      const nextMinute = Number.isInteger(m) ? m : 0;
+      onChange(`${String(nextHour24).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`);
+    } else {
+      const parsedMinute = Number(trimmed);
+      if (!Number.isInteger(parsedMinute) || parsedMinute < 0 || parsedMinute > 59) return;
+      const nextHour24 = Number.isInteger(h24) ? h24 : 0;
+      onChange(`${String(nextHour24).padStart(2, '0')}:${String(parsedMinute).padStart(2, '0')}`);
+    }
+
+    setEditingPart(null);
+  }
+
+  function cancelManualEdit() {
+    setEditingPart(null);
+    setDraftValue('');
+  }
+
+  function handleManualKeyDown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitManualEdit();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelManualEdit();
+    }
   }
 
   return (
@@ -113,29 +182,69 @@ export default function TimePicker({ value, onChange }) {
       {/* ── Time display ── */}
       <Box sx={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0.5, mb:2.5 }}>
         <Box
-          onClick={() => setMode('hour')}
+          onClick={() => startManualEdit('hour')}
           sx={{
             px:1.5, py:0.5, borderRadius:2, cursor:'pointer', lineHeight:1,
             bgcolor: mode==='hour' ? 'rgba(255,107,53,0.18)' : 'transparent',
-            color: mode==='hour' ? '#FF6B35' : 'rgba(255,255,255,0.45)',
+            color: !hasValue ? 'rgba(255,255,255,0.28)' : mode==='hour' ? '#FF6B35' : 'rgba(255,255,255,0.45)',
             fontWeight:900, fontSize:'3rem', fontVariantNumeric:'tabular-nums',
             transition:'all 0.15s',
+            minWidth: 78,
+            textAlign: 'center',
           }}
         >
-          {String(hour12).padStart(2,'0')}
+          {editingPart === 'hour' ? (
+            <InputBase
+              inputRef={inputRef}
+              value={draftValue}
+              onChange={e => setDraftValue(e.target.value.replace(/\D/g, '').slice(0, 2))}
+              onBlur={commitManualEdit}
+              onKeyDown={handleManualKeyDown}
+              inputProps={{ inputMode: 'numeric', maxLength: 2, style: { textAlign: 'center' } }}
+              sx={{
+                width: 48,
+                color: '#FF6B35',
+                fontWeight: 900,
+                fontSize: '3rem',
+                '& input': { p: 0 },
+              }}
+            />
+          ) : (
+            hour12 == null ? '--' : String(hour12).padStart(2,'0')
+          )}
         </Box>
         <Typography sx={{ fontWeight:900, fontSize:'3rem', lineHeight:1, color:'rgba(255,255,255,0.25)', mb:0.5 }}>:</Typography>
         <Box
-          onClick={() => setMode('minute')}
+          onClick={() => startManualEdit('minute')}
           sx={{
             px:1.5, py:0.5, borderRadius:2, cursor:'pointer', lineHeight:1,
             bgcolor: mode==='minute' ? 'rgba(255,107,53,0.18)' : 'transparent',
-            color: mode==='minute' ? '#FF6B35' : 'rgba(255,255,255,0.45)',
+            color: !hasValue ? 'rgba(255,255,255,0.28)' : mode==='minute' ? '#FF6B35' : 'rgba(255,255,255,0.45)',
             fontWeight:900, fontSize:'3rem', fontVariantNumeric:'tabular-nums',
             transition:'all 0.15s',
+            minWidth: 78,
+            textAlign: 'center',
           }}
         >
-          {String(m).padStart(2,'0')}
+          {editingPart === 'minute' ? (
+            <InputBase
+              inputRef={inputRef}
+              value={draftValue}
+              onChange={e => setDraftValue(e.target.value.replace(/\D/g, '').slice(0, 2))}
+              onBlur={commitManualEdit}
+              onKeyDown={handleManualKeyDown}
+              inputProps={{ inputMode: 'numeric', maxLength: 2, style: { textAlign: 'center' } }}
+              sx={{
+                width: 48,
+                color: '#FF6B35',
+                fontWeight: 900,
+                fontSize: '3rem',
+                '& input': { p: 0 },
+              }}
+            />
+          ) : (
+            m == null ? '--' : String(m).padStart(2,'0')
+          )}
         </Box>
 
         {/* AM / PM */}
@@ -145,9 +254,9 @@ export default function TimePicker({ value, onChange }) {
             return (
               <Box key={p} onClick={() => !active && togglePeriod()} sx={{
                 px:1.5, py:0.45, borderRadius:99, userSelect:'none',
-                cursor: active ? 'default' : 'pointer',
-                bgcolor: active ? '#FF6B35' : 'rgba(255,255,255,0.08)',
-                color: active ? '#fff' : 'rgba(255,255,255,0.35)',
+                cursor: !hasValue || active ? 'default' : 'pointer',
+                bgcolor: !hasValue ? 'rgba(255,255,255,0.05)' : active ? '#FF6B35' : 'rgba(255,255,255,0.08)',
+                color: !hasValue ? 'rgba(255,255,255,0.28)' : active ? '#fff' : 'rgba(255,255,255,0.35)',
                 fontWeight:700, fontSize:'0.78rem', transition:'all 0.15s',
               }}>
                 {p}
@@ -172,22 +281,24 @@ export default function TimePicker({ value, onChange }) {
           <circle cx={CENTER} cy={CENTER} r={CENTER - 2} fill="rgba(255,255,255,0.05)" />
 
           {/* Hand */}
-          <line
-            x1={CENTER} y1={CENTER}
-            x2={handPos.x} y2={handPos.y}
-            stroke="#FF6B35" strokeWidth={2} strokeLinecap="round" opacity={0.6}
-          />
+          {hasValue && (
+            <line
+              x1={CENTER} y1={CENTER}
+              x2={handPos.x} y2={handPos.y}
+              stroke="#FF6B35" strokeWidth={2} strokeLinecap="round" opacity={0.6}
+            />
+          )}
 
           {/* Center dot */}
-          <circle cx={CENTER} cy={CENTER} r={5} fill="#FF6B35" />
+          <circle cx={CENTER} cy={CENTER} r={5} fill={hasValue ? '#FF6B35' : 'rgba(255,255,255,0.28)'} />
 
           {/* Hand knob */}
-          <circle cx={handPos.x} cy={handPos.y} r={8} fill="#FF6B35" opacity={0.95} />
+          {hasValue && <circle cx={handPos.x} cy={handPos.y} r={8} fill="#FF6B35" opacity={0.95} />}
 
           {/* Number bubbles */}
           {(mode === 'hour' ? HOURS : MINUTES).map((item, i) => {
             const { x, y } = itemPos(i);
-            const sel = i === liveIdx;
+            const sel = hasValue && i === liveIdx;
             return (
               <g key={item}>
                 <circle cx={x} cy={y} r={20}
