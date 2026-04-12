@@ -34,7 +34,11 @@ public class AlarmReceiver extends BroadcastReceiver {
         Intent serviceIntent = new Intent(context, AlarmService.class);
         serviceIntent.putExtra("alarmId", alarmId);
         serviceIntent.putExtra("label",   label);
-        context.startForegroundService(serviceIntent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(serviceIntent);
+        } else {
+            context.startService(serviceIntent);
+        }
 
         // Repeating: reschedule for next week. One-shot: remove from prefs.
         if (repeat && targetDay >= 0) {

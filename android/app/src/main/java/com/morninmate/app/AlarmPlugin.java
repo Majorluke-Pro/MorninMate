@@ -66,8 +66,8 @@ public class AlarmPlugin extends Plugin {
         return cal.getTimeInMillis();
     }
 
-    private void doSchedule(String alarmId, String label, int hour, int minute,
-                             int targetDay, int codeIndex, boolean repeating) {
+    private boolean doSchedule(String alarmId, String label, int hour, int minute,
+                               int targetDay, int codeIndex, boolean repeating) {
         Intent intent = new Intent(getContext(), AlarmReceiver.class);
         intent.putExtra("alarmId",   alarmId);
         intent.putExtra("label",     label);
@@ -91,16 +91,16 @@ public class AlarmPlugin extends Plugin {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             boolean canSchedule = am.canScheduleExactAlarms();
             Log.d("AlarmPlugin", "canScheduleExactAlarms=" + canSchedule);
-            if (canSchedule) {
-                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-                Log.d("AlarmPlugin", "Alarm set successfully");
-            } else {
-                Log.e("AlarmPlugin", "BLOCKED: canScheduleExactAlarms=false — alarm NOT scheduled");
+            if (!canSchedule) {
+                Log.e("AlarmPlugin", "BLOCKED: canScheduleExactAlarms=false - alarm NOT scheduled");
+                return false;
             }
-        } else {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
-            Log.d("AlarmPlugin", "Alarm set (pre-S)");
         }
+        am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi);
+        Log.d("AlarmPlugin", Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            ? "Alarm set successfully"
+            : "Alarm set (pre-S)");
+        return true;
     }
 
     private void doCancel(String alarmId) {
@@ -145,12 +145,21 @@ public class AlarmPlugin extends Plugin {
 
         // Register with AlarmManager
         try {
+            boolean scheduled = true;
             if (days == null || days.length() == 0) {
-                doSchedule(id, label, hour, minute, -1, 0, false);
+                scheduled = doSchedule(id, label, hour, minute, -1, 0, false);
             } else {
                 for (int i = 0; i < days.length(); i++) {
-                    doSchedule(id, label, hour, minute, days.getInt(i), i + 1, true);
+                    if (!doSchedule(id, label, hour, minute, days.getInt(i), i + 1, true)) {
+                        scheduled = false;
+                        break;
+                    }
                 }
+            }
+            if (!scheduled) {
+                getPrefs().edit().remove("alarm_" + id).apply();
+                call.reject("Exact alarm permission not granted");
+                return;
             }
         } catch (JSONException e) {
             call.reject("Scheduling failed");
@@ -295,3 +304,4 @@ public class AlarmPlugin extends Plugin {
         call.resolve();
     }
 }
+
