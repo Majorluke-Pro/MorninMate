@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Box, Typography, Button, TextField, CircularProgress, Alert } from '@mui/material';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '../../lib/supabase';
 import { useApp } from '../../context/AppContext';
 
@@ -18,9 +19,13 @@ export default function AuthScreen() {
     setError('');
     setLoading(true);
 
+    const emailRedirectTo = Capacitor.isNativePlatform()
+      ? 'com.morninmate.app://login-callback'
+      : window.location.origin;
+
     const { error: otpError } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: 'com.morninmate.app://login-callback' },
+      options: { emailRedirectTo },
     });
 
     if (otpError) {
