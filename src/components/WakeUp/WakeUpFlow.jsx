@@ -30,7 +30,7 @@ const XP_REWARD      = { gentle: 20, moderate: 35, intense: 60, hardcore: 100 };
 const INACTIVITY_BY_INTENSITY = { gentle: 30, moderate: 30, intense: 30, hardcore: 10 };
 
 export default function WakeUpFlow() {
-  const { session, activeAlarm, clearActiveAlarm, awardXP, addDemerit, refreshWakeStats } = useApp();
+  const { session, activeAlarm, clearActiveAlarm, applyProgressionUpdate, refreshWakeStats } = useApp();
 
   const games            = activeAlarm?.pulse?.games || ['math'];
   const intensity        = activeAlarm?.pulse?.intensity || 'moderate';
@@ -98,13 +98,12 @@ export default function WakeUpFlow() {
   const GameComponent = GAME_MAP[currentGame];
   const progress = (gameIndex / games.length) * 100;
 
-  function handleGameComplete() {
+  async function handleGameComplete() {
     const newResults = [...results, { game: currentGame, success: true, retries: failCount }];
     setResults(newResults);
     setFailCount(0);
     if (gameIndex + 1 >= games.length) {
-      awardXP(xpReward);
-      finalizeWakeSession('success', newResults);
+      await finalizeWakeSession('success', newResults);
       setPhase('complete');
     } else {
       setGameIndex(i => i + 1);
@@ -112,11 +111,16 @@ export default function WakeUpFlow() {
     }
   }
 
-  function handleGameFail() {
+  async function handleGameFail() {
     const newTotal = totalFails + 1;
     setTotalFails(newTotal);
     setFailCount(f => f + 1);
-    addDemerit();
+    if (sessionIdRef.current) {
+      const { data, error } = await supabase.rpc('record_wake_game_fail', {
+        p_session_id: sessionIdRef.current,
+      });
+      if (!error && data) applyProgressionUpdate(data);
+    }
 
     // Restart the current game — you cannot dismiss the alarm by failing
     setGameKey(k => k + 1);
@@ -146,16 +150,13 @@ export default function WakeUpFlow() {
 
     setEnding(true);
     try {
-      await supabase
-        .from('wake_sessions')
-        .update({
-          status,
-          completed_at: new Date().toISOString(),
-          total_fails: totalFails,
-          results: finalResults,
-        })
-        .eq('id', id)
-        .eq('user_id', userId);
+      const { data, error } = await supabase.rpc('complete_wake_session', {
+        p_session_id: id,
+        p_status: status,
+        p_results: finalResults,
+      });
+      if (error) throw error;
+      if (data) applyProgressionUpdate(data);
     } finally {
       setEnding(false);
       refreshWakeStats?.(userId);

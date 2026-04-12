@@ -85,6 +85,15 @@ function rowToAlarm(row) {
   };
 }
 
+function progressionToUser(updates) {
+  return {
+    xp: updates.xp,
+    level: updates.level,
+    demerits: updates.demerits,
+    streak: updates.streak,
+  };
+}
+
 export function AppProvider({ children }) {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(INITIAL_USER);
@@ -203,7 +212,7 @@ export function AppProvider({ children }) {
               tag: 'morninmate-alarm',
               requireInteraction: true,
             });
-          } catch (_) {}
+          } catch {}
         }
         break;
       }
@@ -221,7 +230,7 @@ export function AppProvider({ children }) {
   useEffect(() => {
     function handleAlarmFired(e) {
       let alarmId;
-      try { alarmId = JSON.parse(e.detail).alarmId; } catch (_) { alarmId = e.detail?.alarmId; }
+      try { alarmId = JSON.parse(e.detail).alarmId; } catch { alarmId = e.detail?.alarmId; }
       if (!alarmId || activeRef.current) return;
       const alarm = alarmsRef.current.find(a => String(a.id) === alarmId);
       if (alarm) { vibrateAlarm(); setActiveAlarm(alarm); }
@@ -309,6 +318,8 @@ export function AppProvider({ children }) {
       if (existing?.onboarding_complete) {
         sessionStorage.removeItem('mm_pending_onboarding');
         setPendingOnboardingState(null);
+        // loadUserData has its own in-flight guard; clear ours before delegating.
+        loadingData.current = false;
         await loadUserData(userId);
         return;
       }
@@ -447,22 +458,26 @@ export function AppProvider({ children }) {
 
   async function updateUser(updates) {
     const dbUpdates = { updated_at: new Date().toISOString() };
+    const safeUpdates = {};
     if (updates.name               !== undefined) dbUpdates.name              = updates.name;
+    if (updates.name               !== undefined) safeUpdates.name            = updates.name;
     if (updates.wakeTime           !== undefined) dbUpdates.wake_time         = updates.wakeTime;
+    if (updates.wakeTime           !== undefined) safeUpdates.wakeTime        = updates.wakeTime;
     if (updates.morningRating      !== undefined) dbUpdates.morning_rating    = updates.morningRating;
+    if (updates.morningRating      !== undefined) safeUpdates.morningRating   = updates.morningRating;
     if (updates.favoriteGame       !== undefined) dbUpdates.favorite_game     = updates.favoriteGame;
+    if (updates.favoriteGame       !== undefined) safeUpdates.favoriteGame    = updates.favoriteGame;
     if (updates.wakeGoal           !== undefined) dbUpdates.wake_goal         = updates.wakeGoal;
+    if (updates.wakeGoal           !== undefined) safeUpdates.wakeGoal        = updates.wakeGoal;
     if (updates.profileIcon        !== undefined) {
       localStorage.setItem('mm_profile_icon', updates.profileIcon);
+      safeUpdates.profileIcon = updates.profileIcon;
     }
-    if (updates.level              !== undefined) dbUpdates.level             = updates.level;
-    if (updates.xp                 !== undefined) dbUpdates.xp                = updates.xp;
-    if (updates.demerits           !== undefined) dbUpdates.demerits          = updates.demerits;
-    if (updates.streak             !== undefined) dbUpdates.streak            = updates.streak;
     if (updates.onboardingComplete !== undefined) dbUpdates.onboarding_complete = updates.onboardingComplete;
+    if (updates.onboardingComplete !== undefined) safeUpdates.onboardingComplete = updates.onboardingComplete;
 
     await supabase.from('profiles').update(dbUpdates).eq('id', session.user.id);
-    setUser(prev => ({ ...prev, ...updates }));
+    setUser(prev => ({ ...prev, ...safeUpdates }));
   }
 
   async function resetAll() {
@@ -484,35 +499,16 @@ export function AppProvider({ children }) {
       }).eq('id', userId),
       supabase.from('alarms').delete().eq('user_id', userId),
     ]);
-    try { await supabase.from('wake_sessions').delete().eq('user_id', userId); } catch (_) {}
+    try { await supabase.from('wake_sessions').delete().eq('user_id', userId); } catch {}
     setUser(INITIAL_USER);
     setAlarms([]);
     setActiveAlarm(null);
     setWakeStats({ success: 0, failed: 0, loading: false });
   }
 
-  async function awardXP(amount) {
-    let updates;
-    setUser(prev => {
-      const xp = prev.xp + amount;
-      updates = { xp, level: Math.floor(xp / XP_PER_LEVEL) + 1, streak: prev.streak + 1 };
-      return { ...prev, ...updates };
-    });
-    await supabase.from('profiles').update({
-      ...updates, updated_at: new Date().toISOString(),
-    }).eq('id', session.user.id);
-  }
-
-  async function addDemerit() {
-    let updates;
-    setUser(prev => {
-      const xp = Math.max(0, prev.xp - 20);
-      updates = { demerits: prev.demerits + 1, xp, level: Math.max(1, Math.floor(xp / XP_PER_LEVEL) + 1), streak: 0 };
-      return { ...prev, ...updates };
-    });
-    await supabase.from('profiles').update({
-      ...updates, updated_at: new Date().toISOString(),
-    }).eq('id', session.user.id);
+  function applyProgressionUpdate(updates) {
+    if (!updates) return;
+    setUser(prev => ({ ...prev, ...progressionToUser(updates) }));
   }
 
   function triggerAlarm(alarm)  { setActiveAlarm(alarm); }
@@ -564,8 +560,7 @@ export function AppProvider({ children }) {
         editAlarm,
         updateUser,
         resetAll,
-        awardXP,
-        addDemerit,
+        applyProgressionUpdate,
         triggerAlarm,
         clearActiveAlarm,
         signOut,
@@ -581,3 +576,4 @@ export function useApp() {
   if (!ctx) throw new Error('useApp must be used within AppProvider');
   return ctx;
 }
+
