@@ -82,6 +82,7 @@ export default function WakeUpFlow() {
       if (remaining === 0) {
         // User ignored the game — restart everything
         startAlarm();
+        sessionIdRef.current = null;
         setGameIndex(0);
         setGameKey(k => k + 1);
         setFailCount(0);
@@ -103,7 +104,11 @@ export default function WakeUpFlow() {
     setResults(newResults);
     setFailCount(0);
     if (gameIndex + 1 >= games.length) {
-      await finalizeWakeSession('success', newResults);
+      try {
+        await finalizeWakeSession('success', newResults);
+      } catch {
+        // DB error — alarm must still be dismissable
+      }
       setPhase('complete');
     } else {
       setGameIndex(i => i + 1);
