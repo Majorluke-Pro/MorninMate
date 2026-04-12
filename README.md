@@ -95,13 +95,15 @@ Set up your Supabase tables:
 | id | uuid (references auth.users, primary key) |
 | name | text |
 | wake_time | text |
-| morning_type | int4 |
-| preferred_game | text |
-| morning_goal | text |
+| morning_rating | int4 |
+| favorite_game | text |
+| wake_goal | text |
 | onboarding_complete | bool |
+| level | int4 |
 | xp | int4 |
 | demerits | int4 |
-| alarms_completed | int4 |
+| streak | int4 |
+| updated_at | timestamptz |
 
 **`alarms`**
 | column | type |

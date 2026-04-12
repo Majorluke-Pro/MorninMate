@@ -6,6 +6,13 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+def readSecret = { propKey, envKey ->
+    def fromProps = keystoreProperties.getProperty(propKey)
+    if (fromProps != null && fromProps.trim()) return fromProps.trim()
+    def fromEnv = System.getenv(envKey)
+    return (fromEnv != null && fromEnv.trim()) ? fromEnv.trim() : null
+}
+
 android {
     namespace "com.morninmate.app"
     compileSdk rootProject.ext.compileSdkVersion
@@ -13,8 +20,8 @@ android {
         applicationId "com.morninmate.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.1.0"
+        versionCode 4
+        versionName "1.2.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -25,11 +32,16 @@ android {
 
     signingConfigs {
         release {
-            if (keystorePropertiesFile.exists()) {
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
+            def storePath = readSecret('storeFile', 'MM_UPLOAD_STORE_FILE')
+            def storePass = readSecret('storePassword', 'MM_UPLOAD_STORE_PASSWORD')
+            def aliasName = readSecret('keyAlias', 'MM_UPLOAD_KEY_ALIAS')
+            def aliasPass = readSecret('keyPassword', 'MM_UPLOAD_KEY_PASSWORD')
+
+            if (storePath && storePass && aliasName && aliasPass) {
+                storeFile file(storePath)
+                storePassword storePass
+                keyAlias aliasName
+                keyPassword aliasPass
             }
         }
     }
