@@ -46,7 +46,7 @@ export async function cancelAlarmNotifications(alarmId) {
   if (!isNative) return;
   try {
     await AlarmPlugin.cancel({ id: String(alarmId) });
-  } catch (_) {}
+  } catch {}
 }
 
 // ─── Sync all (called after loading alarms from Supabase) ─────────────────────
@@ -68,7 +68,7 @@ export async function getPendingAlarm() {
   try {
     const { alarmId } = await AlarmPlugin.getPendingAlarm();
     return alarmId || null;
-  } catch (_) {
+  } catch {
     return null;
   }
 }
@@ -79,7 +79,7 @@ export async function dismissAlarm(id) {
   if (!isNative) return;
   try {
     await AlarmPlugin.dismissAlarm({ id: String(id) });
-  } catch (_) {}
+  } catch {}
 }
 
 // ─── Alarm permissions (USE_FULL_SCREEN_INTENT, battery opt, notifications) ────
@@ -105,14 +105,14 @@ export async function vibrateAlarm() {
     await Haptics.impact({ style: ImpactStyle.Heavy });
     setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }), 300);
     setTimeout(() => Haptics.impact({ style: ImpactStyle.Heavy }), 600);
-  } catch (_) {}
+  } catch {}
 }
 
 export async function vibrateSuccess() {
   if (!isNative) return;
   try {
     await Haptics.impact({ style: ImpactStyle.Light });
-  } catch (_) {}
+  } catch {}
 }
 
 // ─── Notification tap listener ────────────────────────────────────────────────
@@ -127,15 +127,16 @@ export function onNotificationTap() {
 
 export async function setHardcoreVolume() {
   if (!isNative) return;
-  try { await AlarmPlugin.setHardcoreVolume(); } catch (_) {}
+  try { await AlarmPlugin.setHardcoreVolume(); } catch {}
 }
 
 export async function enableHardcoreLock() {
   if (!isNative) return;
-  try { await AlarmPlugin.enableHardcoreLock(); } catch (_) {}
+  try { await AlarmPlugin.enableHardcoreLock(); } catch {}
 }
 
 export async function disableHardcoreLock() {
   if (!isNative) return;
-  try { await AlarmPlugin.disableHardcoreLock(); } catch (_) {}
+  try { await AlarmPlugin.disableHardcoreLock(); } catch {}
 }
+

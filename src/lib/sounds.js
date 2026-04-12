@@ -25,12 +25,12 @@ function tone(freq, duration, { type = 'sine', volume = 0.25, delay = 0 } = {}) 
     gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
     osc.start(t);
     osc.stop(t + duration + 0.02);
-  } catch (_) { /* audio not available */ }
+  } catch { /* audio not available */ }
 }
 
 // ── Unlock audio context on first user interaction (required by iOS) ─────────
 export function unlockAudio() {
-  try { getCtx(); } catch (_) {}
+  try { getCtx(); } catch {}
 }
 
 // ── Game sounds ───────────────────────────────────────────────────────────────
@@ -196,7 +196,7 @@ export function previewAlarmSound(id) {
     getCtx();
     const p = ALARM_PATTERNS[id] ?? ALARM_PATTERNS.classic;
     p.fn();
-  } catch (_) {}
+  } catch {}
 }
 
 // ── Alarm looping ─────────────────────────────────────────────────────────────
@@ -209,7 +209,7 @@ export function startAlarm(soundId = 'classic') {
     const p = ALARM_PATTERNS[soundId] ?? ALARM_PATTERNS.classic;
     p.fn();
     alarmTimer = setInterval(p.fn, p.interval);
-  } catch (_) {}
+  } catch {}
 }
 
 export function stopAlarm() {
@@ -218,3 +218,4 @@ export function stopAlarm() {
     alarmTimer = null;
   }
 }
+
