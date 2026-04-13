@@ -94,6 +94,24 @@ function progressionToUser(updates) {
   };
 }
 
+function stripAuthParamsFromUrl(urlString) {
+  const url = new URL(urlString);
+  const paramsToRemove = ['code', 'error', 'error_code', 'error_description'];
+  let changed = false;
+
+  paramsToRemove.forEach((key) => {
+    if (url.searchParams.has(key)) {
+      url.searchParams.delete(key);
+      changed = true;
+    }
+  });
+
+  if (!changed) return;
+
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, document.title, nextUrl || '/');
+}
+
 export function AppProvider({ children }) {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(INITIAL_USER);
@@ -173,6 +191,43 @@ export function AppProvider({ children }) {
     }).then(h => { appUrlListenerRef.current = h; });
 
     return () => { appUrlListenerRef.current?.remove(); };
+  }, []);
+
+  useEffect(() => {
+    if (isNative) return;
+
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get('code');
+    const hasAuthParams = ['code', 'error', 'error_code', 'error_description']
+      .some((key) => url.searchParams.has(key));
+
+    if (!hasAuthParams) return;
+
+    let active = true;
+
+    async function handleWebMagicLink() {
+      try {
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+
+        if (!existingSession && code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.error('Magic link session error:', error);
+            return;
+          }
+        }
+
+        if (active) stripAuthParamsFromUrl(window.location.href);
+      } catch (err) {
+        console.error('Magic link session error:', err);
+      }
+    }
+
+    handleWebMagicLink();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   // ─── Alarm scheduler ────────────────────────────────────────────────────────

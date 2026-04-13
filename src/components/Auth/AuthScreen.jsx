@@ -1,40 +1,82 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Box, Typography, Button, TextField, CircularProgress, Alert } from '@mui/material';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
-import { Capacitor } from '@capacitor/core';
 import { supabase } from '../../lib/supabase';
 import { useApp } from '../../context/AppContext';
 
 export default function AuthScreen() {
   const { pendingOnboarding, setShowAuthDirectly } = useApp();
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [mode, setMode] = useState(pendingOnboarding ? 'signup' : 'signin');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
   const firstName = pendingOnboarding?.name?.split(' ')[0];
+  const isSignUp = mode === 'signup';
+  const canSubmit = useMemo(() => {
+    if (!email.trim() || !password) return false;
+    if (isSignUp && password !== confirmPassword) return false;
+    return true;
+  }, [confirmPassword, email, isSignUp, password]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+    setMessage('');
+
+    if (isSignUp && password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
     setLoading(true);
 
-    const emailRedirectTo = Capacitor.isNativePlatform()
-      ? 'com.morninmate.app://login-callback'
-      : window.location.origin;
+    try {
+      if (isSignUp) {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+        });
 
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo },
-    });
+        if (signUpError) {
+          setError(signUpError.message);
+          return;
+        }
 
-    if (otpError) {
-      setError(otpError.message);
-      setLoading(false);
-    } else {
-      setSent(true);
+        if (!data.session) {
+          setMessage('Account created. If email confirmation is enabled, confirm your email, then sign in with your password.');
+          setMode('signin');
+          setPassword('');
+          setConfirmPassword('');
+          return;
+        }
+
+        setMessage('Account created successfully.');
+        return;
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+      }
+    } finally {
       setLoading(false);
     }
+  }
+
+  function toggleMode() {
+    setMode(isSignUp ? 'signin' : 'signup');
+    setPassword('');
+    setConfirmPassword('');
+    setError('');
+    setMessage('');
   }
 
   return (
@@ -104,10 +146,10 @@ export default function AuthScreen() {
           ) : (
             <>
               <Typography variant="h5" fontWeight={900} sx={{ letterSpacing: '-0.5px', mb: 0.5 }}>
-                {sent ? 'Check your inbox' : 'Welcome'}
+                {isSignUp ? 'Create your account' : 'Welcome back'}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {sent ? 'Your magic link is on its way.' : "Sign in or sign up — no password needed."}
+                {isSignUp ? 'Use your email and password to get started.' : 'Sign in with your email and password.'}
               </Typography>
             </>
           )}
@@ -121,64 +163,80 @@ export default function AuthScreen() {
           backdropFilter: 'blur(24px)',
           boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
         }}>
-          {sent ? (
-            <Box sx={{ textAlign: 'center', py: 1 }}>
-              <Typography variant="body1" sx={{ color: 'text.primary', lineHeight: 1.7 }}>
-                We sent a link to
-              </Typography>
-              <Typography variant="body1" fontWeight={700} sx={{ color: '#FF6B35', wordBreak: 'break-all' }}>
-                {email}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-                Tap the link in the email to sign in. You can close this screen.
-              </Typography>
-              <Button
-                fullWidth
-                variant="outlined"
-                size="large"
-                onClick={() => { setSent(false); setEmail(''); setError(''); }}
-                sx={{ mt: 3, py: 1.5, borderColor: 'rgba(255,255,255,0.15)', color: 'text.secondary' }}
-              >
-                Use a different email
-              </Button>
-            </Box>
-          ) : (
-            <Box
-              component="form"
-              onSubmit={handleSubmit}
-              sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-            >
-              {error && (
-                <Alert severity="error" sx={{ borderRadius: 2, fontSize: '0.82rem' }}>
-                  {error}
-                </Alert>
-              )}
+          <Box
+            component="form"
+            onSubmit={handleSubmit}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          >
+            {error && (
+              <Alert severity="error" sx={{ borderRadius: 2, fontSize: '0.82rem' }}>
+                {error}
+              </Alert>
+            )}
 
+            {message && (
+              <Alert severity="success" sx={{ borderRadius: 2, fontSize: '0.82rem' }}>
+                {message}
+              </Alert>
+            )}
+
+            <TextField
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              fullWidth
+              sx={inputSx}
+            />
+
+            <TextField
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
+              fullWidth
+              sx={inputSx}
+            />
+
+            {isSignUp && (
               <TextField
-                label="Email"
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
+                label="Confirm password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                autoComplete="email"
+                autoComplete="new-password"
                 fullWidth
                 sx={inputSx}
               />
+            )}
 
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
-                disabled={loading || !email}
-                sx={{ mt: 0.5, py: 1.75, fontSize: '1rem' }}
-              >
-                {loading
-                  ? <CircularProgress size={22} sx={{ color: '#fff' }} />
-                  : 'Send Magic Link'}
-              </Button>
-            </Box>
-          )}
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={loading || !canSubmit}
+              sx={{ mt: 0.5, py: 1.75, fontSize: '1rem' }}
+            >
+              {loading
+                ? <CircularProgress size={22} sx={{ color: '#fff' }} />
+                : isSignUp ? 'Create Account' : 'Sign In'}
+            </Button>
+
+            <Button
+              fullWidth
+              variant="text"
+              onClick={toggleMode}
+              sx={{ color: 'text.secondary', textTransform: 'none' }}
+            >
+              {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Create one'}
+            </Button>
+          </Box>
         </Box>
 
         {!pendingOnboarding && (
