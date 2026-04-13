@@ -206,12 +206,54 @@ function AlarmsTab({ onNavigate }) {
               MORNINMATE
             </Typography>
           </Box>
-          <Typography sx={{
-            fontWeight: 500, color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem',
-            fontVariantNumeric: 'tabular-nums', fontFamily: '"Fraunces", serif',
+          <Box sx={{
+            px: 1.25,
+            py: 0.9,
+            borderRadius: 2.5,
+            bgcolor: 'rgba(20,20,36,0.96)',
+            border: '1px solid rgba(255,255,255,0.10)',
+            boxShadow: '0 8px 20px rgba(0,0,0,0.18)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.9,
           }}>
-            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Typography>
+            <Box sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: '#FFD166',
+              boxShadow: '0 0 10px rgba(255,209,102,0.75)',
+              animation: 'clockPulse 2.2s ease-in-out infinite',
+              '@keyframes clockPulse': {
+                '0%,100%': { opacity: 0.65, transform: 'scale(1)' },
+                '50%': { opacity: 1, transform: 'scale(1.2)' },
+              },
+            }} />
+            <Box sx={{ minWidth: 72 }}>
+              <Typography sx={{
+                fontWeight: 800,
+                color: '#FFF5DF',
+                fontSize: '1rem',
+                lineHeight: 1,
+                letterSpacing: '0.02em',
+                fontVariantNumeric: 'tabular-nums',
+                fontFamily: '"Fraunces", serif',
+                textShadow: 'none',
+              }}>
+                {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Typography>
+              <Typography sx={{
+                mt: 0.35,
+                fontSize: '0.54rem',
+                fontWeight: 700,
+                letterSpacing: '0.12em',
+                color: 'rgba(255,255,255,0.42)',
+                textTransform: 'uppercase',
+              }}>
+                Local time
+              </Typography>
+            </Box>
+          </Box>
         </Box>
 
         {/* Top row: level ring + greeting + streak */}

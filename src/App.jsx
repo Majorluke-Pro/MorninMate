@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, CssBaseline, Box, CircularProgress } from '@mui/material';
 import theme from './theme/theme';
 import { AppProvider, useApp } from './context/AppContext';
-import AuthScreen from './components/Auth/AuthScreen';
+import AuthScreen from './components/Auth/AuthScreenModern';
 import OnboardingFlow from './components/Onboarding/OnboardingFlow';
 import Home from './components/Home/Home';
 import CreateAlarm from './components/Alarm/CreateAlarm';
