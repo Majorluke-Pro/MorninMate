@@ -261,19 +261,40 @@ function AlarmsTab({ onNavigate }) {
           {/* Level ring */}
           <Box sx={{ position: 'relative', flexShrink: 0, width: 64, height: 64 }}>
             <Box sx={{
-              position: 'absolute', inset: -3, borderRadius: '50%',
-              border: '2px solid transparent',
-              borderTopColor: '#FF6B35', borderRightColor: '#FFD166',
-              animation: 'spinRing 4s linear infinite',
-              '@keyframes spinRing': { to: { transform: 'rotate(360deg)' } },
+              position: 'absolute', inset: -4, borderRadius: '50%',
+              background: 'conic-gradient(from 210deg, rgba(255,107,53,0.16) 0deg, #FF6B35 110deg, #FFD166 220deg, rgba(255,255,255,0.12) 300deg, rgba(255,107,53,0.16) 360deg)',
+              boxShadow: '0 10px 24px rgba(255,107,53,0.22)',
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                inset: 2,
+                borderRadius: '50%',
+                background: '#120D1E',
+              },
             }} />
-            <Box sx={{ position: 'absolute', inset: -3, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.06)' }} />
+            <Box sx={{
+              position: 'absolute', inset: -1, borderRadius: '50%',
+              border: '1px solid rgba(255,255,255,0.12)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
+            }} />
+            <Box sx={{
+              position: 'absolute',
+              top: 5,
+              left: 8,
+              width: 18,
+              height: 10,
+              borderRadius: 999,
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0))',
+              filter: 'blur(1px)',
+              opacity: 0.9,
+              pointerEvents: 'none',
+            }} />
             <Avatar sx={{
               width: 64, height: 64,
               background: 'linear-gradient(135deg, #FF6B35 0%, #E54E1B 100%)',
               fontWeight: 900, fontSize: '1.4rem',
               fontFamily: '"Fraunces", serif',
-              boxShadow: '0 0 24px rgba(255,107,53,0.4), inset 0 1px 0 rgba(255,255,255,0.15)',
+              boxShadow: '0 0 24px rgba(255,107,53,0.28), inset 0 1px 0 rgba(255,255,255,0.15)',
               letterSpacing: '-1px',
             }}>
               {user.level}
@@ -760,19 +781,40 @@ function StatsTab() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, mb: 3 }}>
           <Box sx={{ position: 'relative', width: 80, height: 80, flexShrink: 0 }}>
             <Box sx={{
-              position: 'absolute', inset: -4, borderRadius: '50%',
-              border: '2.5px solid transparent',
-              borderTopColor: '#FF6B35', borderRightColor: '#FFD166',
-              animation: 'statsRing 5s linear infinite',
-              '@keyframes statsRing': { to: { transform: 'rotate(360deg)' } },
+              position: 'absolute', inset: -5, borderRadius: '50%',
+              background: 'conic-gradient(from 210deg, rgba(255,107,53,0.14) 0deg, #FF6B35 110deg, #FFD166 220deg, rgba(255,255,255,0.12) 300deg, rgba(255,107,53,0.14) 360deg)',
+              boxShadow: '0 14px 32px rgba(255,107,53,0.2)',
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                inset: 2.5,
+                borderRadius: '50%',
+                background: '#130B1F',
+              },
             }} />
-            <Box sx={{ position: 'absolute', inset: -4, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.05)' }} />
+            <Box sx={{
+              position: 'absolute', inset: -2, borderRadius: '50%',
+              border: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
+            }} />
+            <Box sx={{
+              position: 'absolute',
+              top: 6,
+              left: 10,
+              width: 24,
+              height: 12,
+              borderRadius: 999,
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0))',
+              filter: 'blur(1px)',
+              opacity: 0.85,
+              pointerEvents: 'none',
+            }} />
             <Avatar sx={{
               width: 80, height: 80,
               background: 'linear-gradient(135deg, #FF6B35 0%, #E54E1B 100%)',
               fontWeight: 900, fontSize: '1.7rem',
               fontFamily: '"Fraunces", serif',
-              boxShadow: '0 0 32px rgba(255,107,53,0.45)',
+              boxShadow: '0 0 32px rgba(255,107,53,0.28)',
             }}>
               {user.level}
             </Avatar>
