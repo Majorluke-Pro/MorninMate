@@ -109,6 +109,7 @@ export default function WakeUpFlow() {
       } catch {
         // DB error — alarm must still be dismissable
       }
+      stopAlarm();
       setPhase('complete');
     } else {
       setGameIndex(i => i + 1);
