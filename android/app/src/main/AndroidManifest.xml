@@ -76,6 +76,9 @@
         <!-- Receives the "Dismiss" action from the alarm notification -->
         <receiver android:name=".AlarmDismissReceiver" android:exported="false" />
 
+        <!-- Re-triggers the alarm every 10 seconds until tasks are completed -->
+        <receiver android:name=".NagAlarmReceiver" android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

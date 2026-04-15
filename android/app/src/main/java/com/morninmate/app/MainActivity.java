@@ -10,12 +10,25 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
 
     public static boolean isHardcoreLocked = false;
+    public static boolean isAppVisible = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(AlarmPlugin.class);
         super.onCreate(savedInstanceState);
         applyAlarmWindowFlags(getIntent());
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        isAppVisible = true;
+    }
+
+    @Override
+    public void onStop() {
+        isAppVisible = false;
+        super.onStop();
     }
 
     @Override

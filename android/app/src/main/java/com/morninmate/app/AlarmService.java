@@ -1,5 +1,6 @@
 package com.morninmate.app;
 
+import android.app.AlarmManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -22,6 +23,8 @@ public class AlarmService extends Service {
     private static final String TAG        = "AlarmService";
     private static final String CHANNEL_ID = "morninmate_alarm";
     private static final int    NOTIF_ID   = 7654;
+    private static final int    NAG_OFFSET = 9999;
+    private static final long   NAG_DELAY_MS = 10_000L;
 
     private PowerManager.WakeLock wakeLock;
     private Ringtone ringtone;
@@ -31,6 +34,9 @@ public class AlarmService extends Service {
         String alarmId = intent != null ? intent.getStringExtra("alarmId") : null;
         String label   = intent != null ? intent.getStringExtra("label")   : "Alarm";
         Log.d(TAG, "onStartCommand alarmId=" + alarmId);
+
+        stopRingtone();
+        releaseWakeLock();
 
         // 1. Acquire WakeLock (max 10 min — service stopped earlier by dismiss)
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
@@ -65,12 +71,6 @@ public class AlarmService extends Service {
             this, baseCode, mainIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        Intent dismissIntent = new Intent(this, AlarmDismissReceiver.class);
-        dismissIntent.putExtra("alarmId", alarmId);
-        PendingIntent dismissPi = PendingIntent.getBroadcast(
-            this, baseCode + 1, dismissIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
         String body = (label != null && !label.isEmpty())
             ? label + " \u2014 Rise & Shine!"
             : "Rise & Shine, Legend!";
@@ -89,7 +89,6 @@ public class AlarmService extends Service {
             .setOngoing(true)
             .setFullScreenIntent(contentPi, true)
             .setContentIntent(contentPi)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Dismiss", dismissPi)
             .build();
 
         // 4. Start foreground (with service type on API 29+)
@@ -103,14 +102,16 @@ public class AlarmService extends Service {
         // 5. Launch MainActivity to bring app to foreground / over lock screen
         startActivity(mainIntent);
 
+        scheduleNagAlarm(alarmId, label);
+
         return START_NOT_STICKY;
     }
 
     @Override
     public void onDestroy() {
         Log.d(TAG, "onDestroy — stopping ringtone and releasing WakeLock");
-        if (ringtone != null && ringtone.isPlaying()) ringtone.stop();
-        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        stopRingtone();
+        releaseWakeLock();
         super.onDestroy();
     }
 
@@ -126,5 +127,45 @@ public class AlarmService extends Service {
             ch.enableVibration(true);
             getSystemService(NotificationManager.class).createNotificationChannel(ch);
         }
+    }
+
+    private void scheduleNagAlarm(String alarmId, String label) {
+        if (alarmId == null || alarmId.isEmpty()) {
+            return;
+        }
+
+        Intent nagIntent = new Intent(this, NagAlarmReceiver.class);
+        nagIntent.putExtra("alarmId", alarmId);
+        nagIntent.putExtra("label", label);
+
+        PendingIntent nagPi = PendingIntent.getBroadcast(
+            this,
+            nagRequestCode(alarmId),
+            nagIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        long triggerAt = System.currentTimeMillis() + NAG_DELAY_MS;
+        am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, nagPi);
+        Log.d(TAG, "Scheduled nag alarm for " + alarmId + " at " + triggerAt);
+    }
+
+    private void stopRingtone() {
+        if (ringtone != null && ringtone.isPlaying()) {
+            ringtone.stop();
+        }
+        ringtone = null;
+    }
+
+    private void releaseWakeLock() {
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+        }
+        wakeLock = null;
+    }
+
+    static int nagRequestCode(String alarmId) {
+        int baseCode = alarmId != null ? alarmId.hashCode() : 0;
+        return baseCode + NAG_OFFSET;
     }
 }

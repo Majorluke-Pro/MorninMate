@@ -43,6 +43,24 @@ public class AlarmPlugin extends Plugin {
         return getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
+    private void cancelNagAlarm(String alarmId) {
+        if (alarmId == null) {
+            return;
+        }
+
+        Intent intent = new Intent(getContext(), NagAlarmReceiver.class);
+        PendingIntent pi = PendingIntent.getBroadcast(
+            getContext(),
+            AlarmService.nagRequestCode(alarmId),
+            intent,
+            PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
+
+        if (pi != null) {
+            getAlarmManager().cancel(pi);
+            pi.cancel();
+        }
+    }
+
     private long nextOccurrence(int hour, int minute, int targetDay) {
         Calendar cal = Calendar.getInstance();
         cal.set(Calendar.SECOND, 0);
@@ -114,6 +132,7 @@ public class AlarmPlugin extends Plugin {
                 PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
             if (pi != null) { am.cancel(pi); pi.cancel(); }
         }
+        cancelNagAlarm(alarmId);
         getPrefs().edit().remove("alarm_" + alarmId).apply();
     }
 
@@ -204,6 +223,7 @@ public class AlarmPlugin extends Plugin {
     public void dismissAlarm(PluginCall call) {
         String id = call.getString("id");
         Log.d("AlarmPlugin", "dismissAlarm id=" + id);
+        cancelNagAlarm(id);
         getContext().stopService(new Intent(getContext(), AlarmService.class));
         getPrefs().edit().remove("pending_alarm").apply();
         call.resolve();
