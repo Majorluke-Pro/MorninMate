@@ -1,8 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import {
-  motion, AnimatePresence,
-  useAnimate, useMotionValue, useSpring, useTransform,
-} from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Box, Typography, Button, TextField, IconButton, CircularProgress, Alert } from '@mui/material';
 import ArrowBackIcon     from '@mui/icons-material/ArrowBack';
 import WbSunnyIcon       from '@mui/icons-material/WbSunny';
@@ -250,98 +247,51 @@ function WalkingKoala({ size = 68 }) {
   );
 }
 
-// ─── Koala progress track ─────────────────────────────────────────────────────
-const TRACK_ICONS = [WbSunnyIcon, PersonIcon, FaceIcon, AlarmIcon, EmojiPeopleIcon, SportsEsportsIcon, TrackChangesIcon, EmojiEventsIcon];
-const KW = 58;
+// ─── Progress bar ─────────────────────────────────────────────────────────────
 
 function KoalaProgressTrack({ step, totalSteps, stepId }) {
-  const [koalaScope, animateKoala] = useAnimate();
-  const prevStep  = useRef(step);
-  const color     = STEP_ACCENT[stepId] ?? '#FF6B35';
-  const rawPct    = useMotionValue(step / (totalSteps - 1));
-  const springPct = useSpring(rawPct, { stiffness:160, damping:22, mass:0.6 });
-  const koalaLeft = useTransform(springPct, p => `calc(${p * 100}% - ${p * KW}px)`);
-
-  useEffect(() => {
-    rawPct.set(step / (totalSteps - 1));
-    if (prevStep.current === step) return;
-    prevStep.current = step;
-    if (!koalaScope.current) return;
-    animateKoala(koalaScope.current, {
-      scaleX: [1,   1.32, 0.78, 0.82, 1.22, 0.95, 1],
-      scaleY: [1,   0.62, 1.34, 1.24, 0.74, 1.08, 1],
-      y:      [0,   0,   -34,  -24,   0,    0,    0],
-    }, { duration:0.58, times:[0,0.13,0.40,0.60,0.78,0.90,1], ease:'easeInOut' });
-  }, [step]);
-
-  const pct = step / (totalSteps - 1);
+  const color = STEP_ACCENT[stepId] ?? '#FF6B35';
 
   return (
-    <Box sx={{ position:'relative', mx:2.5, mb:1 }}>
-      <Box sx={{ position:'relative', height:3, mx:`${KW/2}px`, borderRadius:2, overflow:'visible' }}>
-        <Box sx={{ position:'absolute', inset:0, bgcolor:'rgba(255,255,255,0.05)', borderRadius:2 }}/>
+    <Box sx={{ px: 2.5, pb: 0.5 }}>
+      {/* Step counter */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.25 }}>
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)' }}>
+          STEP {step + 1} OF {totalSteps}
+        </Typography>
         <motion.div
-          style={{ position:'absolute', top:0, left:0, bottom:0, borderRadius:8, transformOrigin:'left' }}
-          animate={{
-            width:`${pct * 100}%`,
-            background:`linear-gradient(90deg, rgba(255,255,255,0.04), ${color})`,
-            boxShadow:`0 0 18px ${color}AA, 0 0 36px ${color}44`,
-          }}
-          transition={{ type:'spring', stiffness:180, damping:22 }}
-        />
-        {Array.from({ length:totalSteps }).map((_,i) => {
-          const nodePct = i / (totalSteps - 1);
-          const passed  = i < step;
-          const active  = i === step;
-          return (
-            <motion.div
-              key={i}
-              style={{
-                position:'absolute', left:`${nodePct * 100}%`, top:'50%',
-                translateY:'-50%', translateX:'-50%', borderRadius:'50%',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                overflow:'hidden',
-                animation: active ? 'activeNodePulse 1.5s ease-out infinite' : 'none',
-              }}
-              animate={{
-                width:  active ? 22 : 10,
-                height: active ? 22 : 10,
-                backgroundColor: active ? color : passed ? `${color}CC` : 'rgba(255,255,255,0.09)',
-                boxShadow: active ? `0 0 0 3px ${color}35, 0 0 20px ${color}CC` : 'none',
-              }}
-              transition={{ type:'spring', stiffness:420, damping:26 }}
-            >
-              {passed && (
-                <motion.div initial={{ scale:0, rotate:-90 }} animate={{ scale:1, rotate:0 }}
-                  transition={{ type:'spring', stiffness:600, damping:20 }}>
-                  <CheckIcon sx={{ fontSize:7, color:'#fff' }}/>
-                </motion.div>
-              )}
-            </motion.div>
-          );
-        })}
+          key={stepId}
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.06em', color }}>
+            {stepId.toUpperCase()}
+          </Typography>
+        </motion.div>
       </Box>
 
-      <motion.div style={{ position:'absolute', bottom:6, left:koalaLeft, width:KW, zIndex:3 }}>
-        <motion.div
-          style={{ position:'absolute', bottom:-2, left:'50%', translateX:'-50%',
-            width:KW*0.55, height:5, borderRadius:'50%',
-            background:'rgba(0,0,0,0.38)', filter:'blur(4px)' }}
-          animate={{ scaleX:[1,0.68,1], opacity:[0.3,0.1,0.3] }}
-          transition={{ duration:0.5, repeat:Infinity, ease:'easeInOut', repeatType:'loop' }}
-        />
-        <motion.div ref={koalaScope} style={{ transformOrigin:'50% 90%', willChange:'transform' }}>
-          <WalkingKoala size={KW} />
-        </motion.div>
-      </motion.div>
-
-      <Box sx={{ display:'flex', justifyContent:'space-between', px:`${KW/2 - 8}px`, mt:0.5 }}>
-        {Array.from({ length:totalSteps }).map((_,i) => {
-          const StepIcon = TRACK_ICONS[i];
+      {/* Segmented bar */}
+      <Box sx={{ display: 'flex', gap: '3px' }}>
+        {Array.from({ length: totalSteps }).map((_, i) => {
+          const passed = i < step;
+          const active = i === step;
           return (
-            <motion.div key={i} animate={{ opacity: i <= step ? 0.88 : 0.14 }} transition={{ duration:0.3 }}>
-              <StepIcon sx={{ fontSize:10, display:'block', color:'rgba(255,255,255,0.9)' }} />
-            </motion.div>
+            <Box key={i} sx={{ flex: 1, height: 3, borderRadius: 99, overflow: 'hidden', bgcolor: 'rgba(255,255,255,0.07)' }}>
+              <motion.div
+                style={{ height: '100%', borderRadius: 99 }}
+                animate={{
+                  scaleX: passed || active ? 1 : 0,
+                  background: active
+                    ? color
+                    : `${color}88`,
+                  opacity: passed ? 0.55 : active ? 1 : 0,
+                }}
+                initial={{ scaleX: 0, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 28, delay: active ? 0 : 0 }}
+                style={{ transformOrigin: 'left', height: '100%', borderRadius: 99 }}
+              />
+            </Box>
           );
         })}
       </Box>
@@ -776,7 +726,7 @@ export default function OnboardingFlow() {
 
       <Box sx={{ position:'relative', zIndex:1, flex:1, display:'flex', flexDirection:'column' }}>
         {/* Top bar */}
-        <Box sx={{ px:3, pt:3.5, pb:1, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <Box sx={{ px:3, pt:'max(env(safe-area-inset-top), 66px)', pb:1, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
           <AnimatePresence mode="popLayout">
             {step > 0 && (
               <motion.div key="back"

@@ -1053,10 +1053,11 @@ const GAMES_PROFILE = [
 ];
 
 function ProfileTab() {
-  const { session, user, resetAll, updateUser } = useApp();
-  const [editing,      setEditing]      = useState(false);
-  const [draft,        setDraft]        = useState(null);
-  const [confirmReset, setConfirmReset] = useState(false);
+  const { session, user, resetAll, updateUser, signOut } = useApp();
+  const [editing,       setEditing]      = useState(false);
+  const [draft,         setDraft]        = useState(null);
+  const [confirmReset,  setConfirmReset] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   const avatarOpt = AVATAR_OPTIONS.find(a => a.value === user.profileIcon) ?? AVATAR_OPTIONS[0];
   const morningLabel = MORNING_TYPES_PROFILE.find(t => t.value === user.morningRating)?.label || '—';
@@ -1280,14 +1281,31 @@ function ProfileTab() {
             </Card>
 
             <Button
+              variant="outlined" fullWidth
+              onClick={() => setConfirmLogout(true)}
+              sx={{ mt: 0.5, borderRadius: 2.5, py: 1.25, borderColor: 'rgba(255,255,255,0.12)', color: 'text.secondary', '&:hover': { borderColor: 'rgba(255,255,255,0.25)', bgcolor: 'rgba(255,255,255,0.04)' } }}
+            >
+              Log Out
+            </Button>
+
+            <Button
               variant="outlined" color="error" fullWidth
               onClick={() => setConfirmReset(true)}
-              sx={{ mt: 0.5, borderRadius: 2.5, py: 1.25 }}
+              sx={{ borderRadius: 2.5, py: 1.25 }}
             >
               Reset All Data
             </Button>
           </>
         )}
+
+        <ConfirmDialog
+          open={confirmLogout}
+          title="Log Out?"
+          body="You'll be signed out of MorninMate. Your data will be saved and waiting when you log back in."
+          confirmLabel="Log Out"
+          onClose={() => setConfirmLogout(false)}
+          onConfirm={() => { signOut(); setConfirmLogout(false); }}
+        />
 
         <ConfirmDialog
           open={confirmReset}
