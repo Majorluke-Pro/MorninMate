@@ -101,7 +101,7 @@ Depending on your location, you may have the right to:
 - **Delete** your account and all associated data
 - **Export** your data
 
-To exercise any of these rights, contact us at [your-email@example.com].
+To exercise any of these rights, contact us at luke.r.luus@gmail.com.
 
 ---
 
@@ -115,7 +115,7 @@ We may update this Privacy Policy from time to time. When we do, we will update 
 
 If you have any questions or concerns about this Privacy Policy, please contact:
 
-**Email:** [your-email@example.com]
+**Email:** luke.r.luus@gmail.com
 
 ---
 

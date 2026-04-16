@@ -149,6 +149,14 @@ New users go through a **7-step onboarding** — name, preferred wake time, morn
 
 ---
 
+## 🔒 Privacy Policy
+
+MorninMate collects only what's needed to run the app — your email, profile preferences, alarm settings, and gamification stats. No ads, no data selling, no third-party trackers.
+
+Read the full [Privacy Policy](./PRIVACY_POLICY.md).
+
+---
+
 ## 📄 License
 
 MIT — feel free to fork, hack, and make your mornings legendary.
