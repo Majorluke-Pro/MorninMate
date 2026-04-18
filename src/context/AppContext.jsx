@@ -133,8 +133,10 @@ export function AppProvider({ children }) {
   const lastFiredRef     = useRef(null); // "alarmId-HH:MM" — prevents double-fire
   const alarmsRef    = useRef(alarms);
   const activeRef    = useRef(activeAlarm);
+  const sessionRef   = useRef(session);
   alarmsRef.current  = alarms;
   activeRef.current  = activeAlarm;
+  sessionRef.current = session;
 
   // ─── Auth listener ──────────────────────────────────────────────────────────
 
@@ -574,12 +576,13 @@ export function AppProvider({ children }) {
 
   const xpProgress = (user.xp % XP_PER_LEVEL) / XP_PER_LEVEL;
 
-  const refreshWakeStats = useCallback(async function refreshWakeStats(userId = session?.user?.id) {
-    if (!userId) return;
+  const refreshWakeStats = useCallback(async function refreshWakeStats(userId) {
+    const uid = userId ?? sessionRef.current?.user?.id;
+    if (!uid) return;
     setWakeStats(s => ({ ...s, loading: true }));
     const [successRes, failedRes] = await Promise.all([
-      supabase.from('wake_sessions').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'success'),
-      supabase.from('wake_sessions').select('*', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'failed'),
+      supabase.from('wake_sessions').select('*', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'success'),
+      supabase.from('wake_sessions').select('*', { count: 'exact', head: true }).eq('user_id', uid).eq('status', 'failed'),
     ]);
     if (successRes.error || failedRes.error) {
       setWakeStats(s => ({ ...s, loading: false }));
@@ -590,7 +593,7 @@ export function AppProvider({ children }) {
       failed: failedRes.count ?? 0,
       loading: false,
     });
-  }, [session?.user?.id]);
+  }, []);
 
   return (
     <AppContext.Provider
