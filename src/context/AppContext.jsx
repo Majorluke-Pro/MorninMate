@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { supabase } from '../lib/supabase';
 import {
@@ -574,7 +574,7 @@ export function AppProvider({ children }) {
 
   const xpProgress = (user.xp % XP_PER_LEVEL) / XP_PER_LEVEL;
 
-  async function refreshWakeStats(userId = session?.user?.id) {
+  const refreshWakeStats = useCallback(async function refreshWakeStats(userId = session?.user?.id) {
     if (!userId) return;
     setWakeStats(s => ({ ...s, loading: true }));
     const [successRes, failedRes] = await Promise.all([
@@ -590,7 +590,7 @@ export function AppProvider({ children }) {
       failed: failedRes.count ?? 0,
       loading: false,
     });
-  }
+  }, [session?.user?.id]);
 
   return (
     <AppContext.Provider
