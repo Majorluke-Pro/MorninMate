@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { Box, Typography, LinearProgress } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import BoltIcon from '@mui/icons-material/Bolt';
@@ -160,60 +159,49 @@ export default function ReactionGame({ difficulty = 'normal', onComplete, onFail
   };
 
   const cfg = phaseConfig[phase] || phaseConfig.countdown;
+  const roundPct = (round / totalRounds) * 100;
 
   return (
-    <Box sx={{ textAlign: 'center', touchAction: 'manipulation' }}>
+    <div style={{ textAlign: 'center', touchAction: 'manipulation' }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <span style={{ fontSize: '0.75rem', letterSpacing: 2, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>
           Reaction Rush
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 0.75 }}>
+        </span>
+        <div style={{ display: 'flex', gap: 6 }}>
           {Array.from({ length: maxLives }).map((_, i) =>
             i < lives
-              ? <FavoriteIcon key={i} sx={{
-                  fontSize: 20, color: '#EF476F',
-                  filter: 'drop-shadow(0 0 5px rgba(239,71,111,0.7))',
-                  animation: i === lives - 1 && phase === 'missed' ? 'heartLose 0.4s ease' : 'none',
-                  '@keyframes heartLose': {
-                    '0%':   { transform: 'scale(1.3)', opacity: 1 },
-                    '100%': { transform: 'scale(0.6)', opacity: 0 },
-                  },
-                }} />
-              : <FavoriteBorderIcon key={i} sx={{ fontSize: 20, color: 'rgba(255,255,255,0.15)' }} />
+              ? <FavoriteIcon key={i} style={{ fontSize: 20, color: '#EF476F', filter: 'drop-shadow(0 0 5px rgba(239,71,111,0.7))' }} />
+              : <FavoriteBorderIcon key={i} style={{ fontSize: 20, color: 'rgba(255,255,255,0.15)' }} />
           )}
-        </Box>
-      </Box>
+        </div>
+      </div>
 
       {/* Round progress */}
-      <Box sx={{ mb: 2.5 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span className="text-xs text-muted">
             Round {Math.min(round + 1, totalRounds)} / {totalRounds}
-          </Typography>
+          </span>
           {avgTime && (
-            <Typography variant="caption" fontWeight={700}
-              sx={{ color: getTimeRating(avgTime).color }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: getTimeRating(avgTime).color }}>
               avg {avgTime}ms
-            </Typography>
+            </span>
           )}
-        </Box>
-        <LinearProgress
-          variant="determinate"
-          value={(round / totalRounds) * 100}
-          color="secondary"
-          sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.06)' }}
-        />
-      </Box>
+        </div>
+        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full rounded-full transition-all" style={{ width: `${roundPct}%`, background: '#A78BFA' }} />
+        </div>
+      </div>
 
       {/* Main tap area */}
-      <Box
+      <div
         onTouchStart={(e) => { e.preventDefault(); handleTap(); }}
         onClick={handleTap}
-        sx={{
+        style={{
           height: 290,
           borderRadius: '50%',
-          mx: 'auto',
+          margin: '0 auto',
           maxWidth: 290,
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
@@ -225,150 +213,130 @@ export default function ReactionGame({ difficulty = 'normal', onComplete, onFail
           border: `3px solid ${cfg.border}`,
           boxShadow: cfg.glow,
           transition: 'background 0.12s, border-color 0.12s, box-shadow 0.18s',
-          gap: 0.75,
+          gap: 6,
           position: 'relative',
           overflow: 'hidden',
-          animation: phase === 'green'
-            ? 'greenPulse 0.45s ease-in-out infinite'
-            : phase === 'red'
-            ? 'redIdle 2s ease-in-out infinite'
-            : 'none',
-          '@keyframes greenPulse': {
-            '0%,100%': { transform: 'scale(1)',    boxShadow: cfg.glow },
-            '50%':     { transform: 'scale(1.05)', boxShadow: '0 0 120px rgba(6,214,160,0.65), inset 0 0 60px rgba(6,214,160,0.12)' },
-          },
-          '@keyframes redIdle': {
-            '0%,100%': { opacity: 1 },
-            '50%':     { opacity: 0.88 },
-          },
         }}
       >
         {/* Ripple on tap */}
         {ripple && (
-          <Box sx={{
+          <div style={{
             position: 'absolute',
             width: '100%', height: '100%',
             borderRadius: '50%',
             border: '3px solid rgba(6,214,160,0.7)',
             animation: 'rippleOut 0.6s ease-out forwards',
-            '@keyframes rippleOut': {
-              '0%':   { transform: 'scale(0.85)', opacity: 0.9 },
-              '100%': { transform: 'scale(1.3)',  opacity: 0 },
-            },
             pointerEvents: 'none',
           }} />
         )}
 
         {/* Countdown number or phase label */}
         {phase === 'countdown' ? (
-          <Typography
+          <span
             key={countKey}
-            variant="h2"
-            fontWeight={900}
-            sx={{
+            style={{
               color: countdown > 0 ? '#FFD166' : '#FF6B35',
               lineHeight: 1,
+              fontSize: '3.75rem',
+              fontWeight: 900,
               animation: 'countPop 0.5s cubic-bezier(0.34,1.56,0.64,1)',
-              '@keyframes countPop': {
-                from: { transform: 'scale(1.6)', opacity: 0 },
-                to:   { transform: 'scale(1)',   opacity: 1 },
-              },
             }}
           >
             {countdown > 0 ? countdown : '⚡'}
-          </Typography>
+          </span>
         ) : (
-          <Typography
+          <span
             key={phase}
-            variant="h3"
-            fontWeight={900}
-            sx={{
+            style={{
               color: cfg.labelColor,
               letterSpacing: phase === 'tapped' ? 0 : 3,
               fontVariantNumeric: 'tabular-nums',
               lineHeight: 1,
+              fontSize: '3rem',
+              fontWeight: 900,
               animation: 'labelPop 0.28s cubic-bezier(0.34,1.56,0.64,1)',
-              '@keyframes labelPop': {
-                from: { transform: 'scale(0.65)', opacity: 0 },
-                to:   { transform: 'scale(1)',    opacity: 1 },
-              },
             }}
           >
             {cfg.label}
-          </Typography>
+          </span>
         )}
 
         {/* Rating label under time */}
         {phase === 'tapped' && lastRating && (
-          <Typography
-            variant="caption"
-            fontWeight={800}
-            sx={{
+          <span
+            style={{
               color: lastRating.color,
               letterSpacing: 2,
               opacity: 0.9,
+              fontSize: '0.75rem',
+              fontWeight: 800,
               animation: 'labelPop 0.3s cubic-bezier(0.34,1.56,0.64,1) 0.1s both',
             }}
           >
             {lastRating.label}
-          </Typography>
+          </span>
         )}
 
         {phase === 'countdown' && countdown > 0 && (
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.35)', mt: 0.5 }}>
+          <p style={{ color: 'rgba(255,255,255,0.35)', marginTop: 4, fontSize: '0.875rem' }}>
             {cfg.sub}
-          </Typography>
+          </p>
         )}
 
         {(phase === 'red' || phase === 'missed' || phase === 'early') && cfg.sub && (
-          <Typography variant="body2" sx={{ color: cfg.labelColor, opacity: 0.55, mt: 0.25 }}>
+          <p style={{ color: cfg.labelColor, opacity: 0.55, marginTop: 2, fontSize: '0.875rem' }}>
             {cfg.sub}
-          </Typography>
+          </p>
         )}
 
         {phase === 'green' && (
-          <BoltIcon sx={{
-            fontSize: 30, color: '#06D6A0', mt: 0.5,
+          <BoltIcon style={{
+            fontSize: 30, color: '#06D6A0', marginTop: 4,
             filter: 'drop-shadow(0 0 10px rgba(6,214,160,0.9))',
-            animation: 'boltPulse 0.45s ease-in-out infinite',
-            '@keyframes boltPulse': {
-              '0%,100%': { transform: 'scale(1)',    opacity: 1 },
-              '50%':     { transform: 'scale(1.25)', opacity: 0.8 },
-            },
           }} />
         )}
-      </Box>
+      </div>
 
       {/* Reaction time history */}
       {times.length > 0 && (
-        <Box sx={{ display: 'flex', gap: 0.75, mt: 2.5, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, marginTop: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
           {times.map((t, i) => {
             const rating = getTimeRating(t);
             return (
-              <Box key={i} sx={{
-                px: 1.5, py: 0.5, borderRadius: 10,
-                bgcolor: `${rating.color}12`,
+              <div key={i} style={{
+                padding: '4px 12px', borderRadius: 40,
+                background: `${rating.color}12`,
                 border: `1.5px solid ${rating.color}30`,
-                animation: i === times.length - 1 ? 'chipIn 0.3s cubic-bezier(0.34,1.56,0.64,1)' : 'none',
-                '@keyframes chipIn': {
-                  from: { opacity: 0, transform: 'scale(0.75)' },
-                  to:   { opacity: 1, transform: 'scale(1)' },
-                },
               }}>
-                <Typography variant="caption" fontWeight={800} sx={{ color: rating.color }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: rating.color }}>
                   {t}ms
-                </Typography>
-              </Box>
+                </span>
+              </div>
             );
           })}
-        </Box>
+        </div>
       )}
 
       {round > 0 && phase !== 'green' && (
-        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 1.5 }}>
+        <span style={{ display: 'block', marginTop: 12, fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)' }}>
           window: {window_ms}ms
-        </Typography>
+        </span>
       )}
-    </Box>
+
+      <style>{`
+        @keyframes rippleOut {
+          0%   { transform: scale(0.85); opacity: 0.9; }
+          100% { transform: scale(1.3);  opacity: 0; }
+        }
+        @keyframes countPop {
+          from { transform: scale(1.6); opacity: 0; }
+          to   { transform: scale(1);   opacity: 1; }
+        }
+        @keyframes labelPop {
+          from { transform: scale(0.65); opacity: 0; }
+          to   { transform: scale(1);    opacity: 1; }
+        }
+      `}</style>
+    </div>
   );
 }
