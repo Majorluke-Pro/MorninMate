@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Box, Typography, Card, Button, LinearProgress, Fade } from '@mui/material';
 import { startAlarm, stopAlarm } from '../../lib/sounds';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
@@ -205,102 +204,86 @@ export default function WakeUpFlow() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', p: 3, pt: 5, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg, #0D0D1A)', padding: '40px 24px 24px', display: 'flex', flexDirection: 'column' }}>
       {/* Progress header */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, gap: 1.5, alignItems: 'center' }}>
-          <Typography variant="caption" color="text.secondary">
+      <div style={{ marginBottom: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', gap: '12px', alignItems: 'center' }}>
+          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
             Game {gameIndex + 1} of {games.length}
-          </Typography>
+          </span>
           {!isHardcore && (
-            <Button
-              variant="text"
-              size="small"
+            <button
               disabled={ending}
               onClick={handleEndEarly}
-              sx={{ color: 'rgba(255,255,255,0.55)', fontWeight: 800, px: 1, minWidth: 0 }}
+              style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 800, padding: '2px 8px', minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}
             >
               End
-            </Button>
+            </button>
           )}
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
             {failCount > 0 && (
-              <Box sx={{ display:'flex', alignItems:'center', gap:0.5 }}>
-                <WarningAmberIcon sx={{ fontSize:'0.9rem', color:'error.main' }}/>
-                <Typography variant="caption" color="error.main" fontWeight={700}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <WarningAmberIcon style={{ fontSize: '0.9rem', color: '#EF476F' }} />
+                <span className="text-xs" style={{ color: '#EF476F', fontWeight: 700 }}>
                   {failCount} restart{failCount > 1 ? 's' : ''}
-                </Typography>
-              </Box>
+                </span>
+              </div>
             )}
-            <Typography variant="caption" color="primary.main" fontWeight={600}>
+            <span className="text-xs" style={{ color: 'var(--color-primary, #FF6B35)', fontWeight: 600 }}>
               +{xpReward} XP on finish
-            </Typography>
-          </Box>
-        </Box>
-        <LinearProgress
-          variant="determinate"
-          value={progress}
-          sx={{
-            height: 8, borderRadius: 4,
-            bgcolor: 'rgba(255,255,255,0.08)',
-            '& .MuiLinearProgress-bar': { background: 'linear-gradient(90deg, #FF6B35, #FFD166)', borderRadius: 4 },
-          }}
-        />
-        <Box sx={{ display: 'flex', gap: 1, mt: 2, justifyContent: 'center' }}>
+            </span>
+          </div>
+        </div>
+        <div style={{ height: '8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', background: 'linear-gradient(90deg, #FF6B35, #FFD166)', borderRadius: '4px', width: `${progress}%`, transition: 'width 0.3s' }} />
+        </div>
+        <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'center' }}>
           {games.map((g, i) => (
-            <Box key={i} sx={{
-              flex: 1, height: 4, borderRadius: 2,
-              bgcolor: i < gameIndex ? 'success.main' : i === gameIndex ? 'primary.main' : 'rgba(255,255,255,0.1)',
+            <div key={i} style={{
+              flex: 1, height: '4px', borderRadius: '2px',
+              backgroundColor: i < gameIndex ? '#06D6A0' : i === gameIndex ? '#FF6B35' : 'rgba(255,255,255,0.1)',
               transition: 'background-color 0.3s',
             }} />
           ))}
-        </Box>
-      </Box>
+        </div>
+      </div>
 
       {/* Inactivity warning */}
       {inactivityLeft <= 10 && (
-        <Box sx={{
-          mb: 2,
-          px: 2, py: 1.25,
-          borderRadius: 2.5,
-          bgcolor: inactivityLeft <= 5 ? 'rgba(239,71,111,0.15)' : 'rgba(255,140,0,0.12)',
+        <div style={{
+          marginBottom: '16px',
+          padding: '10px 16px',
+          borderRadius: '10px',
+          backgroundColor: inactivityLeft <= 5 ? 'rgba(239,71,111,0.15)' : 'rgba(255,140,0,0.12)',
           border: `1.5px solid ${inactivityLeft <= 5 ? '#EF476F' : '#FF8C00'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           animation: 'warningPulse 0.8s ease-in-out infinite',
-          '@keyframes warningPulse': {
-            '0%,100%': { opacity: 1 },
-            '50%':     { opacity: 0.7 },
-          },
         }}>
-          <Box sx={{ display:'flex', alignItems:'center', gap:0.75 }}>
-            <WarningAmberIcon sx={{ fontSize:'1rem', color: inactivityLeft <= 5 ? '#EF476F' : '#FF8C00' }}/>
-            <Typography variant="body2" fontWeight={700}
-              color={inactivityLeft <= 5 ? 'error.main' : '#FF8C00'}>
+          <style>{`@keyframes warningPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }`}</style>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <WarningAmberIcon style={{ fontSize: '1rem', color: inactivityLeft <= 5 ? '#EF476F' : '#FF8C00' }} />
+            <p className="text-sm" style={{ fontWeight: 700, color: inactivityLeft <= 5 ? '#EF476F' : '#FF8C00', margin: 0 }}>
               Still there? Alarm restarts in…
-            </Typography>
-          </Box>
-          <Typography variant="h6" fontWeight={900}
-            color={inactivityLeft <= 5 ? 'error.main' : '#FF8C00'}
-            sx={{ fontVariantNumeric: 'tabular-nums', minWidth: 32, textAlign: 'right' }}>
+            </p>
+          </div>
+          <h6 className="text-lg font-semibold" style={{ fontWeight: 900, color: inactivityLeft <= 5 ? '#EF476F' : '#FF8C00', fontVariantNumeric: 'tabular-nums', minWidth: '32px', textAlign: 'right', margin: 0 }}>
             {inactivityLeft}s
-          </Typography>
-        </Box>
+          </h6>
+        </div>
       )}
 
-      <Fade in key={`${gameIndex}-${gameKey}`}>
-        <Box sx={{ flex: 1 }}>
-          {GameComponent && (
-            <GameComponent
-              key={`${gameIndex}-${gameKey}`}
-              difficulty={difficulty}
-              onComplete={handleGameComplete}
-              onFail={handleGameFail}
-              onActivity={resetInactivity}
-            />
-          )}
-        </Box>
-      </Fade>
-    </Box>
+      <div style={{ opacity: 1, transition: 'opacity 0.3s', flex: 1 }} key={`${gameIndex}-${gameKey}`}>
+        {GameComponent && (
+          <GameComponent
+            key={`${gameIndex}-${gameKey}`}
+            difficulty={difficulty}
+            onComplete={handleGameComplete}
+            onFail={handleGameFail}
+            onActivity={resetInactivity}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -311,271 +294,251 @@ function IntroScreen({ alarm, games, intensity, xpReward, isHardcore, onStart })
   const intensityColor  = INTENSITY_COLOR[intensity];
 
   return (
-    <Box sx={{
+    <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(170deg, #160830 0%, #0D0D1A 55%, #080818 100%)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      p: 3, textAlign: 'center', position: 'relative', overflow: 'hidden',
+      padding: '24px', textAlign: 'center', position: 'relative', overflow: 'hidden',
     }}>
+      <style>{`
+        @keyframes introRing { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+        @keyframes introPulse { 0% { transform: scale(0.85); opacity: 0.8; } 100% { transform: scale(1.4); opacity: 0; } }
+        @keyframes gameIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+      `}</style>
+
       {/* Ambient glow */}
-      <Box sx={{
-        position: 'absolute', width: 400, height: 400, borderRadius: '50%',
+      <div style={{
+        position: 'absolute', width: '400px', height: '400px', borderRadius: '50%',
         background: `radial-gradient(circle, ${intensityColor}18 0%, transparent 65%)`,
-        top: -100, left: '50%', transform: 'translateX(-50%)',
+        top: '-100px', left: '50%', transform: 'translateX(-50%)',
         filter: 'blur(60px)', pointerEvents: 'none',
       }} />
 
       {/* Alarm icon */}
-      <Box sx={{
-        position: 'relative', mb: 2.5,
-        animation: 'introRing 2.5s ease-in-out infinite',
-        '@keyframes introRing': {
-          '0%,100%': { transform: 'scale(1)' },
-          '50%':     { transform: 'scale(1.06)' },
-        },
-      }}>
-        <Box sx={{
-          position: 'absolute', inset: -12, borderRadius: '50%',
+      <div style={{ position: 'relative', marginBottom: '20px', animation: 'introRing 2.5s ease-in-out infinite' }}>
+        <div style={{
+          position: 'absolute', inset: '-12px', borderRadius: '50%',
           border: `2px solid ${intensityColor}30`,
           animation: 'introPulse 2.5s ease-out infinite',
-          '@keyframes introPulse': {
-            '0%':   { transform: 'scale(0.85)', opacity: 0.8 },
-            '100%': { transform: 'scale(1.4)',  opacity: 0 },
-          },
         }} />
-        <Box sx={{
-          width: 88, height: 88, borderRadius: '50%',
-          bgcolor: `${intensityColor}14`,
+        <div style={{
+          width: '88px', height: '88px', borderRadius: '50%',
+          backgroundColor: `${intensityColor}14`,
           border: `2px solid ${intensityColor}35`,
           boxShadow: `0 0 40px ${intensityColor}30`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <AlarmIcon sx={{ fontSize: 44, color: intensityColor, filter: `drop-shadow(0 0 12px ${intensityColor}80)` }} />
-        </Box>
-      </Box>
+          <AlarmIcon style={{ fontSize: 44, color: intensityColor, filter: `drop-shadow(0 0 12px ${intensityColor}80)` }} />
+        </div>
+      </div>
 
-      <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-0.5px', mb: 0.5 }}>
+      <h4 className="text-2xl font-bold" style={{ letterSpacing: '-0.5px', marginBottom: '4px', fontWeight: 900 }}>
         Rise & Shine, Legend!
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+      </h4>
+      <p className="text-base" style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '8px' }}>
         {alarm?.label || 'Alarm'}
-      </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.75 }}>
-        <IntensityIcon sx={{ fontSize: '1.15rem', color: intensityColor }} />
-        <Typography variant="h6" fontWeight={700} sx={{ color: intensityColor }}>
+      </p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+        <IntensityIcon style={{ fontSize: '1.15rem', color: intensityColor }} />
+        <h6 className="text-lg font-semibold" style={{ fontWeight: 700, color: intensityColor, margin: 0 }}>
           {intensity.charAt(0).toUpperCase() + intensity.slice(1)} Pulse
-        </Typography>
-      </Box>
+        </h6>
+      </div>
       {isHardcore && (
-        <Box sx={{
-          mb: 2, px: 2.5, py: 1.25, borderRadius: 2.5,
-          bgcolor: 'rgba(239,28,28,0.12)', border: '1.5px solid rgba(239,28,28,0.4)',
-          display: 'flex', alignItems: 'center', gap: 1,
+        <div style={{
+          marginBottom: '16px', padding: '10px 20px', borderRadius: '10px',
+          backgroundColor: 'rgba(239,28,28,0.12)', border: '1.5px solid rgba(239,28,28,0.4)',
+          display: 'flex', alignItems: 'center', gap: '8px',
         }}>
-          <Typography variant="body2" fontWeight={800} color="#EF1C1C">
+          <p className="text-sm" style={{ fontWeight: 800, color: '#EF1C1C', margin: 0 }}>
             Hardcore Mode — Full volume. No escape. Finish or suffer.
-          </Typography>
-        </Box>
+          </p>
+        </div>
       )}
-      <Typography variant="caption" color="text.disabled" sx={{ mb: 4 }}>
+      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)', marginBottom: '32px', display: 'block' }}>
         No dodging it, mate — finish all games to dismiss.
-      </Typography>
+      </span>
 
       {/* Games card */}
-      <Box sx={{
-        width: '100%', maxWidth: 340, mb: 4,
-        borderRadius: 4,
-        bgcolor: 'rgba(20,20,38,0.9)',
+      <div style={{
+        width: '100%', maxWidth: '340px', marginBottom: '32px',
+        borderRadius: '16px',
+        backgroundColor: 'rgba(20,20,38,0.9)',
         border: '1px solid rgba(255,255,255,0.07)',
         backdropFilter: 'blur(16px)',
         overflow: 'hidden',
       }}>
-        <Box sx={{ px: 2.5, pt: 2, pb: 1 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.1em', fontSize: '0.6rem' }}>
+        <div style={{ padding: '16px 20px 8px' }}>
+          <span className="text-xs" style={{ fontWeight: 700, letterSpacing: '0.1em', fontSize: '0.6rem', color: 'rgba(255,255,255,0.5)' }}>
             COMPLETE THESE TO DISMISS
-          </Typography>
-        </Box>
+          </span>
+        </div>
 
         {games.map((g, i) => {
           const GameIcon = GAME_ICONS[g];
           const color    = GAME_COLORS[g];
           return (
-            <Box
+            <div
               key={g}
-              sx={{
-                display: 'flex', alignItems: 'center', gap: 2,
-                px: 2.5, py: 1.5,
+              style={{
+                display: 'flex', alignItems: 'center', gap: '16px',
+                padding: '12px 20px',
                 borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none',
                 animation: `gameIn 0.5s ease ${i * 0.1}s both`,
-                '@keyframes gameIn': {
-                  from: { opacity: 0, transform: 'translateX(-12px)' },
-                  to:   { opacity: 1, transform: 'none' },
-                },
               }}
             >
-              <Box sx={{
-                width: 42, height: 42, borderRadius: 2.5, flexShrink: 0,
-                bgcolor: `${color}15`, border: `1px solid ${color}30`,
+              <div style={{
+                width: '42px', height: '42px', borderRadius: '10px', flexShrink: 0,
+                backgroundColor: `${color}15`, border: `1px solid ${color}30`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: `0 0 12px ${color}20`,
               }}>
-                <GameIcon sx={{ fontSize: '1.3rem', color }} />
-              </Box>
-              <Box sx={{ flex: 1, textAlign: 'left' }}>
-                <Typography fontWeight={700} variant="body2">{GAME_LABELS[g]}</Typography>
-              </Box>
-              <Box sx={{
-                width: 24, height: 24, borderRadius: '50%',
-                bgcolor: 'rgba(255,255,255,0.06)',
+                <GameIcon style={{ fontSize: '1.3rem', color }} />
+              </div>
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                <p className="text-sm" style={{ fontWeight: 700, margin: 0 }}>{GAME_LABELS[g]}</p>
+              </div>
+              <div style={{
+                width: '24px', height: '24px', borderRadius: '50%',
+                backgroundColor: 'rgba(255,255,255,0.06)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: '0.65rem', fontWeight: 800, color: 'rgba(255,255,255,0.3)',
                 fontFamily: '"Fraunces", serif',
               }}>
                 {i + 1}
-              </Box>
-            </Box>
+              </div>
+            </div>
           );
         })}
 
-        <Box sx={{
-          mx: 2.5, my: 1.5, px: 2, py: 1.25,
-          borderRadius: 2.5,
-          bgcolor: 'rgba(255,209,102,0.06)',
+        <div style={{
+          margin: '12px 20px', padding: '10px 16px',
+          borderRadius: '10px',
+          backgroundColor: 'rgba(255,209,102,0.06)',
           border: '1px solid rgba(255,209,102,0.15)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
         }}>
-          <EmojiEventsIcon sx={{ color: '#FFD166', fontSize: 16 }} />
-          <Typography variant="body2" color="secondary.main" fontWeight={700}>
+          <EmojiEventsIcon style={{ color: '#FFD166', fontSize: 16 }} />
+          <p className="text-sm" style={{ color: '#FFD166', fontWeight: 700, margin: 0 }}>
             +{xpReward} XP on success
-          </Typography>
-        </Box>
-      </Box>
+          </p>
+        </div>
+      </div>
 
-      <Button
-        variant="contained" size="large" onClick={onStart}
-        sx={{ px: 7, py: 1.75, fontSize: '1rem', borderRadius: 3 }}
+      <button
+        className="btn-primary"
+        onClick={onStart}
+        style={{ padding: '14px 56px', fontSize: '1rem', borderRadius: '12px' }}
       >
         {isHardcore ? 'Begin (No Going Back)' : 'Start Wake-Up Routine'}
-      </Button>
-    </Box>
+      </button>
+    </div>
   );
 }
 
 function ResultScreen({ results, xpReward, totalFails, isHardcore, onDone }) {
   return (
-    <Box sx={{
+    <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(170deg, #061C10 0%, #0D0D1A 60%, #080818 100%)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      p: 3, textAlign: 'center', position: 'relative', overflow: 'hidden',
+      padding: '24px', textAlign: 'center', position: 'relative', overflow: 'hidden',
     }}>
+      <style>{`
+        @keyframes checkBounce { from { transform: scale(0.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes resultPulse { 0% { transform: scale(0.85); opacity: 0.6; } 100% { transform: scale(1.5); opacity: 0; } }
+        @keyframes xpIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+        @keyframes resultsIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+      `}</style>
+
       {/* Celebration glow */}
-      <Box sx={{
-        position: 'absolute', width: 450, height: 450, borderRadius: '50%',
+      <div style={{
+        position: 'absolute', width: '450px', height: '450px', borderRadius: '50%',
         background: 'radial-gradient(circle, rgba(6,214,160,0.14) 0%, transparent 65%)',
-        top: -100, left: '50%', transform: 'translateX(-50%)',
+        top: '-100px', left: '50%', transform: 'translateX(-50%)',
         filter: 'blur(60px)', pointerEvents: 'none',
       }} />
 
       {/* Check icon */}
-      <Box sx={{
-        position: 'relative', mb: 2.5,
-        animation: 'checkBounce 0.6s cubic-bezier(0.34,1.56,0.64,1)',
-        '@keyframes checkBounce': {
-          from: { transform: 'scale(0.3)', opacity: 0 },
-          to:   { transform: 'scale(1)',   opacity: 1 },
-        },
-      }}>
-        <Box sx={{
-          position: 'absolute', inset: -12, borderRadius: '50%',
+      <div style={{ position: 'relative', marginBottom: '20px', animation: 'checkBounce 0.6s cubic-bezier(0.34,1.56,0.64,1)' }}>
+        <div style={{
+          position: 'absolute', inset: '-12px', borderRadius: '50%',
           border: '2px solid rgba(6,214,160,0.25)',
           animation: 'resultPulse 2s ease-out 0.4s infinite',
-          '@keyframes resultPulse': {
-            '0%':   { transform: 'scale(0.85)', opacity: 0.6 },
-            '100%': { transform: 'scale(1.5)',  opacity: 0 },
-          },
         }} />
-        <Box sx={{
-          width: 88, height: 88, borderRadius: '50%',
-          bgcolor: 'rgba(6,214,160,0.12)',
+        <div style={{
+          width: '88px', height: '88px', borderRadius: '50%',
+          backgroundColor: 'rgba(6,214,160,0.12)',
           border: '2px solid rgba(6,214,160,0.35)',
           boxShadow: '0 0 40px rgba(6,214,160,0.3)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <CheckCircleIcon sx={{
+          <CheckCircleIcon style={{
             fontSize: 48, color: '#06D6A0',
             filter: 'drop-shadow(0 0 12px rgba(6,214,160,0.7))',
           }} />
-        </Box>
-      </Box>
+        </div>
+      </div>
 
-      <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-0.5px', mb: 0.5 }}>
+      <h4 className="text-2xl font-bold" style={{ letterSpacing: '-0.5px', marginBottom: '4px', fontWeight: 900 }}>
         {isHardcore ? 'You survived.' : "Bonzer, you're up!"}
-      </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      </h4>
+      <p className="text-base" style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '24px' }}>
         {isHardcore ? 'That was brutal. Respect.' : 'Ripper morning routine, mate'}
-      </Typography>
+      </p>
 
       {/* XP card */}
-      <Box sx={{
-        px: 4, py: 2, mb: 3, borderRadius: 3,
-        bgcolor: 'rgba(6,214,160,0.08)',
+      <div style={{
+        padding: '16px 32px', marginBottom: '24px', borderRadius: '12px',
+        backgroundColor: 'rgba(6,214,160,0.08)',
         border: '1px solid rgba(6,214,160,0.22)',
         backdropFilter: 'blur(12px)',
         animation: 'xpIn 0.5s ease 0.3s both',
-        '@keyframes xpIn': {
-          from: { opacity: 0, transform: 'translateY(12px)' },
-          to:   { opacity: 1, transform: 'none' },
-        },
       }}>
-        <Typography variant="h5" color="success.main" fontWeight={900} sx={{ fontFamily: '"Fraunces", serif', letterSpacing: '-0.5px' }}>
+        <h5 className="text-xl font-bold" style={{ color: '#06D6A0', fontWeight: 900, fontFamily: '"Fraunces", serif', letterSpacing: '-0.5px', margin: 0 }}>
           +{xpReward} XP earned!
-        </Typography>
+        </h5>
         {totalFails > 0 && (
-          <Typography variant="caption" color="text.secondary">
+          <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)', display: 'block', marginTop: '4px' }}>
             {totalFails} restart{totalFails > 1 ? 's' : ''} — no worries, keep at it!
-          </Typography>
+          </span>
         )}
-      </Box>
+      </div>
 
       {/* Results card */}
-      <Box sx={{
-        width: '100%', maxWidth: 340, mb: 4,
-        borderRadius: 4,
-        bgcolor: 'rgba(20,20,38,0.9)',
+      <div style={{
+        width: '100%', maxWidth: '340px', marginBottom: '32px',
+        borderRadius: '16px',
+        backgroundColor: 'rgba(20,20,38,0.9)',
         border: '1px solid rgba(255,255,255,0.07)',
         backdropFilter: 'blur(16px)',
         overflow: 'hidden',
         animation: 'resultsIn 0.5s ease 0.5s both',
-        '@keyframes resultsIn': {
-          from: { opacity: 0, transform: 'translateY(16px)' },
-          to:   { opacity: 1, transform: 'none' },
-        },
       }}>
         {results.map((r, i) => (
-          <Box key={i} sx={{
+          <div key={i} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            px: 2.5, py: 1.5,
+            padding: '12px 20px',
             borderTop: i > 0 ? '1px solid rgba(255,255,255,0.05)' : 'none',
           }}>
-            <Typography variant="body2" fontWeight={500}>{GAME_LABELS[r.game]}</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <CheckIcon sx={{ fontSize: '0.85rem', color: r.retries === 0 ? '#06D6A0' : '#FFD166' }} />
-              <Typography variant="body2" fontWeight={700}
-                color={r.retries === 0 ? 'success.main' : 'secondary.main'}>
+            <p className="text-sm" style={{ fontWeight: 500, margin: 0 }}>{GAME_LABELS[r.game]}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <CheckIcon style={{ fontSize: '0.85rem', color: r.retries === 0 ? '#06D6A0' : '#FFD166' }} />
+              <p className="text-sm" style={{ fontWeight: 700, color: r.retries === 0 ? '#06D6A0' : '#FFD166', margin: 0 }}>
                 {r.retries === 0 ? 'First crack!' : `${r.retries} restart${r.retries > 1 ? 's' : ''}`}
-              </Typography>
-            </Box>
-          </Box>
+              </p>
+            </div>
+          </div>
         ))}
-      </Box>
+      </div>
 
-      <Button
-        variant="contained" size="large" onClick={onDone}
-        sx={{ px: 6, py: 1.75, borderRadius: 3, fontSize: '1rem' }}
+      <button
+        className="btn-primary"
+        onClick={onDone}
+        style={{ padding: '14px 48px', borderRadius: '12px', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}
       >
-        <WbSunnyIcon sx={{ mr: 1 }} /> Go to Home
-      </Button>
-    </Box>
+        <WbSunnyIcon style={{ fontSize: '1.25rem' }} /> Go to Home
+      </button>
+    </div>
   );
 }
