@@ -1,3 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #FF6B35;
+  --color-primary-light: #FF8C5A;
+  --color-primary-dark: #E54E1B;
+  --color-secondary: #FFD166;
+  --color-secondary-light: #FFE09A;
+  --color-secondary-dark: #E6B800;
+  --color-base: #0D0D1A;
+  --color-card: #16162A;
+  --color-success: #06D6A0;
+  --color-error: #EF476F;
+  --color-info: #118AB2;
+  --color-content: #F0F0FA;
+  --color-muted: #9898B8;
+  --font-family-outfit: "Outfit", sans-serif;
+  --font-family-ubuntu: "Ubuntu", sans-serif;
+}
+
+/* Reusable component patterns */
+.btn-primary {
+  @apply bg-primary text-white rounded-xl px-6 py-3 font-bold active:scale-95 transition-transform touch-manipulation w-full;
+}
+
+.btn-outline {
+  @apply border border-primary text-primary rounded-xl px-6 py-3 font-bold active:scale-95 transition-transform touch-manipulation;
+}
+
+.btn-ghost {
+  @apply text-primary font-semibold px-4 py-2 rounded-xl active:scale-95 transition-transform touch-manipulation;
+}
+
+.card {
+  @apply bg-card rounded-2xl;
+}
+
+.input-field {
+  @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-content placeholder:text-muted focus:outline-none focus:border-primary/50 transition-colors;
+  font-size: 16px;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
