@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Box, InputBase, Typography } from '@mui/material';
 
 const SIZE    = 256;
 const CENTER  = SIZE / 2;
@@ -177,125 +176,110 @@ export default function TimePicker({ value, onChange }) {
   }
 
   return (
-    <Box sx={{ py: 2, px: 1.5 }}>
+    <div className="py-4 px-3">
 
-      {/* ── Time display ── */}
-      <Box sx={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0.5, mb:2.5 }}>
-        <Box
+      {/* Time display */}
+      <div className="flex items-center justify-center gap-1 mb-5">
+        <div
           onClick={() => startManualEdit('hour')}
-          sx={{
-            px:1.5, py:0.5, borderRadius:2, cursor:'pointer', lineHeight:1,
-            bgcolor: mode==='hour' ? 'rgba(255,107,53,0.18)' : 'transparent',
-            color: !hasValue ? 'rgba(255,255,255,0.28)' : mode==='hour' ? '#FF6B35' : 'rgba(255,255,255,0.45)',
-            fontWeight:900, fontSize:'3rem', fontVariantNumeric:'tabular-nums',
-            transition:'all 0.15s',
-            minWidth: 78,
-            textAlign: 'center',
+          className="px-3 py-1 rounded-lg cursor-pointer leading-none transition-all min-w-[78px] text-center"
+          style={{
+            background: mode === 'hour' ? 'rgba(255,107,53,0.18)' : 'transparent',
+            color: !hasValue ? 'rgba(255,255,255,0.28)' : mode === 'hour' ? '#FF6B35' : 'rgba(255,255,255,0.45)',
+            fontWeight: 900,
+            fontSize: '3rem',
+            fontVariantNumeric: 'tabular-nums',
           }}
         >
           {editingPart === 'hour' ? (
-            <InputBase
-              inputRef={inputRef}
+            <input
+              ref={inputRef}
               value={draftValue}
               onChange={e => setDraftValue(e.target.value.replace(/\D/g, '').slice(0, 2))}
               onBlur={commitManualEdit}
               onKeyDown={handleManualKeyDown}
-              inputProps={{ inputMode: 'numeric', maxLength: 2, style: { textAlign: 'center' } }}
-              sx={{
-                width: 48,
-                color: '#FF6B35',
-                fontWeight: 900,
-                fontSize: '3rem',
-                '& input': { p: 0 },
-              }}
+              inputMode="numeric"
+              maxLength={2}
+              className="w-12 bg-transparent text-center outline-none"
+              style={{ color: '#FF6B35', fontWeight: 900, fontSize: '3rem', padding: 0 }}
             />
           ) : (
-            hour12 == null ? '--' : String(hour12).padStart(2,'0')
+            hour12 == null ? '--' : String(hour12).padStart(2, '0')
           )}
-        </Box>
-        <Typography sx={{ fontWeight:900, fontSize:'3rem', lineHeight:1, color:'rgba(255,255,255,0.25)', mb:0.5 }}>:</Typography>
-        <Box
+        </div>
+
+        <span style={{ fontWeight: 900, fontSize: '3rem', lineHeight: 1, color: 'rgba(255,255,255,0.25)', marginBottom: 4 }}>:</span>
+
+        <div
           onClick={() => startManualEdit('minute')}
-          sx={{
-            px:1.5, py:0.5, borderRadius:2, cursor:'pointer', lineHeight:1,
-            bgcolor: mode==='minute' ? 'rgba(255,107,53,0.18)' : 'transparent',
-            color: !hasValue ? 'rgba(255,255,255,0.28)' : mode==='minute' ? '#FF6B35' : 'rgba(255,255,255,0.45)',
-            fontWeight:900, fontSize:'3rem', fontVariantNumeric:'tabular-nums',
-            transition:'all 0.15s',
-            minWidth: 78,
-            textAlign: 'center',
+          className="px-3 py-1 rounded-lg cursor-pointer leading-none transition-all min-w-[78px] text-center"
+          style={{
+            background: mode === 'minute' ? 'rgba(255,107,53,0.18)' : 'transparent',
+            color: !hasValue ? 'rgba(255,255,255,0.28)' : mode === 'minute' ? '#FF6B35' : 'rgba(255,255,255,0.45)',
+            fontWeight: 900,
+            fontSize: '3rem',
+            fontVariantNumeric: 'tabular-nums',
           }}
         >
           {editingPart === 'minute' ? (
-            <InputBase
-              inputRef={inputRef}
+            <input
+              ref={inputRef}
               value={draftValue}
               onChange={e => setDraftValue(e.target.value.replace(/\D/g, '').slice(0, 2))}
               onBlur={commitManualEdit}
               onKeyDown={handleManualKeyDown}
-              inputProps={{ inputMode: 'numeric', maxLength: 2, style: { textAlign: 'center' } }}
-              sx={{
-                width: 48,
-                color: '#FF6B35',
-                fontWeight: 900,
-                fontSize: '3rem',
-                '& input': { p: 0 },
-              }}
+              inputMode="numeric"
+              maxLength={2}
+              className="w-12 bg-transparent text-center outline-none"
+              style={{ color: '#FF6B35', fontWeight: 900, fontSize: '3rem', padding: 0 }}
             />
           ) : (
-            m == null ? '--' : String(m).padStart(2,'0')
+            m == null ? '--' : String(m).padStart(2, '0')
           )}
-        </Box>
+        </div>
 
         {/* AM / PM */}
-        <Box sx={{ display:'flex', flexDirection:'column', gap:0.6, ml:1 }}>
-          {['AM','PM'].map(p => {
-            const active = (p==='PM') === isPM;
+        <div className="flex flex-col gap-1.5 ml-2">
+          {['AM', 'PM'].map(p => {
+            const active = (p === 'PM') === isPM;
             return (
-              <Box key={p} onClick={() => !active && togglePeriod()} sx={{
-                px:1.5, py:0.45, borderRadius:99, userSelect:'none',
-                cursor: !hasValue || active ? 'default' : 'pointer',
-                bgcolor: !hasValue ? 'rgba(255,255,255,0.05)' : active ? '#FF6B35' : 'rgba(255,255,255,0.08)',
-                color: !hasValue ? 'rgba(255,255,255,0.28)' : active ? '#fff' : 'rgba(255,255,255,0.35)',
-                fontWeight:700, fontSize:'0.78rem', transition:'all 0.15s',
-              }}>
+              <div
+                key={p}
+                onClick={() => !active && togglePeriod()}
+                className="px-3 py-1 rounded-full select-none transition-all"
+                style={{
+                  cursor: !hasValue || active ? 'default' : 'pointer',
+                  background: !hasValue ? 'rgba(255,255,255,0.05)' : active ? '#FF6B35' : 'rgba(255,255,255,0.08)',
+                  color: !hasValue ? 'rgba(255,255,255,0.28)' : active ? '#fff' : 'rgba(255,255,255,0.35)',
+                  fontWeight: 700,
+                  fontSize: '0.78rem',
+                }}
+              >
                 {p}
-              </Box>
+              </div>
             );
           })}
-        </Box>
-      </Box>
+        </div>
+      </div>
 
-      {/* ── Clock face ── */}
-      <Box sx={{ display:'flex', justifyContent:'center' }}>
-        <Box
-          component="svg"
-          width={SIZE} height={SIZE}
+      {/* Clock face */}
+      <div className="flex justify-center">
+        <svg
+          width={SIZE}
+          height={SIZE}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
-          sx={{ touchAction:'none', userSelect:'none', cursor:'pointer', display:'block' }}
+          style={{ touchAction: 'none', userSelect: 'none', cursor: 'pointer', display: 'block' }}
         >
-          {/* Background circle */}
           <circle cx={CENTER} cy={CENTER} r={CENTER - 2} fill="rgba(255,255,255,0.05)" />
-
-          {/* Hand */}
           {hasValue && (
-            <line
-              x1={CENTER} y1={CENTER}
-              x2={handPos.x} y2={handPos.y}
-              stroke="#FF6B35" strokeWidth={2} strokeLinecap="round" opacity={0.6}
-            />
+            <line x1={CENTER} y1={CENTER} x2={handPos.x} y2={handPos.y}
+              stroke="#FF6B35" strokeWidth={2} strokeLinecap="round" opacity={0.6} />
           )}
-
-          {/* Center dot */}
           <circle cx={CENTER} cy={CENTER} r={5} fill={hasValue ? '#FF6B35' : 'rgba(255,255,255,0.28)'} />
-
-          {/* Hand knob */}
           {hasValue && <circle cx={handPos.x} cy={handPos.y} r={8} fill="#FF6B35" opacity={0.95} />}
-
-          {/* Number bubbles */}
           {(mode === 'hour' ? HOURS : MINUTES).map((item, i) => {
             const { x, y } = itemPos(i);
             const sel = hasValue && i === liveIdx;
@@ -303,30 +287,27 @@ export default function TimePicker({ value, onChange }) {
               <g key={item}>
                 <circle cx={x} cy={y} r={20}
                   fill={sel ? '#FF6B35' : 'rgba(255,255,255,0.0)'}
-                  style={{ transition:'fill 0.15s' }}
+                  style={{ transition: 'fill 0.15s' }}
                 />
-                <text
-                  x={x} y={y}
-                  textAnchor="middle" dominantBaseline="central"
+                <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
                   fill={sel ? '#fff' : 'rgba(255,255,255,0.6)'}
                   fontWeight={sel ? 800 : 500}
                   fontSize={mode === 'hour' ? 15 : 13}
-                  style={{ userSelect:'none', pointerEvents:'none', transition:'fill 0.15s' }}
+                  style={{ userSelect: 'none', pointerEvents: 'none', transition: 'fill 0.15s' }}
                 >
-                  {mode === 'minute' ? String(item).padStart(2,'0') : item}
+                  {mode === 'minute' ? String(item).padStart(2, '0') : item}
                 </text>
               </g>
             );
           })}
-        </Box>
-      </Box>
+        </svg>
+      </div>
 
-      {/* ── Mode hint ── */}
-      <Typography variant="caption" display="block" textAlign="center"
-        sx={{ mt:1.5, color:'rgba(255,255,255,0.25)', letterSpacing:1.5, fontSize:'0.6rem' }}>
+      {/* Mode hint */}
+      <span className="block text-center mt-3" style={{ color: 'rgba(255,255,255,0.25)', letterSpacing: '1.5px', fontSize: '0.6rem' }}>
         {mode === 'hour' ? 'TAP TO SET HOUR' : 'TAP TO SET MINUTE'}
-      </Typography>
+      </span>
 
-    </Box>
+    </div>
   );
 }
