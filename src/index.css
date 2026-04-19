@@ -2,6 +2,8 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -10,12 +12,18 @@ body {
   font-family: 'Ubuntu', 'Helvetica', 'Arial', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
 }
 
 #root {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
+}
+
+/* Prevent input zoom on iOS/Android WebView */
+input, textarea, select {
+  font-size: 16px;
 }
 
 /* Hide number input arrows */
