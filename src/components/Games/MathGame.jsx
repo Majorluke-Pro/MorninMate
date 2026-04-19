@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Box, Typography, LinearProgress } from '@mui/material';
 import BackspaceIcon from '@mui/icons-material/Backspace';
 import CheckIcon from '@mui/icons-material/Check';
 import { playSuccess, playError, playWarningTick } from '../../lib/sounds';
@@ -116,71 +115,71 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail, on
   }
 
   const timerPct   = (timeLeft / totalTime) * 100;
-  const timerColor = timerPct > 50 ? 'success' : timerPct > 25 ? 'warning' : 'error';
+  const timerColorHex = timerPct > 50 ? '#06D6A0' : timerPct > 25 ? '#FFB703' : '#EF476F';
   const q = questions[current];
 
   return (
-    <Box sx={{ textAlign: 'center', touchAction: 'manipulation' }}>
+    <div style={{ textAlign: 'center', touchAction: 'manipulation' }}>
+      {/* Keyframe animations */}
+      <style>{`
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-18px) scale(0.95); } to { opacity: 1; transform: none; } }
+        @keyframes shake { 0%,100% { transform: translateX(0); } 15% { transform: translateX(-12px); } 30% { transform: translateX(12px); } 45% { transform: translateX(-8px); } 60% { transform: translateX(8px); } 75% { transform: translateX(-4px); } 90% { transform: translateX(4px); } }
+        @keyframes successPop { 0% { transform: scale(1); } 40% { transform: scale(1.04); } 100% { transform: scale(1); } }
+        @keyframes fillGlow { from { opacity: 0; } to { opacity: 1; } }
+      `}</style>
+
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs text-muted" style={{ letterSpacing: 2, textTransform: 'uppercase' }}>
           Math Blitz
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        </span>
+        <div className="flex gap-2 items-center">
           {Array.from({ length: maxWrong }).map((_, i) => (
-            <Box key={i} sx={{
+            <div key={i} style={{
               width: 11, height: 11, borderRadius: '50%',
-              bgcolor: i < (maxWrong - wrong) ? '#EF476F' : 'rgba(255,255,255,0.1)',
+              backgroundColor: i < (maxWrong - wrong) ? '#EF476F' : 'rgba(255,255,255,0.1)',
               transition: 'background-color 0.3s, transform 0.2s',
               transform: i < (maxWrong - wrong) ? 'scale(1)' : 'scale(0.7)',
               boxShadow: i < (maxWrong - wrong) ? '0 0 8px rgba(239,71,111,0.7)' : 'none',
             }} />
           ))}
-        </Box>
-      </Box>
+        </div>
+      </div>
 
       {/* Timer bar */}
-      <Box sx={{ mb: 2.5 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
+      <div className="mb-5">
+        <div className="flex justify-between mb-1">
+          <span className="text-xs text-muted">
             {current + 1} / {totalQuestions}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+          </span>
+          <div className="flex items-center" style={{ gap: 12 }}>
             {flash === 'error' && (
-              <Typography variant="caption" color="error.main" fontWeight={800}
-                sx={{ animation: 'fadeSlideIn 0.2s ease', '@keyframes fadeSlideIn': { from: { opacity: 0, transform: 'translateY(-4px)' }, to: { opacity: 1, transform: 'none' } } }}>
+              <span className="text-xs font-extrabold" style={{ color: '#EF476F', animation: 'fadeSlideIn 0.2s ease' }}>
                 −8s
-              </Typography>
+              </span>
             )}
-            <Typography variant="caption" fontWeight={800} color={`${timerColor}.main`}
-              sx={{ fontVariantNumeric: 'tabular-nums', minWidth: 28 }}>
+            <span className="text-xs font-extrabold" style={{ color: timerColorHex, fontVariantNumeric: 'tabular-nums', minWidth: 28 }}>
               {timeLeft}s
-            </Typography>
-          </Box>
-        </Box>
-        <LinearProgress
-          variant="determinate"
-          value={timerPct}
-          color={timerColor}
-          sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.06)' }}
-        />
-      </Box>
+            </span>
+          </div>
+        </div>
+        {/* LinearProgress replacement */}
+        <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+          <div
+            className="h-full rounded-full transition-all"
+            style={{ width: `${timerPct}%`, backgroundColor: timerColorHex }}
+          />
+        </div>
+      </div>
 
       {/* Question card */}
-      <Box
-        key={animKey}
-        sx={{
-          animation: 'slideDown 0.35s cubic-bezier(0.34,1.56,0.64,1)',
-          '@keyframes slideDown': {
-            from: { opacity: 0, transform: 'translateY(-18px) scale(0.95)' },
-            to:   { opacity: 1, transform: 'none' },
-          },
-        }}
-      >
-        <Box sx={{
-          p: 3, mb: 2,
-          borderRadius: 4,
-          bgcolor: flash === 'success'
+      <div key={animKey} style={{ animation: 'slideDown 0.35s cubic-bezier(0.34,1.56,0.64,1)' }}>
+        <div style={{
+          padding: '24px',
+          marginBottom: '16px',
+          borderRadius: '16px',
+          backgroundColor: flash === 'success'
             ? 'rgba(6,214,160,0.1)'
             : flash === 'error'
             ? 'rgba(239,71,111,0.08)'
@@ -189,37 +188,26 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail, on
           borderColor: flash === 'success' ? '#06D6A0' : flash === 'error' ? '#EF476F' : 'rgba(255,255,255,0.07)',
           transition: 'background-color 0.15s, border-color 0.15s',
           animation: shake ? 'shake 0.42s ease' : flash === 'success' ? 'successPop 0.35s cubic-bezier(0.34,1.56,0.64,1)' : 'none',
-          '@keyframes shake': {
-            '0%,100%': { transform: 'translateX(0)' },
-            '15%':     { transform: 'translateX(-12px)' },
-            '30%':     { transform: 'translateX(12px)' },
-            '45%':     { transform: 'translateX(-8px)' },
-            '60%':     { transform: 'translateX(8px)' },
-            '75%':     { transform: 'translateX(-4px)' },
-            '90%':     { transform: 'translateX(4px)' },
-          },
-          '@keyframes successPop': {
-            '0%':   { transform: 'scale(1)' },
-            '40%':  { transform: 'scale(1.04)' },
-            '100%': { transform: 'scale(1)' },
-          },
         }}>
           {/* Question */}
-          <Typography variant="h2" fontWeight={800} sx={{
-            fontVariantNumeric: 'tabular-nums', mb: 2.5,
-            color: flash === 'success' ? '#06D6A0' : flash === 'error' ? '#EF476F' : 'text.primary',
+          <div style={{
+            fontSize: '3rem',
+            fontWeight: 800,
+            fontVariantNumeric: 'tabular-nums',
+            marginBottom: '20px',
+            color: flash === 'success' ? '#06D6A0' : flash === 'error' ? '#EF476F' : 'inherit',
             transition: 'color 0.15s',
           }}>
             {q.question} = ?
-          </Typography>
+          </div>
 
           {/* Answer display */}
-          <Box sx={{
-            mx: 'auto',
+          <div style={{
+            margin: '0 auto',
             width: '72%',
-            py: 1.5,
-            borderRadius: 3,
-            bgcolor: 'rgba(0,0,0,0.2)',
+            padding: '12px 0',
+            borderRadius: '12px',
+            backgroundColor: 'rgba(0,0,0,0.2)',
             border: '2px solid',
             borderColor: flash === 'success'
               ? '#06D6A0'
@@ -234,43 +222,42 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail, on
           }}>
             {/* Glow fill on success */}
             {flash === 'success' && (
-              <Box sx={{
+              <div style={{
                 position: 'absolute', inset: 0,
-                bgcolor: 'rgba(6,214,160,0.12)',
+                backgroundColor: 'rgba(6,214,160,0.12)',
                 animation: 'fillGlow 0.35s ease',
-                '@keyframes fillGlow': { from: { opacity: 0 }, to: { opacity: 1 } },
               }} />
             )}
-            <Typography variant="h4" fontWeight={800} sx={{
+            <h4 className="text-2xl font-bold" style={{
               fontVariantNumeric: 'tabular-nums',
-              color: flash === 'success' ? '#06D6A0' : flash === 'error' ? '#EF476F' : input ? 'text.primary' : 'text.disabled',
+              color: flash === 'success' ? '#06D6A0' : flash === 'error' ? '#EF476F' : input ? 'inherit' : 'rgba(255,255,255,0.4)',
               letterSpacing: 4,
               position: 'relative',
             }}>
               {flash === 'success' ? '✓' : flash === 'error' ? '✗' : input || '—'}
-            </Typography>
-          </Box>
+            </h4>
+          </div>
 
           {/* Progress dots */}
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', mt: 2.5 }}>
+          <div className="flex justify-center" style={{ gap: 8, marginTop: 20 }}>
             {questions.map((_, i) => (
-              <Box key={i} sx={{
+              <div key={i} style={{
                 width: i === current ? 22 : 8,
                 height: 8, borderRadius: 4,
-                bgcolor: i < current ? '#06D6A0' : i === current ? '#FF6B35' : 'rgba(255,255,255,0.1)',
+                backgroundColor: i < current ? '#06D6A0' : i === current ? '#FF6B35' : 'rgba(255,255,255,0.1)',
                 boxShadow: i === current ? '0 0 10px rgba(255,107,53,0.7)' : 'none',
                 transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',
               }} />
             ))}
-          </Box>
-        </Box>
-      </Box>
+          </div>
+        </div>
+      </div>
 
       {/* Numpad */}
-      <Box sx={{
+      <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 1.25,
+        gap: 10,
         touchAction: 'manipulation',
       }}>
         {PAD_KEYS.map(key => {
@@ -280,18 +267,18 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail, on
           const isPressed   = pressedKey === key;
 
           return (
-            <Box
+            <div
               key={key}
               onPointerDown={(e) => { e.preventDefault(); if (!disabled) triggerKey(key); }}
-              sx={{
-                py: 2.1,
-                borderRadius: 3.5,
+              style={{
+                padding: '16.8px 0',
+                borderRadius: 14,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: disabled ? 'default' : 'pointer',
                 userSelect: 'none',
                 WebkitUserSelect: 'none',
                 touchAction: 'manipulation',
-                bgcolor: isSubmit
+                backgroundColor: isSubmit
                   ? disabled ? 'rgba(255,107,53,0.06)' : 'rgba(255,107,53,0.18)'
                   : isBackspace
                   ? 'rgba(255,255,255,0.05)'
@@ -301,7 +288,6 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail, on
                   ? disabled ? 'rgba(255,107,53,0.12)' : 'rgba(255,107,53,0.4)'
                   : 'rgba(255,255,255,0.08)',
                 opacity: disabled ? 0.35 : 1,
-                transition: 'background-color 0.1s, opacity 0.18s',
                 transform: isPressed ? 'scale(0.91)' : 'scale(1)',
                 transitionProperty: 'transform, background-color, opacity',
                 transitionDuration: isPressed ? '0.06s' : '0.15s',
@@ -312,14 +298,14 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail, on
                 ? <BackspaceIcon sx={{ fontSize: 21, color: 'text.secondary' }} />
                 : isSubmit
                 ? <CheckIcon sx={{ fontSize: 24, color: disabled ? 'rgba(255,107,53,0.3)' : '#FF6B35', fontWeight: 900 }} />
-                : <Typography variant="h6" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                : <span style={{ fontSize: '1.25rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
                     {key}
-                  </Typography>
+                  </span>
               }
-            </Box>
+            </div>
           );
         })}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }

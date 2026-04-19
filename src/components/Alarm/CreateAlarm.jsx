@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Box, Typography, Button, TextField, IconButton, ToggleButton, ToggleButtonGroup, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import CheckIcon from '@mui/icons-material/Check';
@@ -74,6 +73,14 @@ const REQUIRED_GAMES_BY_INTENSITY = {
   intense: 3,
   hardcore: 3,
 };
+
+const REPEAT_MODES = [
+  { value: 'once',     label: 'Once' },
+  { value: 'custom',   label: 'Custom' },
+  { value: 'weekdays', label: 'Weekdays' },
+  { value: 'weekend',  label: 'Weekend' },
+  { value: 'every',    label: 'Every day' },
+];
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
@@ -211,44 +218,40 @@ export default function CreateAlarm() {
   }, []);
 
   return (
-    <Box sx={{ minHeight: '100vh', position: 'relative', overflow: 'hidden', bgcolor: 'background.default' }}>
+    <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       <Background />
 
-      <Box sx={{ position: 'relative', zIndex: 1, pb: 14 }}>
+      <div style={{ position: 'relative', zIndex: 1, paddingBottom: '7rem' }}>
         {/* Header */}
-        <Box sx={{ px: 3, pt: 5, pb: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <IconButton
+        <div style={{ padding: '1.25rem 1.5rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+          <button
             onClick={() => navigate('/')}
-            size="small"
-            sx={{
-              color: 'rgba(255,255,255,0.5)',
-              bgcolor: 'rgba(255,255,255,0.06)',
-              '&:hover': { bgcolor: 'rgba(255,255,255,0.12)' },
-            }}
+            className="p-2 rounded-full active:scale-90 transition-transform touch-manipulation"
+            style={{ color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.06)' }}
           >
             <ArrowBackIcon fontSize="small" />
-          </IconButton>
-          <Typography variant="h6" fontWeight={800}>New Alarm</Typography>
-        </Box>
+          </button>
+          <h6 className="text-lg font-semibold" style={{ fontWeight: 800 }}>New Alarm</h6>
+        </div>
 
         {/* ── Time ─────────────────────────────────────────────────────────── */}
         <Section delay={0.04}>
           <SectionLabel>Time</SectionLabel>
           <TimePicker value={form.time} onChange={t => setForm(f => ({ ...f, time: t }))} />
-          <Box sx={{ display:'flex', alignItems:'center', justifyContent:'center', gap:0.75, mt:1.5, minHeight: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.1875rem', marginTop: '0.375rem', minHeight: 24 }}>
             {timeCtx ? (
               <>
-                <timeCtx.Icon sx={{ fontSize:'1rem', color: timeCtx.color, transition:'color 0.3s' }}/>
-                <Typography variant="body2" fontWeight={600} sx={{ color: timeCtx.color, transition:'color 0.3s' }}>
+                <timeCtx.Icon style={{ fontSize: '1rem', color: timeCtx.color, transition: 'color 0.3s' }} />
+                <p className="text-sm" style={{ fontWeight: 600, color: timeCtx.color, transition: 'color 0.3s', margin: 0 }}>
                   {timeCtx.label}
-                </Typography>
+                </p>
               </>
             ) : (
-              <Typography variant="body2" fontWeight={600} sx={{ color: 'rgba(255,255,255,0.38)' }}>
+              <p className="text-sm" style={{ fontWeight: 600, color: 'rgba(255,255,255,0.38)', margin: 0 }}>
                 Tap the clock to choose a wake-up time
-              </Typography>
+              </p>
             )}
-          </Box>
+          </div>
         </Section>
 
         <Separator />
@@ -256,102 +259,96 @@ export default function CreateAlarm() {
         {/* ── Label ────────────────────────────────────────────────────────── */}
         <Section delay={0.1}>
           <SectionLabel>Label</SectionLabel>
-          <TextField
-            fullWidth
+          <input
+            type="text"
             placeholder="Morning routine, Gym, Work..."
             value={form.label}
             onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
-            inputProps={{ maxLength: 40 }}
-            variant="standard"
-            sx={{
-              mt: 2,
-              '& .MuiInput-input': { fontSize: '1.3rem', fontWeight: 600, py: 1 },
-              '& .MuiInput-underline:before': { borderBottomColor: 'rgba(255,255,255,0.1)' },
-              '& .MuiInput-underline:after':  { borderBottomColor: '#FF6B35' },
-            }}
+            maxLength={40}
+            className="input-field"
+            style={{ marginTop: '0.5rem', width: '100%', fontSize: '1.3rem', fontWeight: 600 }}
           />
-          <Typography
-            variant="caption"
-            color="text.disabled"
-            sx={{
+          <span
+            className="text-xs"
+            style={{
               display: 'block',
               textAlign: 'right',
-              mt: 0.5,
+              marginTop: '0.125rem',
+              color: 'rgba(255,255,255,0.4)',
               opacity: form.label.length > 0 ? 1 : 0,
               transition: 'opacity 0.2s',
             }}
           >
             {form.label.length}/40
-          </Typography>
+          </span>
         </Section>
 
         <Separator />
 
         {/* ── Sound ────────────────────────────────────────────────────────── */}
         <Section delay={0.12}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <SectionLabel>Alarm Sound</SectionLabel>
-            <Typography variant="caption" color="text.disabled">
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
               {ALARM_SOUNDS.find(s => s.id === form.sound)?.label || 'Required'}
-            </Typography>
-          </Box>
-          <Box
-            sx={{
+            </span>
+          </div>
+          <div
+            style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(5, 1fr)',
-              gap: 1.5,
+              gap: '0.375rem',
             }}
           >
             {ALARM_SOUNDS.map(sound => {
               const meta     = SOUND_META[sound.id];
               const selected = form.sound === sound.id;
               return (
-                <Box
+                <div
                   key={sound.id}
                   onClick={() => setForm(f => ({ ...f, sound: sound.id }))}
-                  sx={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1875rem',
                     cursor: 'pointer', userSelect: 'none',
                   }}
                 >
                   {/* Icon circle */}
-                  <Box
-                    sx={{
+                  <div
+                    style={{
                       width: 52, height: 52, borderRadius: '50%',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       position: 'relative',
                       border: selected
                         ? `2px solid ${meta.color}`
                         : '2px solid rgba(255,255,255,0.08)',
-                      bgcolor: selected ? `${meta.color}18` : 'rgba(255,255,255,0.04)',
+                      background: selected ? `${meta.color}18` : 'rgba(255,255,255,0.04)',
                       boxShadow: selected ? `0 0 14px ${meta.color}44` : 'none',
                       transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
                       transform: selected ? 'scale(1.1)' : 'scale(1)',
                     }}
                   >
-                    <meta.Icon sx={{ fontSize: '1.4rem', color: selected ? meta.color : 'rgba(255,255,255,0.3)' }} />
+                    <meta.Icon style={{ fontSize: '1.4rem', color: selected ? meta.color : 'rgba(255,255,255,0.3)' }} />
                     {/* Preview play button — shown on selected */}
                     {selected && (
-                      <Box
+                      <div
                         onClick={e => { e.stopPropagation(); previewAlarmSound(sound.id); }}
-                        sx={{
+                        style={{
                           position: 'absolute', bottom: -4, right: -4,
                           width: 20, height: 20, borderRadius: '50%',
-                          bgcolor: meta.color,
+                          background: meta.color,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           boxShadow: `0 2px 8px ${meta.color}66`,
                           transition: 'transform 0.15s',
-                          '&:active': { transform: 'scale(0.88)' },
+                          cursor: 'pointer',
                         }}
                       >
-                        <PlayArrowIcon sx={{ fontSize: '0.75rem', color: '#fff' }} />
-                      </Box>
+                        <PlayArrowIcon style={{ fontSize: '0.75rem', color: '#fff' }} />
+                      </div>
                     )}
-                  </Box>
+                  </div>
                   {/* Label */}
-                  <Typography
-                    variant="caption"
-                    sx={{
+                  <span
+                    style={{
                       fontSize: '0.6rem', fontWeight: selected ? 700 : 500,
                       color: selected ? meta.color : 'rgba(255,255,255,0.35)',
                       textAlign: 'center', letterSpacing: 0.2,
@@ -359,20 +356,20 @@ export default function CreateAlarm() {
                     }}
                   >
                     {sound.label}
-                  </Typography>
-                </Box>
+                  </span>
+                </div>
               );
             })}
-          </Box>
+          </div>
         </Section>
 
         <Separator />
 
         {/* ── Repeat ───────────────────────────────────────────────────────── */}
         <Section delay={0.15}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <SectionLabel>Repeat</SectionLabel>
-            <Typography variant="caption" color="text.disabled">
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
               {!repeatMode
                 ? 'Required'
                 : repeatMode === 'once'
@@ -382,97 +379,78 @@ export default function CreateAlarm() {
                 : form.days.length === 7
                 ? 'Every day'
                 : `${form.days.length} day${form.days.length > 1 ? 's' : ''}`}
-            </Typography>
-          </Box>
+            </span>
+          </div>
 
-          {/* Modes (smoother than raw chips) */}
-          <Box sx={{ mt: 2, mb: 2.5, display: 'flex', justifyContent: 'center' }}>
-            <ToggleButtonGroup
-              exclusive
-              value={repeatMode}
-              onChange={(_, next) => {
-                if (!next) return;
-                applyRepeatMode(next);
-              }}
-              sx={{
-                bgcolor: 'rgba(255,255,255,0.04)',
+          {/* Repeat mode selector */}
+          <div style={{ marginTop: '0.5rem', marginBottom: '0.625rem', display: 'flex', justifyContent: 'center' }}>
+            <div
+              style={{
+                background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: 999,
-                p: 0.35,
-                '& .MuiToggleButton-root': {
-                  border: 'none',
-                  borderRadius: 999,
-                  textTransform: 'none',
-                  px: 1.5,
-                  py: 0.7,
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  letterSpacing: 0.2,
-                  color: 'rgba(255,255,255,0.55)',
-                  transition: 'background-color 160ms ease, color 160ms ease, transform 120ms ease',
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.06)' },
-                  '&.Mui-selected': {
-                    color: '#FF6B35',
-                    bgcolor: 'rgba(255,107,53,0.14)',
-                    boxShadow: '0 8px 18px rgba(255,107,53,0.12)',
-                  },
-                  '&.Mui-selected:hover': { bgcolor: 'rgba(255,107,53,0.18)' },
-                  '&:active': { transform: 'scale(0.98)' },
-                },
+                padding: '0.2rem',
+                display: 'flex',
+                gap: '0.125rem',
               }}
             >
-              <ToggleButton value="once">Once</ToggleButton>
-              <ToggleButton value="custom">Custom</ToggleButton>
-              <ToggleButton value="weekdays">Weekdays</ToggleButton>
-              <ToggleButton value="weekend">Weekend</ToggleButton>
-              <ToggleButton value="every">Every day</ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
+              {REPEAT_MODES.map(mode => (
+                <button
+                  key={mode.value}
+                  onClick={() => applyRepeatMode(mode.value)}
+                  style={{
+                    border: 'none',
+                    borderRadius: 999,
+                    padding: '0.35rem 0.75rem',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    letterSpacing: 0.2,
+                    cursor: 'pointer',
+                    transition: 'background-color 160ms ease, color 160ms ease, transform 120ms ease',
+                    color: repeatMode === mode.value ? '#FF6B35' : 'rgba(255,255,255,0.55)',
+                    background: repeatMode === mode.value ? 'rgba(255,107,53,0.14)' : 'transparent',
+                    boxShadow: repeatMode === mode.value ? '0 8px 18px rgba(255,107,53,0.12)' : 'none',
+                  }}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Day circles (custom) */}
-          <Box sx={{ display: 'flex', gap: 1, opacity: repeatMode !== 'custom' ? 0.45 : 1, transition: 'opacity 180ms ease' }}>
-            {DAY_LABELS.map((d, i) => {
-              const on = form.days.includes(i);
-              return (
-                <ToggleButton
+          <div style={{ display: 'flex', gap: '0.25rem', opacity: repeatMode !== 'custom' ? 0.45 : 1, transition: 'opacity 180ms ease' }}>
+            <div className="flex gap-1.5 flex-wrap" style={{ width: '100%', justifyContent: 'space-between' }}>
+              {DAY_LABELS.map((day, i) => (
+                <button
                   key={i}
-                  value={i}
-                  selected={on}
+                  onClick={() => repeatMode === 'custom' && toggleDay(i)}
                   disabled={repeatMode !== 'custom'}
-                  onChange={() => toggleDay(i)}
-                  sx={{
+                  className={`w-9 h-9 rounded-full text-xs font-bold touch-manipulation transition-all active:scale-90 ${
+                    form.days.includes(i)
+                      ? 'bg-primary text-white'
+                      : 'bg-white/8 text-muted'
+                  }`}
+                  style={{
+                    border: form.days.includes(i) ? '1.5px solid #FF6B35' : '1.5px solid rgba(255,255,255,0.08)',
+                    background: form.days.includes(i) ? 'rgba(255,107,53,0.9)' : 'rgba(255,255,255,0.05)',
+                    color: form.days.includes(i) ? '#fff' : 'rgba(255,255,255,0.55)',
+                    boxShadow: form.days.includes(i) ? '0 10px 22px rgba(255,107,53,0.22)' : 'none',
+                    cursor: repeatMode !== 'custom' ? 'default' : 'pointer',
                     flex: 1,
                     minWidth: 0,
                     aspectRatio: '1',
-                    borderRadius: '50%',
-                    border: '1.5px solid rgba(255,255,255,0.08)',
-                    bgcolor: 'rgba(255,255,255,0.05)',
-                    color: 'rgba(255,255,255,0.55)',
-                    fontWeight: 800,
-                    fontSize: '0.62rem',
-                    letterSpacing: 0.3,
-                    transition: 'background-color 160ms ease, box-shadow 160ms ease, transform 120ms ease, border-color 160ms ease, color 160ms ease',
-                    '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
-                    '&.Mui-selected': {
-                      bgcolor: 'rgba(255,107,53,0.9)',
-                      borderColor: '#FF6B35',
-                      color: '#fff',
-                      boxShadow: '0 10px 22px rgba(255,107,53,0.22)',
-                    },
-                    '&.Mui-selected:hover': { bgcolor: 'rgba(255,107,53,1)' },
-                    '&:active': { transform: 'scale(0.97)' },
-                    '&.Mui-disabled': { opacity: 0.5, color: 'rgba(255,255,255,0.4)' },
                   }}
                 >
-                  {d}
-                </ToggleButton>
-              );
-            })}
-          </Box>
+                  {day}
+                </button>
+              ))}
+            </div>
+          </div>
           {repeatMode === 'custom' && form.days.length === 0 && (
-            <Typography variant="caption" sx={{ color: '#FFD166', display: 'block', mt: 1.1 }}>
+            <span className="text-xs" style={{ color: '#FFD166', display: 'block', marginTop: '0.275rem' }}>
               Pick at least one day for a custom repeat.
-            </Typography>
+            </span>
           )}
         </Section>
 
@@ -482,25 +460,22 @@ export default function CreateAlarm() {
         <Section delay={0.2}>
           <SectionLabel>Wake-up Intensity</SectionLabel>
           {!form.pulse.intensity && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: 'block' }}>
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)', marginTop: '0.1875rem', marginBottom: 0 }}>
               Choose how tough this alarm should be.
-            </Typography>
+            </p>
           )}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 2.5 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', marginTop: '0.625rem' }}>
             {INTENSITY.map((opt, i) => {
               const selected = form.pulse.intensity === opt.value;
               return (
-                <Box
+                <div
                   key={opt.value}
-                  sx={{
-                    '@keyframes intIn': {
-                      from: { opacity: 0, transform: 'translateX(-14px)' },
-                      to:   { opacity: 1, transform: 'translateX(0)' },
-                    },
+                  style={{
                     animation: `intIn 0.4s ease ${i * 0.08}s both`,
                   }}
                 >
-                  <Box
+                  <style>{`@keyframes intIn { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }`}</style>
+                  <button
                     onClick={() => {
                       if (opt.value === 'hardcore') {
                         setHardcoreWarningOpen(true);
@@ -508,49 +483,56 @@ export default function CreateAlarm() {
                         setIntensity(opt.value);
                       }
                     }}
-                    sx={{
-                      p: 2.5,
-                      borderRadius: 3,
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all touch-manipulation active:scale-95 w-full text-left ${
+                      selected
+                        ? 'border-primary bg-primary/10'
+                        : 'border-white/10 bg-white/5'
+                    }`}
+                    style={{
+                      padding: '0.625rem',
+                      borderRadius: '0.75rem',
                       cursor: 'pointer',
                       border: selected ? `1.5px solid ${opt.color}55` : '1.5px solid rgba(255,255,255,0.07)',
-                      bgcolor: selected ? `${opt.color}0D` : 'rgba(255,255,255,0.03)',
+                      background: selected ? `${opt.color}0D` : 'rgba(255,255,255,0.03)',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 2,
+                      gap: '0.5rem',
                       transition: 'border-color 0.22s ease, background-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1)',
                       transform: selected ? 'scale(1.02)' : 'scale(1)',
                       boxShadow: selected ? `0 12px 26px ${opt.color}18` : 'none',
+                      width: '100%',
+                      textAlign: 'left',
                     }}
                   >
-                    <Box
-                      sx={{
-                        width: 50, height: 50, borderRadius: 3, flexShrink: 0,
-                        bgcolor: `${opt.color}18`, border: `1px solid ${opt.color}30`,
+                    <div
+                      style={{
+                        width: 50, height: 50, borderRadius: '0.75rem', flexShrink: 0,
+                        background: `${opt.color}18`, border: `1px solid ${opt.color}30`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                       }}
                     >
-                      <opt.Icon sx={{ fontSize: '1.9rem', color: opt.color }} />
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography fontWeight={700} sx={{ color: selected ? opt.color : 'text.primary' }}>
+                      <opt.Icon style={{ fontSize: '1.9rem', color: opt.color }} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontWeight: 700, color: selected ? opt.color : 'rgba(255,255,255,0.9)', margin: 0 }}>
                         {opt.label}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">{opt.desc}</Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        px: 1.25, py: 0.35, borderRadius: 1.5, flexShrink: 0,
-                        bgcolor: `${opt.color}20`, color: opt.color,
+                      </p>
+                      <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{opt.desc}</span>
+                    </div>
+                    <div
+                      style={{
+                        padding: '0.0875rem 0.3125rem', borderRadius: '0.375rem', flexShrink: 0,
+                        background: `${opt.color}20`, color: opt.color,
                         fontSize: '0.68rem', fontWeight: 800,
                       }}
                     >
                       +{opt.xp} XP
-                    </Box>
-                  </Box>
-                </Box>
+                    </div>
+                  </button>
+                </div>
               );
             })}
-          </Box>
+          </div>
         </Section>
 
         <Separator />
@@ -558,212 +540,232 @@ export default function CreateAlarm() {
         {/* ── Games ────────────────────────────────────────────────────────── */}
         {form.pulse.intensity !== 'hardcore' && (
         <Section delay={0.26}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <SectionLabel>Wake-Up Games</SectionLabel>
-            <Typography variant="caption" color="text.disabled">
+            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
               {requiredGameCount ? `${form.pulse.games.length}/${requiredGameCount} selected` : 'Choose intensity first'}
-            </Typography>
-          </Box>
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', mb: 0.5 }}>
+            </span>
+          </div>
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)', marginTop: '0.125rem', marginBottom: '0.125rem' }}>
             {requiredGameCount
               ? `Choose ${requiredGameCount} game${requiredGameCount > 1 ? 's' : ''}. All selected games must be completed to dismiss.`
               : 'Pick an intensity first so we know how many games this alarm requires.'}
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 2 }}>
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', marginTop: '0.5rem' }}>
             {GAMES.map((game, i) => {
               const selected = form.pulse.games.includes(game.value);
               const disabled = !requiredGameCount;
               return (
-                <Box
+                <button
                   key={game.value}
                   onClick={() => !disabled && toggleGame(game.value)}
-                  sx={{
-                    p: 2.5, borderRadius: 3, cursor: 'pointer',
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all touch-manipulation active:scale-95 w-full text-left ${
+                    selected
+                      ? 'border-primary bg-primary/10'
+                      : 'border-white/10 bg-white/5'
+                  }`}
+                  style={{
+                    padding: '0.625rem',
+                    borderRadius: '0.75rem',
+                    cursor: disabled ? 'default' : 'pointer',
                     border: selected ? `1.5px solid ${game.color}55` : '1.5px solid rgba(255,255,255,0.07)',
-                    bgcolor: selected ? `${game.color}0D` : 'rgba(255,255,255,0.03)',
-                    display: 'flex', alignItems: 'center', gap: 2.5,
+                    background: selected ? `${game.color}0D` : 'rgba(255,255,255,0.03)',
+                    display: 'flex', alignItems: 'center', gap: '0.625rem',
                     transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
                     transform: selected ? 'scale(1.01)' : 'scale(1)',
                     opacity: disabled ? 0.45 : 1,
-                    '@keyframes gameCardIn': {
-                      from: { opacity: 0, transform: 'translateY(12px)' },
-                      to:   { opacity: 1, transform: 'translateY(0)' },
-                    },
                     animation: `gameCardIn 0.4s ease ${i * 0.09}s both`,
+                    width: '100%',
+                    textAlign: 'left',
                   }}
                 >
-                  <Box
-                    sx={{
-                      width: 52, height: 52, borderRadius: 3, flexShrink: 0,
-                      bgcolor: `${game.color}18`, border: `1px solid ${game.color}30`,
+                  <style>{`@keyframes gameCardIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+                  <div
+                    style={{
+                      width: 52, height: 52, borderRadius: '0.75rem', flexShrink: 0,
+                      background: `${game.color}18`, border: `1px solid ${game.color}30`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
-                    <game.Icon sx={{ fontSize: '1.9rem', color: game.color }} />
-                  </Box>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography fontWeight={700}>{game.label}</Typography>
-                    <Typography variant="caption" color="text.secondary">{game.desc}</Typography>
-                  </Box>
-                  <Box
-                    sx={{
+                    <game.Icon style={{ fontSize: '1.9rem', color: game.color }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)', margin: 0 }}>{game.label}</p>
+                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>{game.desc}</span>
+                  </div>
+                  <div
+                    style={{
                       width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
                       border: selected ? `2px solid ${game.color}` : '2px solid rgba(255,255,255,0.15)',
-                      bgcolor: selected ? game.color : 'transparent',
+                      background: selected ? game.color : 'transparent',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'all 0.2s',
                     }}
                   >
-                    {selected && <CheckIcon sx={{ fontSize: 13, color: '#fff' }} />}
-                  </Box>
-                </Box>
+                    {selected && <CheckIcon style={{ fontSize: 13, color: '#fff' }} />}
+                  </div>
+                </button>
               );
             })}
-          </Box>
+          </div>
           {requiredGameCount > 0 && !gamesComplete && (
-            <Typography variant="caption" sx={{ color: '#FFD166', display: 'block', mt: 1.1 }}>
+            <span className="text-xs" style={{ color: '#FFD166', display: 'block', marginTop: '0.275rem' }}>
               Choose {requiredGameCount} game{requiredGameCount > 1 ? 's' : ''} to finish this alarm setup.
-            </Typography>
+            </span>
           )}
         </Section>
         )}
-      </Box>
+      </div>
 
-      <Dialog
-        open={hardcoreWarningOpen}
-        onClose={() => setHardcoreWarningOpen(false)}
-        PaperProps={{
-          sx: {
-            bgcolor: '#1A0808',
-            border: '1.5px solid rgba(239,28,28,0.4)',
-            borderRadius: 4,
-            mx: 2,
-          },
+      {/* Hardcore Warning Dialog */}
+      {hardcoreWarningOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60"
+          onClick={() => setHardcoreWarningOpen(false)}
+        >
+          <div
+            className="bg-card rounded-t-3xl w-full max-w-[480px] p-6"
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#1A0808',
+              border: '1.5px solid rgba(239,28,28,0.4)',
+              borderRadius: '1rem',
+              margin: '0 0.5rem',
+            }}
+          >
+            <h3 className="text-lg font-bold mb-4" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', paddingBottom: '0.25rem' }}>
+              <LocalFireDepartmentIcon style={{ color: '#EF1C1C', fontSize: '1.8rem' }} />
+              <span style={{ fontWeight: 900, fontSize: '1.15rem' }}>Are you sure?</span>
+            </h3>
+            <div className="mb-4">
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.7 }}>
+                <strong style={{ color: '#EF1C1C' }}>Hardcore Mode</strong> forces{' '}
+                <strong>maximum volume</strong> and locks your phone to this app until all 3 games
+                are completed. There is <strong>no way out</strong>.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-end mt-4">
+              <button
+                className="btn-outline"
+                onClick={() => setHardcoreWarningOpen(false)}
+                style={{ borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', borderRadius: '0.5rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() => { setIntensity('hardcore'); setHardcoreWarningOpen(false); }}
+                style={{ background: '#EF1C1C', borderRadius: '0.5rem', fontWeight: 800 }}
+              >
+                Lock It In
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scroll cue */}
+      <div
+        style={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 98,
+          zIndex: 9,
+          padding: '0 0.75rem',
+          pointerEvents: 'none',
+          opacity: showScrollCue ? 1 : 0,
+          transform: showScrollCue ? 'translateY(0)' : 'translateY(12px)',
+          transition: 'opacity 180ms ease, transform 180ms ease',
         }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pb: 1 }}>
-          <LocalFireDepartmentIcon sx={{ color: '#EF1C1C', fontSize: '1.8rem' }} />
-          <Typography fontWeight={900} fontSize="1.15rem">Are you sure?</Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" lineHeight={1.7}>
-            <strong style={{ color: '#EF1C1C' }}>Hardcore Mode</strong> forces{' '}
-            <strong>maximum volume</strong> and locks your phone to this app until all 3 games
-            are completed. There is <strong>no way out</strong>.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-          <Button
-            variant="outlined"
-            onClick={() => setHardcoreWarningOpen(false)}
-            sx={{ borderColor: 'rgba(255,255,255,0.15)', color: 'text.secondary', borderRadius: 2 }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => { setIntensity('hardcore'); setHardcoreWarningOpen(false); }}
-            sx={{ bgcolor: '#EF1C1C', '&:hover': { bgcolor: '#CC1818' }, borderRadius: 2, fontWeight: 800 }}
-          >
-            Lock It In
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Box sx={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 98,
-        zIndex: 9,
-        px: 3,
-        pointerEvents: 'none',
-        opacity: showScrollCue ? 1 : 0,
-        transform: showScrollCue ? 'translateY(0)' : 'translateY(12px)',
-        transition: 'opacity 180ms ease, transform 180ms ease',
-      }}>
-        <Box sx={{
-          mx: 'auto',
-          width: 'fit-content',
-          maxWidth: '100%',
-          px: 1.4,
-          py: 0.85,
-          borderRadius: 999,
-          bgcolor: 'rgba(10,10,22,0.88)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          backdropFilter: 'blur(14px)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0.6,
-          boxShadow: '0 10px 30px rgba(0,0,0,0.28)',
-        }}>
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'rgba(255,255,255,0.86)' }}>
+        <div
+          style={{
+            margin: '0 auto',
+            width: 'fit-content',
+            maxWidth: '100%',
+            padding: '0.2125rem 0.35rem',
+            borderRadius: 999,
+            background: 'rgba(10,10,22,0.88)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            backdropFilter: 'blur(14px)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.15rem',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.28)',
+          }}
+        >
+          <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'rgba(255,255,255,0.86)' }}>
             Scroll for the rest of the required alarm settings
-          </Typography>
-          <KeyboardArrowDownIcon sx={{
-            fontSize: '1rem',
-            color: '#FF6B35',
-            animation: 'scrollCueFloat 1.1s ease-in-out infinite',
-            '@keyframes scrollCueFloat': {
-              '0%,100%': { transform: 'translateY(0)' },
-              '50%': { transform: 'translateY(3px)' },
-            },
-          }} />
-        </Box>
-      </Box>
+          </span>
+          <KeyboardArrowDownIcon
+            style={{
+              fontSize: '1rem',
+              color: '#FF6B35',
+              animation: 'scrollCueFloat 1.1s ease-in-out infinite',
+            }}
+          />
+          <style>{`@keyframes scrollCueFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(3px); } }`}</style>
+        </div>
+      </div>
 
       {/* Fixed save button */}
-      <Box
-        sx={{
+      <div
+        style={{
           position: 'fixed', bottom: 0, left: 0, right: 0,
-          px: 3, pb: 4, pt: 2,
-          bgcolor: 'rgba(13,13,26,0.92)',
+          padding: '0.5rem 0.75rem 1rem',
+          background: 'rgba(13,13,26,0.92)',
           backdropFilter: 'blur(14px)',
           borderTop: '1px solid rgba(255,255,255,0.06)',
           zIndex: 10,
         }}
       >
         {!canSave && (
-          <Box sx={{
-            mb: 1.2,
-            px: 1.2,
-            py: 0.9,
-            borderRadius: 2.5,
-            bgcolor: 'rgba(255,209,102,0.09)',
-            border: '1px solid rgba(255,209,102,0.2)',
-          }}>
-            <Typography sx={{
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              color: '#FFD166',
-              textAlign: 'center',
-            }}>
+          <div
+            style={{
+              marginBottom: '0.3rem',
+              padding: '0.225rem 0.3rem',
+              borderRadius: '0.625rem',
+              background: 'rgba(255,209,102,0.09)',
+              border: '1px solid rgba(255,209,102,0.2)',
+            }}
+          >
+            <p
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                color: '#FFD166',
+                textAlign: 'center',
+                margin: 0,
+              }}
+            >
               {requirementMessage}
-            </Typography>
-          </Box>
+            </p>
+          </div>
         )}
-        <Button
-          fullWidth
-          variant="contained"
-          size="large"
+        <button
+          className="btn-primary"
           onClick={handleSave}
           disabled={!canSave}
-          sx={{
-            py: 1.75,
+          style={{
+            width: '100%',
+            padding: '0.4375rem 0',
             fontWeight: 700,
-            borderRadius: 3,
+            borderRadius: '0.75rem',
             fontSize: '1rem',
-            background: 'linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)',
-            boxShadow: '0 8px 32px rgba(255,107,53,0.3)',
-            transition: 'box-shadow 0.2s',
-            '&:hover': { boxShadow: '0 12px 40px rgba(255,107,53,0.45)' },
+            background: canSave ? 'linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)' : undefined,
+            boxShadow: canSave ? '0 8px 32px rgba(255,107,53,0.3)' : undefined,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.1875rem',
           }}
         >
-          <CheckIcon sx={{ mr:0.75, fontSize:'1.1rem' }}/>
+          <CheckIcon style={{ marginRight: '0.1875rem', fontSize: '1.1rem' }} />
           {canSave ? 'Set Alarm' : 'Choose All Required Settings'}
-        </Button>
-      </Box>
-    </Box>
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -771,29 +773,29 @@ export default function CreateAlarm() {
 
 function Background() {
   return (
-    <Box sx={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-      <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, #08081A 0%, #14082A 55%, #0D0D1A 100%)' }} />
-      <Box sx={{
-        position: 'absolute', width: 420, height: 420, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(255,107,53,0.11) 0%, transparent 70%)',
-        top: -110, right: -110, filter: 'blur(55px)',
-        '@keyframes caOrb1': {
-          '0%,100%': { transform: 'translate(0,0) scale(1)' },
-          '50%':     { transform: 'translate(-20px,18px) scale(1.05)' },
-        },
-        animation: 'caOrb1 13s ease-in-out infinite',
-      }} />
-      <Box sx={{
-        position: 'absolute', width: 300, height: 300, borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(120,40,220,0.09) 0%, transparent 70%)',
-        bottom: '35%', left: -90, filter: 'blur(50px)',
-        '@keyframes caOrb2': {
-          '0%,100%': { transform: 'translate(0,0)' },
-          '50%':     { transform: 'translate(22px,-22px)' },
-        },
-        animation: 'caOrb2 16s ease-in-out infinite',
-      }} />
-    </Box>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, #08081A 0%, #14082A 55%, #0D0D1A 100%)' }} />
+      <div
+        style={{
+          position: 'absolute', width: 420, height: 420, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,107,53,0.11) 0%, transparent 70%)',
+          top: -110, right: -110, filter: 'blur(55px)',
+          animation: 'caOrb1 13s ease-in-out infinite',
+        }}
+      />
+      <style>{`
+        @keyframes caOrb1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-20px,18px) scale(1.05); } }
+        @keyframes caOrb2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(22px,-22px); } }
+      `}</style>
+      <div
+        style={{
+          position: 'absolute', width: 300, height: 300, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(120,40,220,0.09) 0%, transparent 70%)',
+          bottom: '35%', left: -90, filter: 'blur(50px)',
+          animation: 'caOrb2 16s ease-in-out infinite',
+        }}
+      />
+    </div>
   );
 }
 
@@ -801,42 +803,43 @@ function Background() {
 
 function Section({ children, delay = 0 }) {
   return (
-    <Box
-      sx={{
-        px: 3, py: 3,
-        '@keyframes secIn': {
-          from: { opacity: 0, transform: 'translateY(18px)' },
-          to:   { opacity: 1, transform: 'translateY(0)' },
-        },
+    <div
+      style={{
+        padding: '0.75rem',
         animation: `secIn 0.45s ease ${delay}s both`,
       }}
     >
+      <style>{`@keyframes secIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }`}</style>
       {children}
-    </Box>
+    </div>
   );
 }
 
 function SectionLabel({ children }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-      <Box sx={{
-        width: 3, height: 16, borderRadius: 2, flexShrink: 0,
-        background: 'linear-gradient(180deg, #FF6B35, #FFD166)',
-        boxShadow: '0 0 8px rgba(255,107,53,0.5)',
-      }} />
-      <Typography sx={{
-        fontWeight: 700, color: 'rgba(255,255,255,0.5)',
-        letterSpacing: '0.1em', fontSize: '0.6rem',
-        textTransform: 'uppercase',
-      }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3125rem' }}>
+      <div
+        style={{
+          width: 3, height: 16, borderRadius: 2, flexShrink: 0,
+          background: 'linear-gradient(180deg, #FF6B35, #FFD166)',
+          boxShadow: '0 0 8px rgba(255,107,53,0.5)',
+        }}
+      />
+      <span
+        style={{
+          fontWeight: 700, color: 'rgba(255,255,255,0.5)',
+          letterSpacing: '0.1em', fontSize: '0.6rem',
+          textTransform: 'uppercase',
+        }}
+      >
         {children}
-      </Typography>
-    </Box>
+      </span>
+    </div>
   );
 }
 
 function Separator() {
   return (
-    <Box sx={{ height: '1px', mx: 3, background: 'linear-gradient(90deg, rgba(255,107,53,0.08), rgba(255,255,255,0.04), transparent)' }} />
+    <div style={{ height: '1px', margin: '0 0.75rem', background: 'linear-gradient(90deg, rgba(255,107,53,0.08), rgba(255,255,255,0.04), transparent)' }} />
   );
 }
