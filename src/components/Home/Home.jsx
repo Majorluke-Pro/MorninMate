@@ -4,7 +4,7 @@ import {
   Box, Typography, Card, IconButton, Switch, LinearProgress,
   Fab, Dialog, DialogTitle, DialogContent, DialogActions, Button,
   TextField, Divider, Avatar, Menu, MenuItem,
-} from '@mui/material';
+} from '../../lib/ui-lite';
 import TimePicker from '../common/TimePicker';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -82,6 +82,24 @@ function getGreeting(hour) {
   if (hour < 17) return 'Arvo';
   if (hour < 21) return "G'evening";
   return "G'night";
+}
+
+function buildTestAlarm(alarm) {
+  const pulse = alarm?.pulse ?? {};
+  const intensity = pulse.intensity || 'moderate';
+  const games = Array.isArray(pulse.games) && pulse.games.length > 0 ? pulse.games : ['math'];
+  const sound = alarm?.sound || pulse.sound || 'classic';
+
+  return {
+    ...alarm,
+    sound,
+    pulse: {
+      ...pulse,
+      intensity,
+      games,
+      sound,
+    },
+  };
 }
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
@@ -425,7 +443,7 @@ function AlarmsTab({ onNavigate }) {
       </Box>
 
       {/* ── Alarm list ── */}
-      <Box sx={{ px: 2, pt: 2.5, pb: 2 }}>
+      <Box sx={{ px: 2, pt: 2.5, pb: 16 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="subtitle1" fontWeight={700} sx={{ letterSpacing: '-0.2px' }}>
             Your Alarms
@@ -454,7 +472,7 @@ function AlarmsTab({ onNavigate }) {
                 onToggle={() => toggleAlarm(alarm.id)}
                 onDelete={()  => setDeleteTarget(alarm)}
                 onEdit={()    => setEditTarget(alarm)}
-                onTest={()    => triggerAlarm(alarm)}
+                onTest={()    => triggerAlarm(buildTestAlarm(alarm))}
               />
             ))}
           </Box>
@@ -462,21 +480,28 @@ function AlarmsTab({ onNavigate }) {
       </Box>
 
       {/* ── FAB ── */}
-      <Box sx={{ position: 'fixed', bottom: 80, right: 20 }}>
+      {!editTarget && !deleteTarget && (
         <Box sx={{
-          position: 'absolute', inset: -8, borderRadius: '50%',
-          border: '2px solid rgba(255,107,53,0.25)', pointerEvents: 'none',
-          animation: 'fabRing 2.4s ease-out infinite',
-          '@keyframes fabRing': { '0%': { transform: 'scale(1)', opacity: 0.5 }, '100%': { transform: 'scale(1.65)', opacity: 0 } },
-        }} />
-        <Fab
-          color="primary"
-          onClick={() => onNavigate('/create-alarm')}
-          sx={{ boxShadow: '0 8px 28px rgba(255,107,53,0.5)', '&:active': { transform: 'scale(0.94)' } }}
-        >
-          <AddIcon />
-        </Fab>
-      </Box>
+          position: 'fixed',
+          right: 'max(16px, calc(env(safe-area-inset-right) + 16px))',
+          bottom: 'calc(env(safe-area-inset-bottom) + 88px)',
+          zIndex: 140,
+        }}>
+          <Box sx={{
+            position: 'absolute', inset: -8, borderRadius: '50%',
+            border: '2px solid rgba(255,107,53,0.25)', pointerEvents: 'none',
+            animation: 'fabRing 2.4s ease-out infinite',
+            '@keyframes fabRing': { '0%': { transform: 'scale(1)', opacity: 0.5 }, '100%': { transform: 'scale(1.65)', opacity: 0 } },
+          }} />
+          <Fab
+            color="primary"
+            onClick={() => onNavigate('/create-alarm')}
+            sx={{ boxShadow: '0 8px 28px rgba(255,107,53,0.5)', '&:active': { transform: 'scale(0.94)' } }}
+          >
+            <AddIcon />
+          </Fab>
+        </Box>
+      )}
 
       {/* Edit dialog */}
       {editTarget && (
@@ -514,6 +539,12 @@ function AlarmCard({ alarm, isNext, now, onToggle, onDelete, onEdit, onTest }) {
     : `in ${Math.floor(minsUntil / 60)}h ${minsUntil % 60}m`;
 
   function closeMenu() { setMenuAnchor(null); }
+  function handleTestAlarm() {
+    closeMenu();
+    requestAnimationFrame(() => {
+      onTest();
+    });
+  }
 
   return (
     <Box sx={{
@@ -658,7 +689,7 @@ function AlarmCard({ alarm, isNext, now, onToggle, onDelete, onEdit, onTest }) {
           },
         }}
       >
-        <MenuItem onClick={() => { onTest(); closeMenu(); }} sx={{ gap: 1.5, py: 1.25, fontSize: '0.88rem' }}>
+        <MenuItem onClick={handleTestAlarm} sx={{ gap: 1.5, py: 1.25, fontSize: '0.88rem' }}>
           <AlarmIcon fontSize="small" sx={{ color: 'primary.main' }} /> Test alarm
         </MenuItem>
         <MenuItem onClick={() => { onEdit(); closeMenu(); }} sx={{ gap: 1.5, py: 1.25, fontSize: '0.88rem' }}>
@@ -1350,7 +1381,7 @@ function ConfirmDialog({ open = true, title, body, confirmLabel, confirmColor = 
 function EmptyState({ onAdd }) {
   return (
     <Box sx={{
-      p: 4, textAlign: 'center', borderRadius: '20px',
+      p: 4, pb: 4.5, textAlign: 'center', borderRadius: '20px',
       border: '1px dashed rgba(255,107,53,0.2)',
       bgcolor: 'rgba(255,107,53,0.03)',
     }}>
@@ -1371,7 +1402,7 @@ function EmptyState({ onAdd }) {
       <Typography variant="h6" fontWeight={800} gutterBottom sx={{ letterSpacing: '-0.3px' }}>
         No alarms yet, mate
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3, lineHeight: 1.6 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.25, lineHeight: 1.6 }}>
         Chuck in your first alarm and get your morning sorted
       </Typography>
       <Button variant="contained" startIcon={<AddIcon />} onClick={onAdd}>

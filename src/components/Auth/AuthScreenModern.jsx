@@ -1,14 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Checkbox,
-  CircularProgress,
-  FormControlLabel,
-  IconButton,
-  Typography,
-} from '@mui/material';
 import { Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useApp } from '../../context/AppContext';
@@ -105,28 +95,24 @@ function AnimatedFormField({
   }
 
   return (
-    <Box sx={{ position: 'relative' }}>
-      <Box
+    <div style={{ position: 'relative' }}>
+      <div
         onMouseMove={handleMouseMove}
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
-        sx={{
+        style={{
           position: 'relative',
           overflow: 'hidden',
-          borderRadius: 2.5,
+          borderRadius: 10,
           border: '1px solid',
           borderColor: focused ? 'rgba(255,107,53,0.55)' : 'rgba(255,255,255,0.10)',
-          bgcolor: 'rgba(10,12,24,0.78)',
+          background: 'rgba(10,12,24,0.78)',
           transition: 'border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease',
           boxShadow: focused ? '0 0 0 1px rgba(255,107,53,0.18), 0 18px 40px rgba(0,0,0,0.28)' : 'none',
-          '&:hover': {
-            borderColor: 'rgba(255,255,255,0.18)',
-            transform: 'translateY(-1px)',
-          },
         }}
       >
-        <Box
-          sx={{
+        <div
+          style={{
             position: 'absolute',
             left: 14,
             top: '50%',
@@ -140,40 +126,37 @@ function AnimatedFormField({
           }}
         >
           {icon}
-        </Box>
+        </div>
 
-        <Box
-          component="input"
+        <input
           type={type}
           value={value}
           onChange={onChange}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          sx={{
+          placeholder={placeholder}
+          style={{
             width: '100%',
-            bgcolor: 'transparent',
-            color: 'text.primary',
+            background: 'transparent',
+            color: 'inherit',
             border: 0,
             outline: 'none',
-            py: 2.1,
-            pl: 6,
-            pr: trailing ? 6 : 2,
+            padding: trailing ? '17px 48px 17px 48px' : '17px 16px 17px 48px',
             fontSize: '0.98rem',
             fontFamily: '"Outfit", sans-serif',
-            '&::placeholder': { color: 'transparent' },
+            boxSizing: 'border-box',
           }}
-          placeholder={placeholder}
         />
 
-        <Typography
-          sx={{
+        <span
+          style={{
             position: 'absolute',
             left: 48,
             top: '50%',
             transform: 'translateY(-50%)',
             fontSize: '0.92rem',
             fontWeight: 500,
-            color: focused ? '#FF6B35' : 'text.secondary',
+            color: focused ? '#FF6B35' : 'rgba(255,255,255,0.6)',
             pointerEvents: 'none',
             opacity: value ? 0 : 1,
             transition: 'opacity 0.18s ease, color 0.18s ease',
@@ -181,11 +164,11 @@ function AnimatedFormField({
           }}
         >
           {placeholder}
-        </Typography>
+        </span>
 
         {trailing && (
-          <Box
-            sx={{
+          <div
+            style={{
               position: 'absolute',
               right: 10,
               top: '50%',
@@ -194,12 +177,12 @@ function AnimatedFormField({
             }}
           >
             {trailing}
-          </Box>
+          </div>
         )}
 
         {hovering && (
-          <Box
-            sx={{
+          <div
+            style={{
               position: 'absolute',
               inset: 0,
               pointerEvents: 'none',
@@ -207,22 +190,22 @@ function AnimatedFormField({
             }}
           />
         )}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }
 
 function PeekKoala({ isSignUp }) {
   const sideStyles = isSignUp
     ? {
-        anchor: { right: { xs: 14, sm: 24 } },
+        anchor: { right: 24 },
         bubbleJustify: 'flex-end',
         tail: { right: 28 },
         pawNear: { right: 20, transform: 'rotate(-10deg)' },
         pawFar: { right: 78, transform: 'rotate(8deg)' },
       }
     : {
-        anchor: { left: { xs: 14, sm: 24 } },
+        anchor: { left: 24 },
         bubbleJustify: 'flex-start',
         tail: { left: 28 },
         pawNear: { left: 20, transform: 'rotate(10deg)' },
@@ -235,24 +218,23 @@ function PeekKoala({ isSignUp }) {
   const noseAnimation = isSignUp ? 'koalaNoseHappy 2.1s ease-in-out 1.2s infinite' : 'koalaNoseIdle 3.1s ease-in-out 1.2s infinite';
 
   return (
-    <Box
-      sx={{
+    <div
+      style={{
         position: 'absolute',
-        top: { xs: 24, sm: 26 },
+        top: 26,
         ...sideStyles.anchor,
         width: 144,
         pointerEvents: 'none',
       }}
     >
-      <Box sx={{ display: 'flex', justifyContent: sideStyles.bubbleJustify, mb: 0, mt: 2.2 }}>
-        <Box
-          sx={{
+      <div style={{ display: 'flex', justifyContent: sideStyles.bubbleJustify, marginBottom: 0, marginTop: 17.6 }}>
+        <div
+          style={{
             position: 'relative',
             maxWidth: 132,
-            px: 1.15,
-            py: 0.75,
-            borderRadius: '18px',
-            bgcolor: 'rgba(255,248,235,0.96)',
+            padding: '6px 9.2px',
+            borderRadius: 18,
+            background: 'rgba(255,248,235,0.96)',
             color: '#3B2C25',
             fontSize: '0.72rem',
             fontWeight: 700,
@@ -261,119 +243,54 @@ function PeekKoala({ isSignUp }) {
             zIndex: 5,
             animation: 'koalaBubbleIn 680ms cubic-bezier(0.22, 1, 0.36, 1) 180ms both',
             transformOrigin: isSignUp ? '85% 100%' : '15% 100%',
-            '@keyframes koalaBubbleIn': {
-              '0%': { opacity: 0, transform: 'translateY(14px) scale(0.84)' },
-              '70%': { opacity: 1, transform: 'translateY(-2px) scale(1.03)' },
-              '100%': { opacity: 1, transform: 'translateY(0) scale(1)' },
-            },
           }}
         >
           {speech}
-        </Box>
-      </Box>
+        </div>
+      </div>
 
-      <Box
-        sx={{
+      <div
+        style={{
           position: 'relative',
           height: 80,
           zIndex: 1,
           animation: `${peekAnimation}, ${bobAnimation}`,
-          '@keyframes koalaPeekInLeft': {
-            '0%': { transform: 'translateY(34px) rotate(-10deg) scale(0.92)' },
-            '42%': { transform: 'translateY(-6px) rotate(3deg) scale(1.01)' },
-            '63%': { transform: 'translateY(3px) rotate(-2deg) scale(0.995)' },
-            '82%': { transform: 'translateY(-1px) rotate(0.8deg) scale(1)' },
-            '100%': { transform: 'translateY(0) rotate(0deg) scale(1)' },
-          },
-          '@keyframes koalaPeekInRight': {
-            '0%': { transform: 'translateY(34px) rotate(10deg) scale(0.92)' },
-            '42%': { transform: 'translateY(-6px) rotate(-3deg) scale(1.01)' },
-            '63%': { transform: 'translateY(3px) rotate(2deg) scale(0.995)' },
-            '82%': { transform: 'translateY(-1px) rotate(-0.8deg) scale(1)' },
-            '100%': { transform: 'translateY(0) rotate(0deg) scale(1)' },
-          },
-          '@keyframes koalaHeadFloatLeft': {
-            '0%,100%': { transform: 'translateY(0px) rotate(0deg)' },
-            '25%': { transform: 'translateY(-1px) rotate(0.8deg)' },
-            '55%': { transform: 'translateY(3px) rotate(-1.4deg)' },
-            '78%': { transform: 'translateY(1px) rotate(0.5deg)' },
-          },
-          '@keyframes koalaHeadFloatRight': {
-            '0%,100%': { transform: 'translateY(0px) rotate(0deg)' },
-            '25%': { transform: 'translateY(-1px) rotate(-0.8deg)' },
-            '55%': { transform: 'translateY(3px) rotate(1.4deg)' },
-            '78%': { transform: 'translateY(1px) rotate(-0.5deg)' },
-          },
         }}
       >
-        <Box
-          sx={{
+        <div
+          style={{
             position: 'absolute',
             bottom: 2,
             ...sideStyles.pawNear,
             width: 34,
             height: 20,
             borderRadius: '18px 18px 12px 12px',
-            bgcolor: '#8C8FB5',
+            background: '#8C8FB5',
             border: '1px solid rgba(29,31,54,0.22)',
             boxShadow: '0 10px 18px rgba(0,0,0,0.22)',
             zIndex: 4,
             animation: isSignUp ? 'koalaPawWave 1.9s ease-in-out 1s infinite' : 'koalaPawGrip 3.6s ease-in-out 1s infinite',
             transformOrigin: isSignUp ? '85% 15%' : '50% 50%',
-            '@keyframes koalaPawWave': {
-              '0%,100%': { transform: 'rotate(-10deg) translateY(0px)' },
-              '50%': { transform: 'rotate(12deg) translateY(-4px)' },
-            },
-            '@keyframes koalaPawGrip': {
-              '0%,100%': { transform: 'rotate(10deg) translateY(0px) scaleX(1)' },
-              '35%': { transform: 'rotate(8deg) translateY(1px) scaleX(0.97)' },
-              '60%': { transform: 'rotate(12deg) translateY(-1px) scaleX(1.02)' },
-            },
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              left: 5,
-              right: 5,
-              top: 7,
-              height: 8,
-              borderRadius: 99,
-              bgcolor: '#9B9FC2',
-            },
           }}
         />
-        <Box
-          sx={{
+        <div
+          style={{
             position: 'absolute',
             bottom: 0,
             ...sideStyles.pawFar,
             width: 36,
             height: 22,
             borderRadius: '18px 18px 12px 12px',
-            bgcolor: '#7D81A9',
+            background: '#7D81A9',
             border: '1px solid rgba(29,31,54,0.22)',
             boxShadow: '0 10px 18px rgba(0,0,0,0.22)',
             zIndex: 4,
             animation: 'koalaPawPress 3.9s ease-in-out 1.1s infinite',
-            '@keyframes koalaPawPress': {
-              '0%,100%': { transform: sideStyles.pawFar.transform },
-              '45%': { transform: `${sideStyles.pawFar.transform} translateY(1px)` },
-              '65%': { transform: `${sideStyles.pawFar.transform} translateY(-1px)` },
-            },
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              left: 6,
-              right: 6,
-              top: 8,
-              height: 8,
-              borderRadius: 99,
-              bgcolor: '#8B90B8',
-            },
           }}
         />
 
-        <Box
-          sx={{
+        <div
+          style={{
             position: 'absolute',
             left: '50%',
             bottom: -18,
@@ -452,60 +369,9 @@ function PeekKoala({ isSignUp }) {
               </g>
             </g>
           </svg>
-          <Box
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              pointerEvents: 'none',
-              '@keyframes koalaEarIdle': {
-                '0%,100%': { transform: 'rotate(0deg)' },
-                '50%': { transform: 'rotate(-2deg)' },
-              },
-              '@keyframes koalaEarLeftIdle': {
-                '0%,100%': { transform: 'rotate(-18deg)' },
-                '30%': { transform: 'rotate(-23deg) translateY(-1px)' },
-                '55%': { transform: 'rotate(-14deg) translateY(0px)' },
-                '78%': { transform: 'rotate(-20deg) translateY(-0.5px)' },
-              },
-              '@keyframes koalaEarRightIdle': {
-                '0%,100%': { transform: 'translate(90px, 0px) rotate(18deg)' },
-                '30%': { transform: 'translate(90px, -1px) rotate(23deg)' },
-                '55%': { transform: 'translate(90px, 0px) rotate(14deg)' },
-                '78%': { transform: 'translate(90px, -0.5px) rotate(20deg)' },
-              },
-              '@keyframes koalaEarHappy': {
-                '0%,100%': { transform: 'rotate(0deg)' },
-                '35%': { transform: 'rotate(-4deg)' },
-                '70%': { transform: 'rotate(3deg)' },
-              },
-              '@keyframes koalaEarLeftHappy': {
-                '0%,100%': { transform: 'rotate(-18deg)' },
-                '20%': { transform: 'rotate(-28deg) translateY(-2px)' },
-                '42%': { transform: 'rotate(-10deg) translateY(0px)' },
-                '63%': { transform: 'rotate(-25deg) translateY(-1px)' },
-                '82%': { transform: 'rotate(-14deg) translateY(0px)' },
-              },
-              '@keyframes koalaEarRightHappy': {
-                '0%,100%': { transform: 'translate(90px, 0px) rotate(18deg)' },
-                '20%': { transform: 'translate(90px, -2px) rotate(28deg)' },
-                '42%': { transform: 'translate(90px, 0px) rotate(10deg)' },
-                '63%': { transform: 'translate(90px, -1px) rotate(25deg)' },
-                '82%': { transform: 'translate(90px, 0px) rotate(14deg)' },
-              },
-              '@keyframes koalaNoseIdle': {
-                '0%,100%': { transform: 'scale(1)' },
-                '50%': { transform: 'scale(1.04)' },
-              },
-              '@keyframes koalaNoseHappy': {
-                '0%,100%': { transform: 'scale(1)' },
-                '30%': { transform: 'scale(1.08)' },
-                '60%': { transform: 'scale(0.98)' },
-              },
-            }}
-          />
-        </Box>
-      </Box>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -588,13 +454,13 @@ export default function AuthScreenModern() {
   }
 
   return (
-    <Box
-      sx={{
+    <div
+      style={{
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        p: 2,
+        padding: 16,
         position: 'relative',
         overflow: 'hidden',
         background: `
@@ -606,8 +472,8 @@ export default function AuthScreenModern() {
     >
       <FloatingParticles />
 
-      <Box
-        sx={{
+      <div
+        style={{
           position: 'absolute',
           inset: 0,
           background: `
@@ -618,67 +484,36 @@ export default function AuthScreenModern() {
         }}
       />
 
-      <Box
-        sx={{
+      <div
+        style={{
           position: 'relative',
           zIndex: 2,
           width: '100%',
           maxWidth: 420,
         }}
       >
-        <Box
-          sx={{
+        <div
+          style={{
             position: 'relative',
             zIndex: 2,
-            bgcolor: 'rgba(17, 20, 34, 0.74)',
+            background: 'rgba(17, 20, 34, 0.74)',
             backdropFilter: 'blur(24px)',
             border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 5,
-            px: { xs: 3, sm: 4 },
-            pb: { xs: 3, sm: 4 },
-            pt: { xs: 12, sm: 12.5 },
+            borderRadius: 20,
+            padding: '96px 32px 32px',
             boxShadow: '0 30px 90px rgba(0,0,0,0.45)',
             overflow: 'hidden',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 10,
-              borderRadius: '20px 20px 0 0',
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.01))',
-              zIndex: 3,
-              animation: 'cardLipPulse 4.2s ease-in-out infinite',
-            },
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              top: -1,
-              left: 0,
-              right: 0,
-              height: 18,
-              borderRadius: '20px 20px 0 0',
-              boxShadow: 'inset 0 12px 18px rgba(255,255,255,0.04), inset 0 -8px 12px rgba(0,0,0,0.28)',
-              pointerEvents: 'none',
-              zIndex: 3,
-            },
-            '@keyframes cardLipPulse': {
-              '0%,100%': { opacity: 0.72 },
-              '50%': { opacity: 1 },
-            },
           }}
         >
           <PeekKoala key={mode} isSignUp={isSignUp} />
 
-          <Box sx={{ textAlign: 'center', mb: 4, position: 'relative', zIndex: 4 }}>
-            <Box
-              sx={{
+          <div style={{ textAlign: 'center', marginBottom: 32, position: 'relative', zIndex: 4 }}>
+            <div
+              style={{
                 width: 68,
                 height: 68,
                 borderRadius: '50%',
-                mx: 'auto',
-                mb: 2,
+                margin: '0 auto 16px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -688,19 +523,27 @@ export default function AuthScreenModern() {
               }}
             >
               <User size={30} color="#FF6B35" />
-            </Box>
+            </div>
 
-            <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+            <h4 style={{ fontWeight: 800, margin: '0 0 8px', fontSize: '1.5rem', color: 'inherit' }}>
               {firstName && isSignUp ? `Finish setup, ${firstName}` : isSignUp ? 'Create Account' : 'Welcome Back'}
-            </Typography>
-            <Typography color="text.secondary" sx={{ maxWidth: 280, mx: 'auto' }}>
+            </h4>
+            <p style={{ color: 'rgba(255,255,255,0.6)', maxWidth: 280, margin: '0 auto', fontSize: '1rem' }}>
               {isSignUp ? 'Sign up to save your alarms and morning profile.' : 'Sign in to continue to your morning dashboard.'}
-            </Typography>
-          </Box>
+            </p>
+          </div>
 
-          <Box component="form" onSubmit={handleSubmit} sx={{ display: 'grid', gap: 2 }}>
-            {error && <Alert severity="error">{error}</Alert>}
-            {message && <Alert severity="success">{message}</Alert>}
+          <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 16 }}>
+            {error && (
+              <div className="bg-error/15 border border-error/30 text-error text-sm px-4 py-3 rounded-xl">
+                {error}
+              </div>
+            )}
+            {message && (
+              <div className="bg-success/15 border border-success/30 text-success text-sm px-4 py-3 rounded-xl">
+                {message}
+              </div>
+            )}
 
             <AnimatedFormField
               type="email"
@@ -717,13 +560,13 @@ export default function AuthScreenModern() {
               onChange={(e) => setPassword(e.target.value)}
               icon={<Lock size={18} />}
               trailing={(
-                <IconButton
-                  size="small"
+                <button
+                  type="button"
                   onClick={() => setShowPassword((value) => !value)}
-                  sx={{ color: 'text.secondary' }}
+                  className="p-2 text-muted active:scale-90 transition-transform touch-manipulation"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </IconButton>
+                </button>
               )}
             />
 
@@ -737,69 +580,46 @@ export default function AuthScreenModern() {
               />
             )}
 
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mt: 0.5 }}>
-              <FormControlLabel
-                control={(
-                  <Checkbox
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    sx={{
-                      color: 'rgba(255,255,255,0.28)',
-                      '&.Mui-checked': { color: '#FF6B35' },
-                    }}
-                  />
-                )}
-                label={<Typography sx={{ fontSize: '0.88rem', color: 'text.secondary' }}>Remember me</Typography>}
-                sx={{ ml: -0.5 }}
-              />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 }}>
+              <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 accent-primary"
+                />
+                Remember me
+              </label>
 
               {!isSignUp && (
-                <Button variant="text" sx={{ minWidth: 0, color: '#FF6B35', px: 0.5 }}>
+                <button type="button" className="btn-ghost" style={{ minWidth: 0, color: '#FF6B35', padding: '4px' }}>
                   Forgot password?
-                </Button>
+                </button>
               )}
-            </Box>
+            </div>
 
-            <Button
+            <button
               type="submit"
-              fullWidth
-              variant="contained"
               disabled={loading || !canSubmit}
-              sx={{
-                mt: 1,
-                py: 1.7,
-                borderRadius: 2.5,
-                fontSize: '1rem',
-                position: 'relative',
-                overflow: 'hidden',
-                '&::after': {
-                  content: '""',
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.20), transparent)',
-                  transform: 'translateX(-140%)',
-                  transition: 'transform 0.9s ease',
-                },
-                '&:hover::after': {
-                  transform: 'translateX(140%)',
-                },
-              }}
+              className="btn-primary"
+              style={{ marginTop: 8 }}
             >
-              {loading ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : isSignUp ? 'Create Account' : 'Sign In'}
-            </Button>
-          </Box>
+              {loading
+                ? <div className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" style={{ width: 22, height: 22, margin: '0 auto' }} />
+                : isSignUp ? 'Create Account' : 'Sign In'}
+            </button>
+          </form>
 
-          <Box sx={{ mt: 4, textAlign: 'center' }}>
-            <Typography sx={{ color: 'text.secondary', fontSize: '0.92rem' }}>
+          <div style={{ marginTop: 32, textAlign: 'center' }}>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.92rem', margin: 0 }}>
               {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-              <Box
-                component="button"
+              <button
                 type="button"
                 onClick={toggleMode}
-                sx={{
+                style={{
                   border: 0,
-                  p: 0,
-                  bgcolor: 'transparent',
+                  padding: 0,
+                  background: 'transparent',
                   color: '#FF6B35',
                   cursor: 'pointer',
                   fontWeight: 700,
@@ -807,19 +627,19 @@ export default function AuthScreenModern() {
                 }}
               >
                 {isSignUp ? 'Sign in' : 'Sign up'}
-              </Box>
-            </Typography>
-          </Box>
-        </Box>
+              </button>
+            </p>
+          </div>
+        </div>
 
         {!pendingOnboarding && (
-          <Box sx={{ textAlign: 'center', mt: 2 }}>
-            <Button variant="text" onClick={() => setShowAuthDirectly(false)} sx={{ color: 'text.secondary' }}>
+          <div style={{ textAlign: 'center', marginTop: 16 }}>
+            <button type="button" className="btn-ghost" onClick={() => setShowAuthDirectly(false)}>
               Back
-            </Button>
-          </Box>
+            </button>
+          </div>
         )}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }

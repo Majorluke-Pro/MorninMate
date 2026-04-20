@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography, LinearProgress } from '@mui/material';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import PublicIcon from '@mui/icons-material/Public';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
@@ -44,10 +43,34 @@ function FlipCard({ card, onClick, previewing, selected }) {
   const isFlipped  = card.flipped || card.matched || previewing;
   const FaceIcon = card.Icon;
 
+  const frontBg = card.matched
+    ? 'rgba(6,214,160,0.13)'
+    : card.mismatch
+    ? 'rgba(239,71,111,0.12)'
+    : 'rgba(255,107,53,0.06)';
+
+  const frontBorder = card.matched
+    ? '#06D6A0'
+    : card.mismatch
+    ? '#EF476F'
+    : selected
+    ? '#FF6B35'
+    : 'rgba(255,107,53,0.25)';
+
+  const frontShadow = card.matched
+    ? '0 0 22px rgba(6,214,160,0.4)'
+    : card.mismatch
+    ? '0 0 16px rgba(239,71,111,0.35)'
+    : selected
+    ? '0 0 14px rgba(255,107,53,0.3)'
+    : 'none';
+
+  const iconColor = card.matched ? '#06D6A0' : card.mismatch ? '#EF476F' : '#FF6B35';
+
   return (
-    <Box
+    <div
       onPointerDown={(e) => { e.preventDefault(); onClick(); }}
-      sx={{
+      style={{
         aspectRatio: '1',
         perspective: '800px',
         cursor: card.matched ? 'default' : 'pointer',
@@ -56,7 +79,7 @@ function FlipCard({ card, onClick, previewing, selected }) {
         userSelect: 'none',
       }}
     >
-      <Box sx={{
+      <div style={{
         width: '100%',
         height: '100%',
         position: 'relative',
@@ -66,74 +89,39 @@ function FlipCard({ card, onClick, previewing, selected }) {
       }}>
 
         {/* Front face */}
-        <Box sx={{
+        <div style={{
           position: 'absolute', inset: 0,
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden',
-          borderRadius: 3,
+          borderRadius: 12,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          bgcolor: card.matched
-            ? 'rgba(6,214,160,0.13)'
-            : card.mismatch
-            ? 'rgba(239,71,111,0.12)'
-            : 'rgba(255,107,53,0.06)',
-          border: '2px solid',
-          borderColor: card.matched
-            ? '#06D6A0'
-            : card.mismatch
-            ? '#EF476F'
-            : selected
-            ? '#FF6B35'
-            : 'rgba(255,107,53,0.25)',
-          boxShadow: card.matched
-            ? '0 0 22px rgba(6,214,160,0.4)'
-            : card.mismatch
-            ? '0 0 16px rgba(239,71,111,0.35)'
-            : selected
-            ? '0 0 14px rgba(255,107,53,0.3)'
-            : 'none',
+          background: frontBg,
+          border: `2px solid ${frontBorder}`,
+          boxShadow: frontShadow,
           transition: 'box-shadow 0.2s, border-color 0.2s, background-color 0.2s',
-          animation: card.matched
-            ? 'matchBurst 0.5s cubic-bezier(0.34,1.56,0.64,1)'
-            : card.mismatch
-            ? 'mismatchShake 0.35s ease'
-            : 'none',
-          '@keyframes matchBurst': {
-            '0%':   { transform: 'scale(1)' },
-            '35%':  { transform: 'scale(1.2)' },
-            '65%':  { transform: 'scale(0.96)' },
-            '100%': { transform: 'scale(1)' },
-          },
-          '@keyframes mismatchShake': {
-            '0%,100%': { transform: 'translateX(0)' },
-            '20%':     { transform: 'translateX(-6px)' },
-            '40%':     { transform: 'translateX(6px)' },
-            '60%':     { transform: 'translateX(-4px)' },
-            '80%':     { transform: 'translateX(4px)' },
-          },
         }}>
-          <FaceIcon sx={{
+          <FaceIcon style={{
             fontSize: '2.5rem',
-            color: card.matched ? '#06D6A0' : card.mismatch ? '#EF476F' : '#FF6B35',
+            color: iconColor,
             transition: 'color 0.2s',
           }} />
-        </Box>
+        </div>
 
         {/* Back face */}
-        <Box sx={{
+        <div style={{
           position: 'absolute', inset: 0,
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden',
           transform: 'rotateY(180deg)',
-          borderRadius: 3,
+          borderRadius: 12,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'linear-gradient(145deg, rgba(255,107,53,0.1) 0%, rgba(255,209,102,0.05) 50%, rgba(255,107,53,0.08) 100%)',
           border: '2px solid rgba(255,255,255,0.07)',
         }}>
-          <Typography sx={{ fontSize: '1.4rem', color: 'rgba(255,255,255,0.18)', fontWeight: 800, lineHeight: 1 }}>?</Typography>
-        </Box>
-      </Box>
-    </Box>
+          <span style={{ fontSize: '1.4rem', color: 'rgba(255,255,255,0.18)', fontWeight: 800, lineHeight: 1 }}>?</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -238,79 +226,71 @@ export default function MemoryGame({ difficulty = 'normal', onComplete, onFail, 
   const progressPct = (matched / total) * 100;
   const movePct     = Math.min((moves / maxMoves) * 100, 100);
   const timePct     = (timeLeft / totalTime) * 100;
-  const timerColor  = timePct > 50 ? 'success' : timePct > 25 ? 'warning' : 'error';
+  const timerColor  = timePct > 50 ? '#06D6A0' : timePct > 25 ? '#FFD166' : '#EF476F';
   const movesLeft   = maxMoves - moves;
+  const movesColor  = movePct > 75 ? '#EF476F' : 'rgba(255,255,255,0.5)';
+
+  const progressBarColor = '#06D6A0';
+  const moveBarColor = movePct > 75 ? '#EF476F' : '#FFD166';
 
   return (
-    <Box sx={{ textAlign: 'center', touchAction: 'manipulation' }}>
+    <div style={{ textAlign: 'center', touchAction: 'manipulation' }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-        <Typography variant="overline" color="text.secondary" sx={{ letterSpacing: 2 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <span style={{ fontSize: '0.75rem', letterSpacing: 2, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase' }}>
           Memory Match
-        </Typography>
+        </span>
         {previewing && (
-          <Box sx={{
-            display: 'flex', alignItems: 'center', gap: 1,
-            px: 1.5, py: 0.4, borderRadius: 2,
-            bgcolor: 'rgba(255,209,102,0.1)',
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '3px 12px', borderRadius: 8,
+            background: 'rgba(255,209,102,0.1)',
             border: '1px solid rgba(255,209,102,0.22)',
           }}>
-            <Box sx={{
+            <div style={{
               width: 7, height: 7, borderRadius: '50%',
-              bgcolor: '#FFD166',
-              animation: 'dot 1s ease-in-out infinite',
-              '@keyframes dot': {
-                '0%,100%': { opacity: 1, transform: 'scale(1)' },
-                '50%':     { opacity: 0.4, transform: 'scale(0.7)' },
-              },
+              background: '#FFD166',
             }} />
-            <Typography variant="caption" color="secondary.main" fontWeight={800} sx={{ letterSpacing: 1 }}>
+            <span style={{ fontSize: '0.75rem', color: '#FFD166', fontWeight: 800, letterSpacing: 1 }}>
               MEMORISE — {previewLeft}s
-            </Typography>
-          </Box>
+            </span>
+          </div>
         )}
-      </Box>
+      </div>
 
       {/* Stats row */}
-      <Box sx={{ mt: 0.5, mb: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
+      <div style={{ marginTop: 4, marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span className="text-xs text-muted">
             {matched / 2} / {pairs} pairs
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Typography variant="caption" fontWeight={700}
-              color={movePct > 75 ? 'error.main' : 'text.secondary'}>
+          </span>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: movesColor }}>
               {movesLeft} moves left
-            </Typography>
-            <Typography variant="caption" fontWeight={800}
-              color={`${timerColor}.main`}
-              sx={{ fontVariantNumeric: 'tabular-nums', minWidth: 28 }}>
+            </span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: timerColor, fontVariantNumeric: 'tabular-nums', minWidth: 28 }}>
               {timeLeft}s
-            </Typography>
-          </Box>
-        </Box>
+            </span>
+          </div>
+        </div>
 
-        <LinearProgress
-          variant="determinate"
-          value={progressPct}
-          color="success"
-          sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.06)', mb: 0.75 }}
-        />
-        <LinearProgress
-          variant="determinate"
-          value={movePct}
-          color={movePct > 75 ? 'error' : 'warning'}
-          sx={{ height: 3, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.04)' }}
-        />
-      </Box>
+        {/* Progress bar (pairs) */}
+        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden" style={{ marginBottom: 6 }}>
+          <div className="h-full rounded-full transition-all" style={{ width: `${progressPct}%`, background: progressBarColor }} />
+        </div>
+        {/* Move bar */}
+        <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
+          <div className="h-full rounded-full transition-all" style={{ width: `${movePct}%`, background: moveBarColor }} />
+        </div>
+      </div>
 
       {/* Card grid */}
-      <Box sx={{
+      <div style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gap: 1.25,
+        gap: 10,
         maxWidth: 360,
-        mx: 'auto',
+        margin: '0 auto',
       }}>
         {cards.map(card => (
           <FlipCard
@@ -321,13 +301,13 @@ export default function MemoryGame({ difficulty = 'normal', onComplete, onFail, 
             selected={selected.some(s => s.id === card.id)}
           />
         ))}
-      </Box>
+      </div>
 
       {previewing && (
-        <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 2, letterSpacing: 0.5 }}>
+        <span style={{ display: 'block', marginTop: 16, fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', letterSpacing: 0.5 }}>
           Remember their positions — cards flip in {previewLeft}s
-        </Typography>
+        </span>
       )}
-    </Box>
+    </div>
   );
 }

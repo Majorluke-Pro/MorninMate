@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Box, Typography, Button, TextField, CircularProgress, Alert } from '@mui/material';
+import { Box, Typography, Button, TextField, CircularProgress, Alert } from '../../lib/ui-lite';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import { supabase } from '../../lib/supabase';
 import { useApp } from '../../context/AppContext';
