@@ -354,13 +354,15 @@ export function AppProvider({ children }) {
           const { error } = await supabase.from('alarms').update(op.payload.updates).eq('id', op.payload.id);
           if (error) return;
         }
-      } catch {
-        // Still offline — leave ops in queue, abort flush
-        return;
-      }
+      // Remove this op from the queue now that it succeeded
+      const remaining = getPendingOps().filter(o => o.id !== op.id);
+      localStorage.setItem('mm_pending_ops', JSON.stringify(remaining));
+    } catch {
+      // Still offline — leave ops in queue, abort flush
+      return;
     }
-    clearPendingOps();
   }
+}
 
   async function loadUserData(userId) {
     if (loadingData.current) return;
@@ -474,6 +476,7 @@ export function AppProvider({ children }) {
   }
 
   async function signOut() {
+    try { await flushPendingOps(); } catch {}
     setCachedAlarms([]);
     clearPendingOps();
     await supabase.auth.signOut();
@@ -522,11 +525,9 @@ export function AppProvider({ children }) {
     };
 
     // 1. Write locally + schedule notification immediately
-    setAlarms(prev => {
-      const next = [...prev, localAlarm];
-      setCachedAlarms(next);
-      return next;
-    });
+    const next = [...alarmsRef.current, localAlarm];
+    setCachedAlarms(next);
+    setAlarms(next);
     scheduleAlarm(localAlarm);
 
     // 2. Sync to Supabase
@@ -552,11 +553,9 @@ export function AppProvider({ children }) {
     const newActive = !alarm.active;
 
     // 1. Update state + cache immediately
-    setAlarms(prev => {
-      const next = prev.map(a => a.id === id ? { ...a, active: newActive } : a);
-      setCachedAlarms(next);
-      return next;
-    });
+    const next = alarmsRef.current.map(a => a.id === id ? { ...a, active: newActive } : a);
+    setCachedAlarms(next);
+    setAlarms(next);
     if (newActive) scheduleAlarm({ ...alarm, active: newActive });
     else cancelAlarmNotifications(id);
 
@@ -571,11 +570,9 @@ export function AppProvider({ children }) {
 
   async function deleteAlarm(id) {
     // 1. Remove from state + cache immediately
-    setAlarms(prev => {
-      const next = prev.filter(a => a.id !== id);
-      setCachedAlarms(next);
-      return next;
-    });
+    const next = alarmsRef.current.filter(a => a.id !== id);
+    setCachedAlarms(next);
+    setAlarms(next);
     cancelAlarmNotifications(id);
 
     // 2. Sync to Supabase
@@ -600,22 +597,20 @@ export function AppProvider({ children }) {
     }
 
     // 1. Update state + cache immediately
-    setAlarms(prev => {
-      const existing = alarmsRef.current.find(a => a.id === id);
-      const normalizedUpdates = {
-        ...updates,
-        ...(updates.days !== undefined ? { days: normalizeAlarmDays(updates.days) } : {}),
-        ...(updates.pulse !== undefined || updates.sound !== undefined ? {
-          sound: updates.sound ?? existing?.sound ?? 'classic',
-          pulse: { ...(updates.pulse ?? existing?.pulse ?? {}), sound: updates.sound ?? existing?.sound ?? 'classic' },
-        } : {}),
-      };
-      const next = prev.map(a => a.id === id ? { ...a, ...normalizedUpdates } : a);
-      setCachedAlarms(next);
-      const alarm = next.find(a => a.id === id);
-      if (alarm) scheduleAlarm(alarm);
-      return next;
-    });
+    const existing = alarmsRef.current.find(a => a.id === id);
+    const normalizedUpdates = {
+      ...updates,
+      ...(updates.days !== undefined ? { days: normalizeAlarmDays(updates.days) } : {}),
+      ...(updates.pulse !== undefined || updates.sound !== undefined ? {
+        sound: updates.sound ?? existing?.sound ?? 'classic',
+        pulse: { ...(updates.pulse ?? existing?.pulse ?? {}), sound: updates.sound ?? existing?.sound ?? 'classic' },
+      } : {}),
+    };
+    const next = alarmsRef.current.map(a => a.id === id ? { ...a, ...normalizedUpdates } : a);
+    const updatedAlarm = next.find(a => a.id === id);
+    setCachedAlarms(next);
+    setAlarms(next);
+    if (updatedAlarm) scheduleAlarm(updatedAlarm);
 
     // 2. Sync to Supabase
     try {
