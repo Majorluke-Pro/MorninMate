@@ -10,10 +10,14 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.gradle/
+build/
+capacitor-cordova-android-plugins/
 *.local
 .env
 .env.*
 !.env.example
+local.properties
 
 # Editor directories and files
 .vscode/*
@@ -27,8 +31,14 @@ dist-ssr
 *.sw?
 .claude/
 google-services.json
-android/app/google-services.json
-android/app/google-services.json
-android/keystore.properties
+app/google-services.json
+keystore.properties
 *.jks
 *.keystore
+*.iml
+.externalNativeBuild/
+.cxx/
+app/src/main/assets/public/
+app/src/main/assets/capacitor.config.json
+app/src/main/assets/capacitor.plugins.json
+app/src/main/res/xml/config.xml
