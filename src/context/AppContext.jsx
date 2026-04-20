@@ -13,6 +13,13 @@ import {
   dismissAlarm,
   checkAndRequestAlarmPermissions,
 } from '../lib/nativeAlarms';
+import {
+  getCachedAlarms,
+  setCachedAlarms,
+  getPendingOps,
+  addPendingOp,
+  clearPendingOps,
+} from '../lib/alarmStore';
 
 const AppContext = createContext(null);
 
@@ -321,26 +328,74 @@ export function AppProvider({ children }) {
 
   // ─── Data loading ───────────────────────────────────────────────────────────
 
+  async function flushPendingOps() {
+    const ops = getPendingOps();
+    if (ops.length === 0) return;
+    for (const op of ops) {
+      try {
+        if (op.type === 'add') {
+          const { error } = await supabase.from('alarms').upsert({
+            id:       op.payload.id,
+            user_id:  op.payload.userId,
+            label:    op.payload.label,
+            time:     op.payload.time,
+            pulse:    op.payload.pulse,
+            active:   op.payload.active,
+            days:     op.payload.days,
+          });
+          if (error) return;
+        } else if (op.type === 'toggle') {
+          const { error } = await supabase.from('alarms').update({ active: op.payload.active }).eq('id', op.payload.id);
+          if (error) return;
+        } else if (op.type === 'delete') {
+          const { error } = await supabase.from('alarms').delete().eq('id', op.payload.id);
+          if (error) return;
+        } else if (op.type === 'edit') {
+          const { error } = await supabase.from('alarms').update(op.payload.updates).eq('id', op.payload.id);
+          if (error) return;
+        }
+      // Remove this op from the queue now that it succeeded
+      const remaining = getPendingOps().filter(o => o.id !== op.id);
+      localStorage.setItem('mm_pending_ops', JSON.stringify(remaining));
+    } catch {
+      // Still offline — leave ops in queue, abort flush
+      return;
+    }
+  }
+}
+
   async function loadUserData(userId) {
     if (loadingData.current) return;
     loadingData.current = true;
     setLoading(true);
 
+    // 1. Show cached alarms immediately — no network needed
+    const cached = getCachedAlarms();
+    if (cached.length > 0) {
+      setAlarms(cached);
+      syncAllAlarms(cached);
+    }
+
+    // 2. Flush any offline writes before fetching (best-effort)
+    try { await flushPendingOps(); } catch {}
+
+    // 3. Fetch from Supabase — source of truth when online
     const [profileResult, alarmsResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
       supabase.from('alarms').select('*').eq('user_id', userId).order('created_at'),
     ]);
 
     if (profileResult.error) console.error('Profile fetch error:', profileResult.error);
-    if (alarmsResult.error) console.error('Alarms fetch error:', alarmsResult.error);
+    if (alarmsResult.error)  console.error('Alarms fetch error:', alarmsResult.error);
 
     if (profileResult.data) setUser(rowToUser(profileResult.data));
 
     if (alarmsResult.data) {
       const mapped = alarmsResult.data.map(rowToAlarm);
+      setCachedAlarms(mapped);
       setAlarms(mapped);
       syncAllAlarms(mapped);
-      checkAndRequestAlarmPermissions(); // request missing alarm permissions once per install
+      checkAndRequestAlarmPermissions();
 
       // Cold-start: check if an alarm fired while the app was closed
       const pendingAlarmId = await getPendingAlarm();
@@ -351,7 +406,6 @@ export function AppProvider({ children }) {
     }
 
     refreshWakeStats(userId);
-
     loadingData.current = false;
     setLoading(false);
   }
@@ -422,6 +476,9 @@ export function AppProvider({ children }) {
   }
 
   async function signOut() {
+    try { await flushPendingOps(); } catch {}
+    setCachedAlarms([]);
+    clearPendingOps();
     await supabase.auth.signOut();
     setShowAuthDirectly(false);
   }
@@ -447,43 +504,84 @@ export function AppProvider({ children }) {
   // ─── Alarm actions ──────────────────────────────────────────────────────────
 
   async function addAlarm(alarm) {
-    const { data, error } = await supabase
-      .from('alarms')
-      .insert({
-        user_id: session.user.id,
-        label: alarm.label || 'Alarm',
-        time: alarm.time,
-        pulse: { ...(alarm.pulse ?? {}), sound: alarm.sound || 'classic' },
-        active: true,
-        days: alarm.days || [],
-      })
-      .select()
-      .single();
+    const localId = crypto.randomUUID();
+    const payload = {
+      id:     localId,
+      userId: session.user.id,
+      label:  alarm.label || 'Alarm',
+      time:   alarm.time,
+      pulse:  { ...(alarm.pulse ?? {}), sound: alarm.sound || 'classic' },
+      active: true,
+      days:   alarm.days || [],
+    };
+    const localAlarm = {
+      id:     localId,
+      label:  payload.label,
+      time:   payload.time,
+      sound:  payload.pulse.sound,
+      pulse:  payload.pulse,
+      active: true,
+      days:   payload.days,
+    };
 
-    if (error) {
-      console.error('Failed to save alarm:', JSON.stringify(error));
-      return;
+    // 1. Write locally + schedule notification immediately
+    const next = [...alarmsRef.current, localAlarm];
+    setCachedAlarms(next);
+    setAlarms(next);
+    scheduleAlarm(localAlarm);
+
+    // 2. Sync to Supabase
+    try {
+      const { error } = await supabase.from('alarms').insert({
+        id:      localId,
+        user_id: payload.userId,
+        label:   payload.label,
+        time:    payload.time,
+        pulse:   payload.pulse,
+        active:  payload.active,
+        days:    payload.days,
+      });
+      if (error) throw error;
+    } catch {
+      addPendingOp({ type: 'add', payload });
     }
-    const newAlarm = rowToAlarm(data);
-    setAlarms(prev => [...prev, newAlarm]);
-    scheduleAlarm(newAlarm);
   }
 
   async function toggleAlarm(id) {
     const alarm = alarmsRef.current.find(a => a.id === id);
     if (!alarm) return;
     const newActive = !alarm.active;
-    // Update UI instantly, sync to DB in background
-    setAlarms(prev => prev.map(a => a.id === id ? { ...a, active: newActive } : a));
+
+    // 1. Update state + cache immediately
+    const next = alarmsRef.current.map(a => a.id === id ? { ...a, active: newActive } : a);
+    setCachedAlarms(next);
+    setAlarms(next);
     if (newActive) scheduleAlarm({ ...alarm, active: newActive });
     else cancelAlarmNotifications(id);
-    supabase.from('alarms').update({ active: newActive }).eq('id', id);
+
+    // 2. Sync to Supabase
+    try {
+      const { error } = await supabase.from('alarms').update({ active: newActive }).eq('id', id);
+      if (error) throw error;
+    } catch {
+      addPendingOp({ type: 'toggle', payload: { id, active: newActive } });
+    }
   }
 
   async function deleteAlarm(id) {
-    await supabase.from('alarms').delete().eq('id', id);
-    setAlarms(prev => prev.filter(a => a.id !== id));
+    // 1. Remove from state + cache immediately
+    const next = alarmsRef.current.filter(a => a.id !== id);
+    setCachedAlarms(next);
+    setAlarms(next);
     cancelAlarmNotifications(id);
+
+    // 2. Sync to Supabase
+    try {
+      const { error } = await supabase.from('alarms').delete().eq('id', id);
+      if (error) throw error;
+    } catch {
+      addPendingOp({ type: 'delete', payload: { id } });
+    }
   }
 
   async function editAlarm(id, updates) {
@@ -493,22 +591,34 @@ export function AppProvider({ children }) {
     if (updates.active !== undefined) dbUpdates.active = updates.active;
     if (updates.days   !== undefined) dbUpdates.days   = normalizeAlarmDays(updates.days);
     if (updates.pulse  !== undefined || updates.sound !== undefined) {
-      const existing = alarms.find(a => a.id === id);
+      const existing = alarmsRef.current.find(a => a.id === id);
       const basePulse = updates.pulse ?? existing?.pulse ?? {};
       dbUpdates.pulse = { ...basePulse, sound: updates.sound ?? existing?.sound ?? 'classic' };
     }
 
-    await supabase.from('alarms').update(dbUpdates).eq('id', id);
-    setAlarms(prev => {
-      const normalizedUpdates = {
-        ...updates,
-        ...(updates.days !== undefined ? { days: normalizeAlarmDays(updates.days) } : {}),
-      };
-      const updated = prev.map(a => a.id === id ? { ...a, ...normalizedUpdates } : a);
-      const alarm = updated.find(a => a.id === id);
-      if (alarm) scheduleAlarm(alarm);
-      return updated;
-    });
+    // 1. Update state + cache immediately
+    const existing = alarmsRef.current.find(a => a.id === id);
+    const normalizedUpdates = {
+      ...updates,
+      ...(updates.days !== undefined ? { days: normalizeAlarmDays(updates.days) } : {}),
+      ...(updates.pulse !== undefined || updates.sound !== undefined ? {
+        sound: updates.sound ?? existing?.sound ?? 'classic',
+        pulse: { ...(updates.pulse ?? existing?.pulse ?? {}), sound: updates.sound ?? existing?.sound ?? 'classic' },
+      } : {}),
+    };
+    const next = alarmsRef.current.map(a => a.id === id ? { ...a, ...normalizedUpdates } : a);
+    const updatedAlarm = next.find(a => a.id === id);
+    setCachedAlarms(next);
+    setAlarms(next);
+    if (updatedAlarm) scheduleAlarm(updatedAlarm);
+
+    // 2. Sync to Supabase
+    try {
+      const { error } = await supabase.from('alarms').update(dbUpdates).eq('id', id);
+      if (error) throw error;
+    } catch {
+      addPendingOp({ type: 'edit', payload: { id, updates: dbUpdates } });
+    }
   }
 
   // ─── User / profile actions ─────────────────────────────────────────────────
@@ -540,6 +650,8 @@ export function AppProvider({ children }) {
   async function resetAll() {
     const userId = session.user.id;
     localStorage.removeItem('mm_profile_icon');
+    setCachedAlarms([]);
+    clearPendingOps();
     await Promise.all([
       supabase.from('profiles').update({
         name: '',
