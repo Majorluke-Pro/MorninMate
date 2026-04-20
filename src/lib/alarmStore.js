@@ -25,5 +25,6 @@ export function addPendingOp(op) {
 }
 
 export function clearPendingOps() {
-  localStorage.removeItem(OPS_KEY);
+  try { localStorage.removeItem(OPS_KEY); }
+  catch {}
 }
