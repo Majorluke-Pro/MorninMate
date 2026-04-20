@@ -115,7 +115,6 @@ export default function MathGame({ difficulty = 'normal', onComplete, onFail, on
   }
 
   const timerPct   = (timeLeft / totalTime) * 100;
-  const timerColor = timerPct > 50 ? 'success' : timerPct > 25 ? 'warning' : 'error';
   const timerColorHex = timerPct > 50 ? '#06D6A0' : timerPct > 25 ? '#FFB703' : '#EF476F';
   const q = questions[current];
 

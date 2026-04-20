@@ -4,6 +4,10 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  cacheDir: '.vite-dev-cache',
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
   base: './',
   build: {
     outDir: 'dist',

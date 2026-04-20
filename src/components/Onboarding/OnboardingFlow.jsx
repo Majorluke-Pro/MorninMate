@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Box, Typography, Button, TextField, IconButton, CircularProgress, Alert } from '@mui/material';
+import { motion, AnimatePresence } from '../../lib/motion-lite';
+import { Box, Typography, Button, TextField, IconButton, CircularProgress, Alert } from '../../lib/ui-lite';
 import ArrowBackIcon     from '@mui/icons-material/ArrowBack';
 import WbSunnyIcon       from '@mui/icons-material/WbSunny';
 import KeyboardArrowUpIcon   from '@mui/icons-material/KeyboardArrowUp';
