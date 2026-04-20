@@ -334,7 +334,7 @@ export function AppProvider({ children }) {
     for (const op of ops) {
       try {
         if (op.type === 'add') {
-          await supabase.from('alarms').upsert({
+          const { error } = await supabase.from('alarms').upsert({
             id:       op.payload.id,
             user_id:  op.payload.userId,
             label:    op.payload.label,
@@ -343,12 +343,16 @@ export function AppProvider({ children }) {
             active:   op.payload.active,
             days:     op.payload.days,
           });
+          if (error) return;
         } else if (op.type === 'toggle') {
-          await supabase.from('alarms').update({ active: op.payload.active }).eq('id', op.payload.id);
+          const { error } = await supabase.from('alarms').update({ active: op.payload.active }).eq('id', op.payload.id);
+          if (error) return;
         } else if (op.type === 'delete') {
-          await supabase.from('alarms').delete().eq('id', op.payload.id);
+          const { error } = await supabase.from('alarms').delete().eq('id', op.payload.id);
+          if (error) return;
         } else if (op.type === 'edit') {
-          await supabase.from('alarms').update(op.payload.updates).eq('id', op.payload.id);
+          const { error } = await supabase.from('alarms').update(op.payload.updates).eq('id', op.payload.id);
+          if (error) return;
         }
       } catch {
         // Still offline — leave ops in queue, abort flush
@@ -597,9 +601,14 @@ export function AppProvider({ children }) {
 
     // 1. Update state + cache immediately
     setAlarms(prev => {
+      const existing = alarmsRef.current.find(a => a.id === id);
       const normalizedUpdates = {
         ...updates,
         ...(updates.days !== undefined ? { days: normalizeAlarmDays(updates.days) } : {}),
+        ...(updates.pulse !== undefined || updates.sound !== undefined ? {
+          sound: updates.sound ?? existing?.sound ?? 'classic',
+          pulse: { ...(updates.pulse ?? existing?.pulse ?? {}), sound: updates.sound ?? existing?.sound ?? 'classic' },
+        } : {}),
       };
       const next = prev.map(a => a.id === id ? { ...a, ...normalizedUpdates } : a);
       setCachedAlarms(next);
