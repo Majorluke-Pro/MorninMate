@@ -33,7 +33,7 @@ export default function TimePicker({ value, onChange }) {
   const minuteDisplayTick = minuteTick === 60 ? 0 : minuteTick;
 
   const [mode, setMode] = useState('hour');
-  const [editingPart, setEditingPart] = useState(null); // 'hour' | 'minute' | null
+  const [editingPart, setEditingPart] = useState(null);
   const [draft, setDraft] = useState('');
   const inputRef = useRef(null);
   const [dragAngle, setDragAngle] = useState(null);
@@ -64,7 +64,7 @@ export default function TimePicker({ value, onChange }) {
       onChange(`${String(h24new).padStart(2,'0')}:${String(Number.isInteger(m) ? m : 0).padStart(2,'0')}`);
     } else {
       const min = MINUTES[tickIdx];
-      onChange(`${String(Number.isInteger(h24) ? h24 : 0).padStart(2,'0')}:${String(min).padStart(2,'0')}`);
+      onChange(`${String(Number.isInteger(h24) ? h24 : 0).padStart(2,'00')}:${String(min).padStart(2,'0')}`);
     }
   }
 
@@ -109,7 +109,7 @@ export default function TimePicker({ value, onChange }) {
     setMode(part);
     setEditingPart(part);
     setDraft(part === 'hour'
-      ? (hour12 == null ? '' : String(hour12))
+      ? (hour12 == null ? '' : String(hour12).padStart(2, '0'))
       : (m == null ? '' : String(m).padStart(2, '0'))
     );
   }
@@ -117,15 +117,27 @@ export default function TimePicker({ value, onChange }) {
   function commitEdit() {
     const n = Number(draft.trim());
     if (editingPart === 'hour') {
-      if (!Number.isInteger(n) || n < 1 || n > 12) { setEditingPart(null); return; }
-      const h24new = isPM ? (n % 12) + 12 : n % 12;
-      onChange(`${String(h24new).padStart(2,'0')}:${String(Number.isInteger(m) ? m : 0).padStart(2,'0')}`);
+      if (Number.isInteger(n) && n >= 1 && n <= 12) {
+        const h24new = isPM ? (n % 12) + 12 : n % 12;
+        onChange(`${String(h24new).padStart(2,'0')}:${String(Number.isInteger(m) ? m : 0).padStart(2,'0')}`);
+      }
     } else {
-      if (!Number.isInteger(n) || n < 0 || n > 59) { setEditingPart(null); return; }
-      onChange(`${String(Number.isInteger(h24) ? h24 : 0).padStart(2,'0')}:${String(n).padStart(2,'0')}`);
+      if (Number.isInteger(n) && n >= 0 && n <= 59) {
+        onChange(`${String(Number.isInteger(h24) ? h24 : 0).padStart(2,'0')}:${String(n).padStart(2,'0')}`);
+      }
     }
     setEditingPart(null);
   }
+
+  const boxStyle = (active) => ({
+    minWidth: 78, padding: '4px 8px',
+    background: active ? 'rgba(255,107,53,0.15)' : 'transparent',
+    border: active ? '2px solid rgba(255,107,53,0.35)' : '2px solid transparent',
+    borderRadius: 12,
+    fontWeight: 900, fontSize: '3rem', fontVariantNumeric: 'tabular-nums',
+    textAlign: 'center', lineHeight: 1.1,
+    transition: 'background 0.15s, border-color 0.15s',
+  });
 
   return (
     <div className="py-4 px-3">
@@ -133,39 +145,65 @@ export default function TimePicker({ value, onChange }) {
       {/* Time display */}
       <div className="flex items-center justify-center gap-1 mb-5">
 
-        {/* Hour button */}
-        <button
-          onClick={() => openEdit('hour')}
-          className="rounded-xl transition-all touch-manipulation leading-none"
-          style={{
-            minWidth: 78, padding: '4px 8px',
-            background: mode === 'hour' ? 'rgba(255,107,53,0.15)' : 'transparent',
-            color: !hasValue ? 'rgba(255,255,255,0.28)' : mode === 'hour' ? '#FF6B35' : 'rgba(255,255,255,0.6)',
-            fontWeight: 900, fontSize: '3rem', fontVariantNumeric: 'tabular-nums',
-            border: mode === 'hour' ? '2px solid rgba(255,107,53,0.3)' : '2px solid transparent',
-            cursor: 'pointer', textAlign: 'center',
-          }}
-        >
-          {hour12 == null ? '--' : String(hour12).padStart(2, '0')}
-        </button>
+        {/* Hour */}
+        <div style={{ ...boxStyle(mode === 'hour'), color: !hasValue ? 'rgba(255,255,255,0.28)' : mode === 'hour' ? '#FF6B35' : 'rgba(255,255,255,0.6)' }}>
+          {editingPart === 'hour' ? (
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="numeric"
+              maxLength={2}
+              value={draft}
+              onChange={e => setDraft(e.target.value.replace(/\D/g, '').slice(0, 2))}
+              onBlur={commitEdit}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commitEdit(); } if (e.key === 'Escape') setEditingPart(null); }}
+              style={{
+                width: '100%', background: 'transparent', border: 'none', outline: 'none',
+                color: '#FF6B35', fontWeight: 900, fontSize: '3rem',
+                fontVariantNumeric: 'tabular-nums', textAlign: 'center',
+                padding: 0, caretColor: '#FF6B35',
+              }}
+            />
+          ) : (
+            <button
+              onClick={() => openEdit('hour')}
+              style={{ background: 'none', border: 'none', color: 'inherit', fontWeight: 'inherit', fontSize: 'inherit', fontVariantNumeric: 'inherit', cursor: 'pointer', width: '100%', textAlign: 'center', padding: 0 }}
+            >
+              {hour12 == null ? '--' : String(hour12).padStart(2, '0')}
+            </button>
+          )}
+        </div>
 
         <span style={{ fontWeight: 900, fontSize: '3rem', lineHeight: 1, color: 'rgba(255,255,255,0.25)', marginBottom: 4 }}>:</span>
 
-        {/* Minute button */}
-        <button
-          onClick={() => openEdit('minute')}
-          className="rounded-xl transition-all touch-manipulation leading-none"
-          style={{
-            minWidth: 78, padding: '4px 8px',
-            background: mode === 'minute' ? 'rgba(255,107,53,0.15)' : 'transparent',
-            color: !hasValue ? 'rgba(255,255,255,0.28)' : mode === 'minute' ? '#FF6B35' : 'rgba(255,255,255,0.6)',
-            fontWeight: 900, fontSize: '3rem', fontVariantNumeric: 'tabular-nums',
-            border: mode === 'minute' ? '2px solid rgba(255,107,53,0.3)' : '2px solid transparent',
-            cursor: 'pointer', textAlign: 'center',
-          }}
-        >
-          {m == null ? '--' : String(m).padStart(2, '0')}
-        </button>
+        {/* Minute */}
+        <div style={{ ...boxStyle(mode === 'minute'), color: !hasValue ? 'rgba(255,255,255,0.28)' : mode === 'minute' ? '#FF6B35' : 'rgba(255,255,255,0.6)' }}>
+          {editingPart === 'minute' ? (
+            <input
+              ref={inputRef}
+              type="text"
+              inputMode="numeric"
+              maxLength={2}
+              value={draft}
+              onChange={e => setDraft(e.target.value.replace(/\D/g, '').slice(0, 2))}
+              onBlur={commitEdit}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commitEdit(); } if (e.key === 'Escape') setEditingPart(null); }}
+              style={{
+                width: '100%', background: 'transparent', border: 'none', outline: 'none',
+                color: '#FF6B35', fontWeight: 900, fontSize: '3rem',
+                fontVariantNumeric: 'tabular-nums', textAlign: 'center',
+                padding: 0, caretColor: '#FF6B35',
+              }}
+            />
+          ) : (
+            <button
+              onClick={() => openEdit('minute')}
+              style={{ background: 'none', border: 'none', color: 'inherit', fontWeight: 'inherit', fontSize: 'inherit', fontVariantNumeric: 'inherit', cursor: 'pointer', width: '100%', textAlign: 'center', padding: 0 }}
+            >
+              {m == null ? '--' : String(m).padStart(2, '0')}
+            </button>
+          )}
+        </div>
 
         {/* AM / PM */}
         <div className="flex flex-col ml-1" style={{ gap: 6 }}>
@@ -232,86 +270,6 @@ export default function TimePicker({ value, onChange }) {
       <p className="text-center" style={{ color: 'rgba(255,255,255,0.25)', letterSpacing: '1.5px', fontSize: '0.6rem', margin: '0.75rem 0 0' }}>
         {mode === 'hour' ? 'TAP TO SET HOUR' : 'TAP TO SET MINUTE'}
       </p>
-
-      {/* Manual entry modal */}
-      {editingPart && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 60,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(0,0,0,0.65)',
-            backdropFilter: 'blur(4px)',
-            padding: '0 1.5rem',
-          }}
-          onClick={() => setEditingPart(null)}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: '100%', maxWidth: 280,
-              background: '#1A1A2E',
-              border: '1.5px solid rgba(255,107,53,0.25)',
-              borderRadius: '1.125rem',
-              padding: '1.5rem',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
-            }}
-          >
-            <p style={{ fontWeight: 700, fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', margin: '0 0 0.875rem', textAlign: 'center' }}>
-              {editingPart === 'hour' ? 'Enter hour (1–12)' : 'Enter minute (0–59)'}
-            </p>
-            <input
-              ref={inputRef}
-              type="text"
-              inputMode="numeric"
-              maxLength={2}
-              value={draft}
-              onChange={e => setDraft(e.target.value.replace(/\D/g, '').slice(0, 2))}
-              onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingPart(null); }}
-              style={{
-                display: 'block', width: '100%', textAlign: 'center',
-                background: 'rgba(255,255,255,0.07)',
-                border: '2px solid rgba(255,107,53,0.35)',
-                borderRadius: '0.75rem',
-                color: '#FF6B35', fontWeight: 900, fontSize: '2.5rem',
-                fontVariantNumeric: 'tabular-nums',
-                padding: '0.5rem 0', marginBottom: '1rem',
-                outline: 'none',
-                caretColor: '#FF6B35',
-              }}
-            />
-            <div style={{ display: 'flex', gap: '0.625rem' }}>
-              <button
-                onClick={() => setEditingPart(null)}
-                style={{
-                  flex: 1, padding: '0.7rem',
-                  borderRadius: '0.625rem',
-                  fontWeight: 700, fontSize: '0.9rem',
-                  background: 'rgba(255,255,255,0.07)',
-                  border: '1.5px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.55)',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={commitEdit}
-                style={{
-                  flex: 1, padding: '0.7rem',
-                  borderRadius: '0.625rem',
-                  fontWeight: 800, fontSize: '0.9rem',
-                  background: 'linear-gradient(135deg, #FF6B35 0%, #FF8C5A 100%)',
-                  border: 'none', color: '#fff',
-                  cursor: 'pointer',
-                  boxShadow: '0 6px 20px rgba(255,107,53,0.35)',
-                }}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );
