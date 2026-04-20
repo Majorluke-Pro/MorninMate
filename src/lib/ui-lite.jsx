@@ -130,6 +130,10 @@ export const Typography = forwardRef(function Typography({
   textAlign,
   sx,
   style,
+  noWrap: _noWrap,
+  gutterBottom: _gutterBottom,
+  paragraph: _paragraph,
+  display: _display,
   ...props
 }, ref) {
   const Component = component ?? VARIANT_ELEMENTS[variant] ?? 'p';
