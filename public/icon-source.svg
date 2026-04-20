@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Background circle -->
+  <rect width="1024" height="1024" rx="220" fill="#FF6B35"/>
+
+  <!-- Outer ears (gray, fluffy) -->
+  <ellipse cx="210" cy="310" rx="145" ry="155" fill="#B0B0B0"/>
+  <ellipse cx="814" cy="310" rx="145" ry="155" fill="#B0B0B0"/>
+
+  <!-- Inner ear pink -->
+  <ellipse cx="210" cy="318" rx="90" ry="98" fill="#E8A0A8"/>
+  <ellipse cx="814" cy="318" rx="90" ry="98" fill="#E8A0A8"/>
+
+  <!-- Head -->
+  <ellipse cx="512" cy="560" rx="310" ry="295" fill="#C8C8C8"/>
+
+  <!-- Forehead fluff highlight -->
+  <ellipse cx="512" cy="310" rx="220" ry="130" fill="#D8D8D8"/>
+
+  <!-- Eyes whites -->
+  <ellipse cx="400" cy="490" rx="68" ry="72" fill="white"/>
+  <ellipse cx="624" cy="490" rx="68" ry="72" fill="white"/>
+
+  <!-- Pupils -->
+  <ellipse cx="408" cy="496" rx="42" ry="48" fill="#1A1A2E"/>
+  <ellipse cx="632" cy="496" rx="42" ry="48" fill="#1A1A2E"/>
+
+  <!-- Eye shine -->
+  <ellipse cx="422" cy="478" rx="13" ry="15" fill="white"/>
+  <ellipse cx="646" cy="478" rx="13" ry="15" fill="white"/>
+
+  <!-- Nose (big koala nose) -->
+  <ellipse cx="512" cy="596" rx="72" ry="56" fill="#2A2A2A"/>
+  <!-- Nose highlight -->
+  <ellipse cx="496" cy="584" rx="18" ry="12" fill="#555"/>
+
+  <!-- Smile -->
+  <path d="M438 660 Q512 720 586 660" stroke="#2A2A2A" stroke-width="14" fill="none" stroke-linecap="round"/>
+
+  <!-- Cheek blushes -->
+  <ellipse cx="330" cy="620" rx="52" ry="32" fill="#FF9E88" opacity="0.5"/>
+  <ellipse cx="694" cy="620" rx="52" ry="32" fill="#FF9E88" opacity="0.5"/>
+
+  <!-- Small sun detail top-right (morning theme) -->
+  <circle cx="820" cy="160" r="38" fill="#FFD166"/>
+  <line x1="820" y1="108" x2="820" y2="90" stroke="#FFD166" stroke-width="8" stroke-linecap="round"/>
+  <line x1="820" y1="212" x2="820" y2="230" stroke="#FFD166" stroke-width="8" stroke-linecap="round"/>
+  <line x1="768" y1="160" x2="750" y2="160" stroke="#FFD166" stroke-width="8" stroke-linecap="round"/>
+  <line x1="872" y1="160" x2="890" y2="160" stroke="#FFD166" stroke-width="8" stroke-linecap="round"/>
+  <line x1="784" y1="124" x2="771" y2="111" stroke="#FFD166" stroke-width="8" stroke-linecap="round"/>
+  <line x1="856" y1="196" x2="869" y2="209" stroke="#FFD166" stroke-width="8" stroke-linecap="round"/>
+  <line x1="856" y1="124" x2="869" y2="111" stroke="#FFD166" stroke-width="8" stroke-linecap="round"/>
+  <line x1="784" y1="196" x2="771" y2="209" stroke="#FFD166" stroke-width="8" stroke-linecap="round"/>
+</svg>
