@@ -620,42 +620,80 @@ export default function CreateAlarm() {
       {/* Hardcore Warning Dialog */}
       {hardcoreWarningOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(6px)',
+            padding: '0 1.25rem',
+          }}
           onClick={() => setHardcoreWarningOpen(false)}
         >
           <div
-            className="bg-card rounded-t-3xl w-full max-w-[480px] p-6"
             onClick={e => e.stopPropagation()}
             style={{
-              background: '#1A0808',
-              border: '1.5px solid rgba(239,28,28,0.4)',
-              borderRadius: '1rem',
-              margin: '0 0.5rem',
+              width: '100%',
+              maxWidth: 400,
+              background: 'linear-gradient(160deg, #1C0606 0%, #220A0A 100%)',
+              border: '1.5px solid rgba(239,28,28,0.3)',
+              borderRadius: '1.375rem',
+              padding: '1.75rem 1.5rem 1.5rem',
+              boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(239,28,28,0.08)',
             }}
           >
-            <h3 className="text-lg font-bold mb-4" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', paddingBottom: '0.25rem' }}>
-              <LocalFireDepartmentIcon style={{ color: '#EF1C1C', fontSize: '1.8rem' }} />
-              <span style={{ fontWeight: 900, fontSize: '1.15rem' }}>Are you sure?</span>
-            </h3>
-            <div className="mb-4">
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.7 }}>
-                <strong style={{ color: '#EF1C1C' }}>Hardcore Mode</strong> forces{' '}
-                <strong>maximum volume</strong> and locks your phone to this app until all 3 games
-                are completed. There is <strong>no way out</strong>.
-              </p>
+            {/* Icon */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%',
+                background: 'rgba(239,28,28,0.12)',
+                border: '2px solid rgba(239,28,28,0.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <LocalFireDepartmentIcon style={{ color: '#EF1C1C', fontSize: '2rem' }} />
+              </div>
             </div>
-            <div className="flex gap-3 justify-end mt-4">
+
+            {/* Title */}
+            <p style={{ fontWeight: 900, fontSize: '1.25rem', color: '#fff', textAlign: 'center', margin: '0 0 0.75rem' }}>
+              Are you sure?
+            </p>
+
+            {/* Body */}
+            <p style={{ color: 'rgba(255,255,255,0.55)', lineHeight: 1.75, textAlign: 'center', fontSize: '0.875rem', margin: '0 0 1.5rem' }}>
+              <strong style={{ color: '#EF4444' }}>Hardcore Mode</strong> forces{' '}
+              <strong style={{ color: '#fff' }}>maximum volume</strong> and locks your phone
+              to this app until all 3 games are completed. There is{' '}
+              <strong style={{ color: '#EF4444' }}>no way out</strong>.
+            </p>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button
-                className="btn-outline"
                 onClick={() => setHardcoreWarningOpen(false)}
-                style={{ borderColor: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)', borderRadius: '0.5rem' }}
+                style={{
+                  flex: 1, padding: '0.8rem',
+                  borderRadius: '0.75rem',
+                  fontWeight: 700, fontSize: '0.95rem',
+                  background: 'rgba(255,255,255,0.07)',
+                  border: '1.5px solid rgba(255,255,255,0.12)',
+                  color: 'rgba(255,255,255,0.6)',
+                  cursor: 'pointer',
+                }}
               >
                 Cancel
               </button>
               <button
-                className="btn-primary"
                 onClick={() => { setIntensity('hardcore'); setHardcoreWarningOpen(false); }}
-                style={{ background: '#EF1C1C', borderRadius: '0.5rem', fontWeight: 800 }}
+                style={{
+                  flex: 1, padding: '0.8rem',
+                  borderRadius: '0.75rem',
+                  fontWeight: 800, fontSize: '0.95rem',
+                  background: 'linear-gradient(135deg, #EF1C1C 0%, #B01010 100%)',
+                  border: 'none',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  boxShadow: '0 8px 24px rgba(239,28,28,0.4)',
+                }}
               >
                 Lock It In
               </button>

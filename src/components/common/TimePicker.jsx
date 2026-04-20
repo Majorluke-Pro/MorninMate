@@ -5,7 +5,7 @@ const CENTER  = SIZE / 2;
 const RADIUS  = 92;
 const HOURS   = [12,1,2,3,4,5,6,7,8,9,10,11];
 const MINUTES = [0,5,10,15,20,25,30,35,40,45,50,55];
-const STEP_DEG = 30; // 12 ticks around circle
+const STEP_DEG = 30;
 
 function itemPos(index) {
   const angle = (index * 30 - 90) * (Math.PI / 180);
@@ -17,7 +17,7 @@ function normAngle(angle) {
 }
 
 function angleToTickFloat(angle) {
-  return normAngle(angle) / STEP_DEG; // 0..12
+  return normAngle(angle) / STEP_DEG;
 }
 
 function angleToHandPos(angleDeg) {
@@ -39,13 +39,10 @@ export default function TimePicker({ value, onChange }) {
   const minuteTick = Number.isInteger(m) ? Math.round(m / 5) * 5 : null;
   const minuteDisplayTick = minuteTick === 60 ? 0 : minuteTick;
   const [mode, setMode] = useState('hour');
-  const [editingPart, setEditingPart] = useState(null);
-  const [draftValue, setDraftValue] = useState('');
-  const [dragAngle, setDragAngle] = useState(null); // degrees, null when not dragging
+  const [dragAngle, setDragAngle] = useState(null);
   const dragAngleRef = useRef(null);
   const draggingRef = useRef(false);
   const rafRef = useRef(0);
-  const inputRef = useRef(null);
 
   useEffect(() => {
     return () => {
@@ -53,14 +50,6 @@ export default function TimePicker({ value, onChange }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (editingPart && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [editingPart]);
-
-  // selected index on the clock face
   const selIdx = !hasValue
     ? 0
     : mode === 'hour'
@@ -84,7 +73,6 @@ export default function TimePicker({ value, onChange }) {
   }
 
   function handlePointerDown(e) {
-    // Smooth drag: move hand continuously, snap once on release.
     e.preventDefault();
     e.currentTarget.setPointerCapture?.(e.pointerId);
     const rect = e.currentTarget.getBoundingClientRect();
@@ -112,7 +100,6 @@ export default function TimePicker({ value, onChange }) {
     draggingRef.current = false;
     const finalAngle = dragAngleRef.current ?? dragAngle;
     setDragAngle(null);
-
     const tick = (Math.round(angleToTickFloat(finalAngle)) + 12) % 12;
     commitTick(tick);
     if (mode === 'hour') setMode('minute');
@@ -124,139 +111,83 @@ export default function TimePicker({ value, onChange }) {
     onChange(`${String(nh).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
   }
 
-  function startManualEdit(part) {
-    setMode(part);
-    setEditingPart(part);
-    setDraftValue(
-      part === 'hour'
-        ? hour12 == null ? '' : String(hour12).padStart(2, '0')
-        : m == null ? '' : String(m).padStart(2, '0')
-    );
-  }
-
-  function commitManualEdit() {
-    if (!editingPart) return;
-
-    const trimmed = draftValue.trim();
-    if (trimmed === '') {
-      setEditingPart(null);
-      return;
-    }
-
-    if (editingPart === 'hour') {
-      const parsedHour = Number(trimmed);
-      if (!Number.isInteger(parsedHour) || parsedHour < 1 || parsedHour > 12) return;
-      const nextHour24 = isPM ? (parsedHour % 12) + 12 : parsedHour % 12;
-      const nextMinute = Number.isInteger(m) ? m : 0;
-      onChange(`${String(nextHour24).padStart(2, '0')}:${String(nextMinute).padStart(2, '0')}`);
-    } else {
-      const parsedMinute = Number(trimmed);
-      if (!Number.isInteger(parsedMinute) || parsedMinute < 0 || parsedMinute > 59) return;
-      const nextHour24 = Number.isInteger(h24) ? h24 : 0;
-      onChange(`${String(nextHour24).padStart(2, '0')}:${String(parsedMinute).padStart(2, '0')}`);
-    }
-
-    setEditingPart(null);
-  }
-
-  function cancelManualEdit() {
-    setEditingPart(null);
-    setDraftValue('');
-  }
-
-  function handleManualKeyDown(e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      commitManualEdit();
-    }
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      cancelManualEdit();
-    }
-  }
-
   return (
     <div className="py-4 px-3">
 
       {/* Time display */}
       <div className="flex items-center justify-center gap-1 mb-5">
-        <div
-          onClick={() => startManualEdit('hour')}
-          className="px-3 py-1 rounded-lg cursor-pointer leading-none transition-all min-w-[78px] text-center"
+
+        {/* Hour */}
+        <button
+          onClick={() => setMode('hour')}
+          className="rounded-xl transition-all touch-manipulation leading-none"
           style={{
-            background: mode === 'hour' ? 'rgba(255,107,53,0.18)' : 'transparent',
-            color: !hasValue ? 'rgba(255,255,255,0.28)' : mode === 'hour' ? '#FF6B35' : 'rgba(255,255,255,0.45)',
+            minWidth: 78,
+            padding: '4px 8px',
+            background: mode === 'hour' ? 'rgba(255,107,53,0.15)' : 'transparent',
+            color: !hasValue ? 'rgba(255,255,255,0.28)' : mode === 'hour' ? '#FF6B35' : 'rgba(255,255,255,0.6)',
             fontWeight: 900,
             fontSize: '3rem',
             fontVariantNumeric: 'tabular-nums',
+            border: mode === 'hour' ? '2px solid rgba(255,107,53,0.3)' : '2px solid transparent',
+            cursor: 'pointer',
+            textAlign: 'center',
           }}
         >
-          {editingPart === 'hour' ? (
-            <input
-              ref={inputRef}
-              value={draftValue}
-              onChange={e => setDraftValue(e.target.value.replace(/\D/g, '').slice(0, 2))}
-              onBlur={commitManualEdit}
-              onKeyDown={handleManualKeyDown}
-              inputMode="numeric"
-              maxLength={2}
-              className="w-12 bg-transparent text-center outline-none"
-              style={{ color: '#FF6B35', fontWeight: 900, fontSize: '3rem', padding: 0 }}
-            />
-          ) : (
-            hour12 == null ? '--' : String(hour12).padStart(2, '0')
-          )}
-        </div>
+          {hour12 == null ? '--' : String(hour12).padStart(2, '0')}
+        </button>
 
         <span style={{ fontWeight: 900, fontSize: '3rem', lineHeight: 1, color: 'rgba(255,255,255,0.25)', marginBottom: 4 }}>:</span>
 
-        <div
-          onClick={() => startManualEdit('minute')}
-          className="px-3 py-1 rounded-lg cursor-pointer leading-none transition-all min-w-[78px] text-center"
+        {/* Minute */}
+        <button
+          onClick={() => setMode('minute')}
+          className="rounded-xl transition-all touch-manipulation leading-none"
           style={{
-            background: mode === 'minute' ? 'rgba(255,107,53,0.18)' : 'transparent',
-            color: !hasValue ? 'rgba(255,255,255,0.28)' : mode === 'minute' ? '#FF6B35' : 'rgba(255,255,255,0.45)',
+            minWidth: 78,
+            padding: '4px 8px',
+            background: mode === 'minute' ? 'rgba(255,107,53,0.15)' : 'transparent',
+            color: !hasValue ? 'rgba(255,255,255,0.28)' : mode === 'minute' ? '#FF6B35' : 'rgba(255,255,255,0.6)',
             fontWeight: 900,
             fontSize: '3rem',
             fontVariantNumeric: 'tabular-nums',
+            border: mode === 'minute' ? '2px solid rgba(255,107,53,0.3)' : '2px solid transparent',
+            cursor: 'pointer',
+            textAlign: 'center',
           }}
         >
-          {editingPart === 'minute' ? (
-            <input
-              ref={inputRef}
-              value={draftValue}
-              onChange={e => setDraftValue(e.target.value.replace(/\D/g, '').slice(0, 2))}
-              onBlur={commitManualEdit}
-              onKeyDown={handleManualKeyDown}
-              inputMode="numeric"
-              maxLength={2}
-              className="w-12 bg-transparent text-center outline-none"
-              style={{ color: '#FF6B35', fontWeight: 900, fontSize: '3rem', padding: 0 }}
-            />
-          ) : (
-            m == null ? '--' : String(m).padStart(2, '0')
-          )}
-        </div>
+          {m == null ? '--' : String(m).padStart(2, '0')}
+        </button>
 
         {/* AM / PM */}
-        <div className="flex flex-col gap-1.5 ml-2">
+        <div className="flex flex-col ml-1" style={{ gap: 6 }}>
           {['AM', 'PM'].map(p => {
-            const active = (p === 'PM') === isPM;
+            const active = (p === 'PM') === isPM && hasValue;
             return (
-              <div
+              <button
                 key={p}
-                onClick={() => !active && togglePeriod()}
-                className="px-3 py-1 rounded-full select-none transition-all"
+                onClick={() => hasValue && togglePeriod()}
                 style={{
+                  width: 46,
+                  padding: '7px 0',
+                  borderRadius: 10,
+                  fontWeight: 800,
+                  fontSize: '0.8rem',
+                  letterSpacing: '0.05em',
+                  border: active
+                    ? '2px solid rgba(255,107,53,0.5)'
+                    : '2px solid rgba(255,255,255,0.1)',
+                  background: active
+                    ? 'rgba(255,107,53,0.18)'
+                    : 'rgba(255,255,255,0.05)',
+                  color: active ? '#FF6B35' : 'rgba(255,255,255,0.3)',
                   cursor: !hasValue || active ? 'default' : 'pointer',
-                  background: !hasValue ? 'rgba(255,255,255,0.05)' : active ? '#FF6B35' : 'rgba(255,255,255,0.08)',
-                  color: !hasValue ? 'rgba(255,255,255,0.28)' : active ? '#fff' : 'rgba(255,255,255,0.35)',
-                  fontWeight: 700,
-                  fontSize: '0.78rem',
+                  transition: 'all 0.18s',
+                  textAlign: 'center',
                 }}
               >
                 {p}
-              </div>
+              </button>
             );
           })}
         </div>
@@ -304,9 +235,9 @@ export default function TimePicker({ value, onChange }) {
       </div>
 
       {/* Mode hint */}
-      <span className="block text-center mt-3" style={{ color: 'rgba(255,255,255,0.25)', letterSpacing: '1.5px', fontSize: '0.6rem' }}>
+      <p className="text-center mt-3" style={{ color: 'rgba(255,255,255,0.25)', letterSpacing: '1.5px', fontSize: '0.6rem', margin: '0.75rem 0 0' }}>
         {mode === 'hour' ? 'TAP TO SET HOUR' : 'TAP TO SET MINUTE'}
-      </span>
+      </p>
 
     </div>
   );
