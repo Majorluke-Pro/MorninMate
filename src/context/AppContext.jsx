@@ -374,12 +374,24 @@ export function AppProvider({ children }) {
     if (cached.length > 0) {
       setAlarms(cached);
       syncAllAlarms(cached);
+      // Cache is ready — unblock the UI now, sync in background
+      loadingData.current = false;
+      setLoading(false);
     }
 
-    // 2. Flush any offline writes before fetching (best-effort)
+    // 2. Skip network entirely when offline
+    if (!navigator.onLine) {
+      if (cached.length === 0) {
+        loadingData.current = false;
+        setLoading(false);
+      }
+      return;
+    }
+
+    // 3. Flush any offline writes before fetching (best-effort)
     try { await flushPendingOps(); } catch {}
 
-    // 3. Fetch from Supabase — source of truth when online
+    // 4. Fetch from Supabase — source of truth when online
     const [profileResult, alarmsResult] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
       supabase.from('alarms').select('*').eq('user_id', userId).order('created_at'),
@@ -406,8 +418,10 @@ export function AppProvider({ children }) {
     }
 
     refreshWakeStats(userId);
-    loadingData.current = false;
-    setLoading(false);
+    if (cached.length === 0) {
+      loadingData.current = false;
+      setLoading(false);
+    }
   }
 
   // Saves pending onboarding profile (if present) then fetches user data.
