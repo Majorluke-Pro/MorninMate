@@ -7,11 +7,14 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Log;
+import androidx.activity.result.ActivityResult;
 
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationManagerCompat;
@@ -21,6 +24,7 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import org.json.JSONException;
@@ -84,11 +88,12 @@ public class AlarmPlugin extends Plugin {
         return cal.getTimeInMillis();
     }
 
-    private boolean doSchedule(String alarmId, String label, int hour, int minute,
+    private boolean doSchedule(String alarmId, String label, String sound, int hour, int minute,
                                int targetDay, int codeIndex, boolean repeating) {
         Intent intent = new Intent(getContext(), AlarmReceiver.class);
         intent.putExtra("alarmId",   alarmId);
         intent.putExtra("label",     label);
+        intent.putExtra("sound",     sound);
         intent.putExtra("hour",      hour);
         intent.putExtra("minute",    minute);
         intent.putExtra("repeating", repeating);
@@ -142,6 +147,7 @@ public class AlarmPlugin extends Plugin {
         String  label = call.getString("label", "Alarm");
         String  time  = call.getString("time", "07:00");
         JSArray days  = call.getArray("days");
+        String  sound = call.getString("sound", "gentle_chime");
 
         if (id == null || time == null) { call.reject("id and time required"); return; }
 
@@ -155,6 +161,7 @@ public class AlarmPlugin extends Plugin {
             json.put("id",    id);
             json.put("label", label);
             json.put("time",  time);
+            json.put("sound", sound);
             json.put("days",  days != null ? days : new JSArray());
             getPrefs().edit().putString("alarm_" + id, json.toString()).apply();
         } catch (JSONException e) {
@@ -166,10 +173,10 @@ public class AlarmPlugin extends Plugin {
         try {
             boolean scheduled = true;
             if (days == null || days.length() == 0) {
-                scheduled = doSchedule(id, label, hour, minute, -1, 0, false);
+                scheduled = doSchedule(id, label, sound, hour, minute, -1, 0, false);
             } else {
                 for (int i = 0; i < days.length(); i++) {
-                    if (!doSchedule(id, label, hour, minute, days.getInt(i), i + 1, true)) {
+                    if (!doSchedule(id, label, sound, hour, minute, days.getInt(i), i + 1, true)) {
                         scheduled = false;
                         break;
                     }
@@ -227,6 +234,72 @@ public class AlarmPlugin extends Plugin {
         getContext().stopService(new Intent(getContext(), AlarmService.class));
         getPrefs().edit().remove("pending_alarm").apply();
         call.resolve();
+    }
+
+    @PluginMethod
+    public void startPlayback(PluginCall call) {
+        Intent intent = new Intent(getContext(), AlarmService.class);
+        intent.putExtra("alarmId", call.getString("id"));
+        intent.putExtra("label", call.getString("label", "Alarm"));
+        intent.putExtra("sound", call.getString("sound", "gentle_chime"));
+        intent.putExtra("previewMs", -1);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getContext().startForegroundService(intent);
+        } else {
+            getContext().startService(intent);
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void stopPlayback(PluginCall call) {
+        getContext().stopService(new Intent(getContext(), AlarmService.class));
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void previewSound(PluginCall call) {
+        Intent intent = new Intent(getContext(), AlarmService.class);
+        intent.putExtra("sound", call.getString("sound", "gentle_chime"));
+        intent.putExtra("previewMs", call.getInt("durationMs", 3000));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getContext().startForegroundService(intent);
+        } else {
+            getContext().startService(intent);
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void openRingtonePicker(PluginCall call) {
+        Intent intent = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER);
+        intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM);
+        intent.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true);
+        intent.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false);
+        startActivityForResult(call, intent, "handleRingtonePickerResult");
+    }
+
+    @ActivityCallback
+    private void handleRingtonePickerResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null) {
+            call.resolve();
+            return;
+        }
+
+        Uri uri = result.getData().getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI);
+        if (uri == null) {
+            call.resolve();
+            return;
+        }
+
+        Ringtone ringtone = RingtoneManager.getRingtone(getContext(), uri);
+        String name = ringtone != null ? ringtone.getTitle(getContext()) : "Device ringtone";
+
+        JSObject payload = new JSObject();
+        payload.put("uri", uri.toString());
+        payload.put("name", name);
+        call.resolve(payload);
     }
 
     @PluginMethod

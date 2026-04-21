@@ -17,6 +17,7 @@ public class NagAlarmReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String alarmId = intent.getStringExtra("alarmId");
         String label = intent.getStringExtra("label");
+        String sound = intent.getStringExtra("sound");
         Log.d(TAG, "onReceive alarmId=" + alarmId);
 
         if (alarmId == null || alarmId.isEmpty()) {
@@ -34,13 +35,15 @@ public class NagAlarmReceiver extends BroadcastReceiver {
 
         if (MainActivity.isAppVisible) {
             Log.d(TAG, "App is visible, deferring nag restart");
-            reschedule(context, alarmId, label);
+            reschedule(context, alarmId, label, sound);
             return;
         }
 
         Intent serviceIntent = new Intent(context, AlarmService.class);
         serviceIntent.putExtra("alarmId", alarmId);
         serviceIntent.putExtra("label", label);
+        serviceIntent.putExtra("sound", sound);
+        serviceIntent.putExtra("previewMs", -1);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(serviceIntent);
@@ -49,10 +52,11 @@ public class NagAlarmReceiver extends BroadcastReceiver {
         }
     }
 
-    private void reschedule(Context context, String alarmId, String label) {
+    private void reschedule(Context context, String alarmId, String label, String sound) {
         Intent nagIntent = new Intent(context, NagAlarmReceiver.class);
         nagIntent.putExtra("alarmId", alarmId);
         nagIntent.putExtra("label", label);
+        nagIntent.putExtra("sound", sound);
 
         PendingIntent nagPi = PendingIntent.getBroadcast(
             context,

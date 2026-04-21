@@ -85,7 +85,7 @@ function rowToAlarm(row) {
     id: row.id,
     label: row.label,
     time: row.time,
-    sound: row.pulse?.sound || 'classic',
+    sound: row.pulse?.sound || 'gentle_chime',
     pulse: row.pulse,
     active: row.active,
     days: normalizeAlarmDays(row.days),
@@ -280,7 +280,7 @@ export function AppProvider({ children }) {
   // Uses refs so the interval never needs to be recreated when alarms change.
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || isNative) return;
 
     function checkAlarms() {
       if (activeRef.current) return; // already in wake-up flow
@@ -564,7 +564,7 @@ export function AppProvider({ children }) {
       userId: session.user.id,
       label:  alarm.label || 'Alarm',
       time:   alarm.time,
-      pulse:  { ...(alarm.pulse ?? {}), sound: alarm.sound || 'classic' },
+        pulse:  { ...(alarm.pulse ?? {}), sound: alarm.sound || 'gentle_chime' },
       active: true,
       days:   alarm.days || [],
     };
@@ -647,7 +647,7 @@ export function AppProvider({ children }) {
     if (updates.pulse  !== undefined || updates.sound !== undefined) {
       const existing = alarmsRef.current.find(a => a.id === id);
       const basePulse = updates.pulse ?? existing?.pulse ?? {};
-      dbUpdates.pulse = { ...basePulse, sound: updates.sound ?? existing?.sound ?? 'classic' };
+      dbUpdates.pulse = { ...basePulse, sound: updates.sound ?? existing?.sound ?? 'gentle_chime' };
     }
 
     // 1. Update state + cache immediately
@@ -656,8 +656,8 @@ export function AppProvider({ children }) {
       ...updates,
       ...(updates.days !== undefined ? { days: normalizeAlarmDays(updates.days) } : {}),
       ...(updates.pulse !== undefined || updates.sound !== undefined ? {
-        sound: updates.sound ?? existing?.sound ?? 'classic',
-        pulse: { ...(updates.pulse ?? existing?.pulse ?? {}), sound: updates.sound ?? existing?.sound ?? 'classic' },
+        sound: updates.sound ?? existing?.sound ?? 'gentle_chime',
+        pulse: { ...(updates.pulse ?? existing?.pulse ?? {}), sound: updates.sound ?? existing?.sound ?? 'gentle_chime' },
       } : {}),
     };
     const next = alarmsRef.current.map(a => a.id === id ? { ...a, ...normalizedUpdates } : a);

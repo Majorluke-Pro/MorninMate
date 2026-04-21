@@ -1,7 +1,3 @@
-// ─── Sound Engine — Web Audio API (no audio files needed) ──────────────────
-// All sounds are synthesized. Call unlockAudio() on the first user tap
-// to satisfy iOS/Safari's "user gesture required" rule.
-
 let ctx = null;
 
 function getCtx() {
@@ -13,7 +9,7 @@ function getCtx() {
 function tone(freq, duration, { type = 'sine', volume = 0.25, delay = 0 } = {}) {
   try {
     const c = getCtx();
-    const osc  = c.createOscillator();
+    const osc = c.createOscillator();
     const gain = c.createGain();
     osc.connect(gain);
     gain.connect(c.destination);
@@ -25,20 +21,17 @@ function tone(freq, duration, { type = 'sine', volume = 0.25, delay = 0 } = {}) 
     gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
     osc.start(t);
     osc.stop(t + duration + 0.02);
-  } catch { /* audio not available */ }
+  } catch {}
 }
 
-// ── Unlock audio context on first user interaction (required by iOS) ─────────
 export function unlockAudio() {
   try { getCtx(); } catch {}
 }
 
-// ── Game sounds ───────────────────────────────────────────────────────────────
-
 export function playSuccess() {
-  tone(523, 0.12, { delay: 0.00, volume: 0.22 }); // C5
-  tone(659, 0.12, { delay: 0.10, volume: 0.22 }); // E5
-  tone(784, 0.28, { delay: 0.20, volume: 0.22 }); // G5
+  tone(523, 0.12, { delay: 0.00, volume: 0.22 });
+  tone(659, 0.12, { delay: 0.10, volume: 0.22 });
+  tone(784, 0.28, { delay: 0.20, volume: 0.22 });
 }
 
 export function playError() {
@@ -54,161 +47,122 @@ export function playWarningTick() {
   tone(1100, 0.06, { type: 'square', volume: 0.12 });
 }
 
-// Reaction game — plays when screen turns green
 export function playReactionGo() {
-  tone(880,  0.06, { delay: 0.00, volume: 0.28 });
+  tone(880, 0.06, { delay: 0.00, volume: 0.28 });
   tone(1100, 0.09, { delay: 0.06, volume: 0.28 });
 }
 
-// Reaction game — tapped during red phase
 export function playEarlyTap() {
   tone(220, 0.35, { type: 'sawtooth', volume: 0.18 });
 }
 
-// Reaction game — missed the window
 export function playMiss() {
   tone(260, 0.12, { type: 'square', delay: 0.00, volume: 0.15 });
   tone(200, 0.20, { type: 'square', delay: 0.10, volume: 0.15 });
 }
 
-// Memory game — card flip
 export function playCardFlip() {
   tone(480, 0.06, { volume: 0.09 });
 }
 
-// Memory game — matched pair
 export function playMatch() {
   tone(659, 0.10, { delay: 0.00, volume: 0.90 });
   tone(880, 0.16, { delay: 0.09, volume: 0.90 });
 }
 
-// ── Alarm sound patterns ──────────────────────────────────────────────────────
+function patternGentleChime() {
+  tone(523, 0.45, { type: 'sine', delay: 0.00, volume: 0.32 });
+  tone(659, 0.45, { type: 'sine', delay: 0.45, volume: 0.32 });
+  tone(784, 0.45, { type: 'sine', delay: 0.90, volume: 0.32 });
+  tone(1047, 0.70, { type: 'sine', delay: 1.35, volume: 0.30 });
+}
 
-// 1. Classic — urgent square-wave two-tone
-function patternClassic() {
+function patternMorningBirds() {
+  tone(1568, 0.10, { delay: 0.00, volume: 0.14 });
+  tone(1319, 0.12, { delay: 0.14, volume: 0.12 });
+  tone(1760, 0.08, { delay: 0.50, volume: 0.12 });
+  tone(1175, 0.15, { delay: 0.66, volume: 0.10 });
+}
+
+function patternSoftPiano() {
+  const note = (freq, delay) => {
+    tone(freq, 0.72, { delay, volume: 0.22 });
+    tone(freq * 2, 0.30, { delay, volume: 0.06 });
+  };
+  note(523, 0.00);
+  note(659, 0.80);
+}
+
+function patternRisingBell() {
+  [300, 420, 560, 720, 920, 1150].forEach((f, i) => {
+    tone(f, 0.18, { delay: i * 0.13, volume: 0.35 });
+  });
+}
+
+function patternClassicBeep() {
   tone(1000, 0.18, { type: 'square', delay: 0.00, volume: 0.55 });
   tone(1250, 0.18, { type: 'square', delay: 0.22, volume: 0.55 });
   tone(1000, 0.18, { type: 'square', delay: 0.44, volume: 0.55 });
   tone(1250, 0.18, { type: 'square', delay: 0.66, volume: 0.55 });
 }
 
-// 2. Chime — soft ascending sine bells
-function patternChime() {
-  tone(523,  0.45, { type: 'sine', delay: 0.00, volume: 0.32 }); // C5
-  tone(659,  0.45, { type: 'sine', delay: 0.45, volume: 0.32 }); // E5
-  tone(784,  0.45, { type: 'sine', delay: 0.90, volume: 0.32 }); // G5
-  tone(1047, 0.70, { type: 'sine', delay: 1.35, volume: 0.30 }); // C6
-}
-
-// 3. Digital — rapid electronic beeps
-function patternDigital() {
+function patternDigitalBuzz() {
   for (let i = 0; i < 6; i++) {
     tone(1760, 0.07, { type: 'square', delay: i * 0.13, volume: 0.38 });
   }
 }
 
-// 4. Pulse — deep rhythmic bass throb
-function patternPulse() {
-  tone(180, 0.40, { type: 'sine', delay: 0.00, volume: 0.50 });
-  tone(180, 0.40, { type: 'sine', delay: 0.55, volume: 0.50 });
-  tone(180, 0.40, { type: 'sine', delay: 1.10, volume: 0.50 });
-}
-
-// 5. Rise — ascending frequency sweep
-function patternRise() {
-  [300, 420, 560, 720, 920, 1150].forEach((f, i) => {
-    tone(f, 0.18, { type: 'sine', delay: i * 0.13, volume: 0.35 });
-  });
-}
-
-// 6. Ping — clean crisp single tones
-function patternPing() {
-  tone(1047, 0.55, { type: 'sine', delay: 0.00, volume: 0.42 }); // C6
-  tone(1047, 0.55, { type: 'sine', delay: 0.80, volume: 0.42 });
-}
-
-// 7. Arcade — retro game blips
-function patternArcade() {
-  tone(660,  0.08, { type: 'square', delay: 0.00, volume: 0.32 });
-  tone(880,  0.08, { type: 'square', delay: 0.12, volume: 0.32 });
-  tone(660,  0.08, { type: 'square', delay: 0.24, volume: 0.32 });
-  tone(880,  0.08, { type: 'square', delay: 0.36, volume: 0.32 });
-  tone(1100, 0.16, { type: 'square', delay: 0.52, volume: 0.36 });
-}
-
-// 8. Bell — warm marimba-style bell with harmonics
-function patternBell() {
-  const bell = (freq, delay) => {
-    tone(freq,     0.70, { type: 'sine', delay, volume: 0.30 });
-    tone(freq * 2, 0.35, { type: 'sine', delay, volume: 0.10 });
-    tone(freq * 3, 0.20, { type: 'sine', delay, volume: 0.05 });
-  };
-  bell(523, 0.00); // C5
-  bell(659, 0.80); // E5
-}
-
-// 9. Warble — oscillating FM-style waves
-function patternWarble() {
+function patternUrgentRing() {
   for (let i = 0; i < 8; i++) {
-    tone(i % 2 === 0 ? 780 : 1020, 0.14, { type: 'sine', delay: i * 0.14, volume: 0.38 });
+    tone(i % 2 === 0 ? 780 : 1020, 0.14, { delay: i * 0.14, volume: 0.38 });
   }
 }
 
-// 10. Buzz — sharp sawtooth bursts
-function patternBuzz() {
-  tone(140, 0.24, { type: 'sawtooth', delay: 0.00, volume: 0.48 });
-  tone(140, 0.24, { type: 'sawtooth', delay: 0.32, volume: 0.48 });
-  tone(140, 0.24, { type: 'sawtooth', delay: 0.64, volume: 0.48 });
+function patternRadarPulse() {
+  tone(180, 0.40, { delay: 0.00, volume: 0.50 });
+  tone(180, 0.40, { delay: 0.55, volume: 0.50 });
+  tone(180, 0.40, { delay: 1.10, volume: 0.50 });
 }
 
-// ── Pattern registry ──────────────────────────────────────────────────────────
-
 const ALARM_PATTERNS = {
-  classic: { fn: patternClassic, interval: 1600 },
-  chime:   { fn: patternChime,   interval: 2400 },
-  digital: { fn: patternDigital, interval: 1200 },
-  pulse:   { fn: patternPulse,   interval: 2000 },
-  rise:    { fn: patternRise,    interval: 1600 },
-  ping:    { fn: patternPing,    interval: 1800 },
-  arcade:  { fn: patternArcade,  interval: 1400 },
-  bell:    { fn: patternBell,    interval: 2200 },
-  warble:  { fn: patternWarble,  interval: 1600 },
-  buzz:    { fn: patternBuzz,    interval: 1400 },
+  gentle_chime: { fn: patternGentleChime, interval: 2400 },
+  morning_birds: { fn: patternMorningBirds, interval: 1800 },
+  soft_piano: { fn: patternSoftPiano, interval: 2200 },
+  rising_bell: { fn: patternRisingBell, interval: 1600 },
+  classic_beep: { fn: patternClassicBeep, interval: 1600 },
+  digital_buzz: { fn: patternDigitalBuzz, interval: 1200 },
+  urgent_ring: { fn: patternUrgentRing, interval: 1600 },
+  radar_pulse: { fn: patternRadarPulse, interval: 2000 },
 };
 
-// Exported metadata for the UI (no React deps)
 export const ALARM_SOUNDS = [
-  { id: 'classic', label: 'Classic',  desc: 'Urgent two-tone'       },
-  { id: 'chime',   label: 'Chime',    desc: 'Soft ascending bells'  },
-  { id: 'digital', label: 'Digital',  desc: 'Fast electronic beeps' },
-  { id: 'pulse',   label: 'Pulse',    desc: 'Deep bass throb'       },
-  { id: 'rise',    label: 'Rise',     desc: 'Ascending sweep'       },
-  { id: 'ping',    label: 'Ping',     desc: 'Clean crisp tone'      },
-  { id: 'arcade',  label: 'Arcade',   desc: 'Retro game blips'      },
-  { id: 'bell',    label: 'Bell',     desc: 'Warm marimba bell'     },
-  { id: 'warble',  label: 'Warble',   desc: 'Oscillating wave'      },
-  { id: 'buzz',    label: 'Buzz',     desc: 'Sharp buzzer'          },
+  { id: 'gentle_chime', label: 'Gentle Chime', desc: 'Soft bell loop' },
+  { id: 'morning_birds', label: 'Morning Birds', desc: 'Light birdsong ambience' },
+  { id: 'soft_piano', label: 'Soft Piano', desc: 'Warm mellow notes' },
+  { id: 'rising_bell', label: 'Rising Bell', desc: 'Gradually intensifies' },
+  { id: 'classic_beep', label: 'Classic Beep', desc: 'Traditional alarm tone' },
+  { id: 'digital_buzz', label: 'Digital Buzz', desc: 'Sharp electronic beeps' },
+  { id: 'urgent_ring', label: 'Urgent Ring', desc: 'Fast ringing pattern' },
+  { id: 'radar_pulse', label: 'Radar Pulse', desc: 'Repeating low pulse' },
 ];
 
-// Preview a sound once (no loop)
 export function previewAlarmSound(id) {
   try {
     getCtx();
-    const p = ALARM_PATTERNS[id] ?? ALARM_PATTERNS.classic;
-    p.fn();
+    const pattern = ALARM_PATTERNS[id] ?? ALARM_PATTERNS.gentle_chime;
+    pattern.fn();
   } catch {}
 }
 
-// ── Alarm looping ─────────────────────────────────────────────────────────────
 let alarmTimer = null;
 
-export function startAlarm(soundId = 'classic') {
+export function startAlarm(soundId = 'gentle_chime') {
   stopAlarm();
   try {
     getCtx();
-    const p = ALARM_PATTERNS[soundId] ?? ALARM_PATTERNS.classic;
-    p.fn();
-    alarmTimer = setInterval(p.fn, p.interval);
+    const pattern = ALARM_PATTERNS[soundId] ?? ALARM_PATTERNS.gentle_chime;
+    pattern.fn();
+    alarmTimer = setInterval(pattern.fn, pattern.interval);
   } catch {}
 }
 
@@ -218,4 +172,3 @@ export function stopAlarm() {
     alarmTimer = null;
   }
 }
-

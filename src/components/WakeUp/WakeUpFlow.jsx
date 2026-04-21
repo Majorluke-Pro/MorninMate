@@ -18,7 +18,14 @@ import MathGame from '../Games/MathGame';
 import MemoryGame from '../Games/MemoryGame';
 import ReactionGame from '../Games/ReactionGame';
 import { supabase } from '../../lib/supabase';
-import { setHardcoreVolume, enableHardcoreLock, disableHardcoreLock } from '../../lib/nativeAlarms';
+import {
+  isNative,
+  setHardcoreVolume,
+  enableHardcoreLock,
+  disableHardcoreLock,
+  startAlarmPlayback,
+  stopAlarmPlayback,
+} from '../../lib/nativeAlarms';
 
 const GAME_MAP    = { math: MathGame, memory: MemoryGame, reaction: ReactionGame };
 const GAME_LABELS = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush' };
@@ -40,13 +47,16 @@ export default function WakeUpFlow() {
 
   // Start alarm sound immediately; stop when the flow is dismissed
   useEffect(() => {
-    startAlarm(activeAlarm?.sound ?? 'classic');
+    if (!isNative) {
+      startAlarm(activeAlarm?.sound ?? 'gentle_chime');
+    }
     if (isHardcore) {
       setHardcoreVolume();
       enableHardcoreLock();
     }
     return () => {
-      stopAlarm();
+      if (isNative) stopAlarmPlayback();
+      else stopAlarm();
       if (isHardcore) disableHardcoreLock();
     };
   }, []);
@@ -80,7 +90,11 @@ export default function WakeUpFlow() {
 
       if (remaining === 0) {
         // User ignored the game — restart everything
-        startAlarm();
+        if (isNative) {
+          startAlarmPlayback(activeAlarm?.sound ?? 'gentle_chime', activeAlarm?.id, activeAlarm?.label || 'Alarm');
+        } else {
+          startAlarm(activeAlarm?.sound ?? 'gentle_chime');
+        }
         sessionIdRef.current = null;
         setGameIndex(0);
         setGameKey(k => k + 1);
@@ -108,7 +122,8 @@ export default function WakeUpFlow() {
       } catch {
         // DB error — alarm must still be dismissable
       }
-      stopAlarm();
+      if (isNative) await stopAlarmPlayback();
+      else stopAlarm();
       setPhase('complete');
     } else {
       setGameIndex(i => i + 1);
@@ -170,6 +185,8 @@ export default function WakeUpFlow() {
 
   async function handleEndEarly() {
     if (ending) return;
+    if (isNative) await stopAlarmPlayback();
+    else stopAlarm();
     await finalizeWakeSession('failed');
     clearActiveAlarm();
   }
@@ -184,7 +201,8 @@ export default function WakeUpFlow() {
         isHardcore={isHardcore}
         onStart={async () => {
           await startWakeSession();
-          stopAlarm();
+          if (isNative) await stopAlarmPlayback();
+          else stopAlarm();
           setPhase('playing');
         }}
       />

@@ -31,16 +31,17 @@ public class BootReceiver extends BroadcastReceiver {
                 JSONObject json  = new JSONObject((String) entry.getValue());
                 String  alarmId  = json.getString("id");
                 String  label    = json.optString("label", "Alarm");
+                String  sound    = json.optString("sound", "gentle_chime");
                 String[] parts   = json.getString("time").split(":");
                 int     hour     = Integer.parseInt(parts[0]);
                 int     minute   = Integer.parseInt(parts[1]);
                 JSONArray days   = json.optJSONArray("days");
 
                 if (days == null || days.length() == 0) {
-                    scheduleOne(context, am, alarmId, label, hour, minute, -1, false, 0);
+                    scheduleOne(context, am, alarmId, label, sound, hour, minute, -1, false, 0);
                 } else {
                     for (int i = 0; i < days.length(); i++) {
-                        scheduleOne(context, am, alarmId, label, hour, minute,
+                        scheduleOne(context, am, alarmId, label, sound, hour, minute,
                             days.getInt(i), true, i + 1);
                     }
                 }
@@ -48,11 +49,12 @@ public class BootReceiver extends BroadcastReceiver {
         }
     }
 
-    private void scheduleOne(Context context, AlarmManager am, String alarmId, String label,
+    private void scheduleOne(Context context, AlarmManager am, String alarmId, String label, String sound,
                               int hour, int minute, int targetDay, boolean repeating, int codeIndex) {
         Intent intent = new Intent(context, AlarmReceiver.class);
         intent.putExtra("alarmId",   alarmId);
         intent.putExtra("label",     label);
+        intent.putExtra("sound",     sound);
         intent.putExtra("hour",      hour);
         intent.putExtra("minute",    minute);
         intent.putExtra("repeating", repeating);

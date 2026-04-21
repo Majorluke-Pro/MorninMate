@@ -88,7 +88,7 @@ function buildTestAlarm(alarm) {
   const pulse = alarm?.pulse ?? {};
   const intensity = pulse.intensity || 'moderate';
   const games = Array.isArray(pulse.games) && pulse.games.length > 0 ? pulse.games : ['math'];
-  const sound = alarm?.sound || pulse.sound || 'classic';
+  const sound = alarm?.sound || pulse.sound || 'gentle_chime';
 
   return {
     ...alarm,

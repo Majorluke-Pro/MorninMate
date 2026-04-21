@@ -18,6 +18,7 @@ public class AlarmReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String  alarmId   = intent.getStringExtra("alarmId");
         String  label     = intent.getStringExtra("label");
+        String  sound     = intent.getStringExtra("sound");
         int     hour      = intent.getIntExtra("hour", 7);
         int     minute    = intent.getIntExtra("minute", 0);
         boolean repeat    = intent.getBooleanExtra("repeating", false);
@@ -34,6 +35,8 @@ public class AlarmReceiver extends BroadcastReceiver {
         Intent serviceIntent = new Intent(context, AlarmService.class);
         serviceIntent.putExtra("alarmId", alarmId);
         serviceIntent.putExtra("label",   label);
+        serviceIntent.putExtra("sound",   sound);
+        serviceIntent.putExtra("previewMs", -1);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(serviceIntent);
         } else {
@@ -42,14 +45,14 @@ public class AlarmReceiver extends BroadcastReceiver {
 
         // Repeating: reschedule for next week. One-shot: remove from prefs.
         if (repeat && targetDay >= 0) {
-            reschedule(context, alarmId, label, hour, minute, targetDay);
+            reschedule(context, alarmId, label, sound, hour, minute, targetDay);
         } else {
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit().remove("alarm_" + alarmId).apply();
         }
     }
 
-    private void reschedule(Context context, String alarmId, String label,
+    private void reschedule(Context context, String alarmId, String label, String sound,
                              int hour, int minute, int targetDay) {
         // Same weekday, exactly one week from now
         Calendar cal = Calendar.getInstance();
@@ -62,6 +65,7 @@ public class AlarmReceiver extends BroadcastReceiver {
         Intent intent = new Intent(context, AlarmReceiver.class);
         intent.putExtra("alarmId",   alarmId);
         intent.putExtra("label",     label);
+        intent.putExtra("sound",     sound);
         intent.putExtra("hour",      hour);
         intent.putExtra("minute",    minute);
         intent.putExtra("repeating", true);

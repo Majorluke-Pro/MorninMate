@@ -15,7 +15,6 @@ import TuneIcon                 from '@mui/icons-material/Tune';
 import GraphicEqIcon            from '@mui/icons-material/GraphicEq';
 import TrendingUpIcon           from '@mui/icons-material/TrendingUp';
 import RadioButtonCheckedIcon   from '@mui/icons-material/RadioButtonChecked';
-import SportsEsportsIcon        from '@mui/icons-material/SportsEsports';
 import CampaignIcon             from '@mui/icons-material/Campaign';
 import WavesIcon                from '@mui/icons-material/Waves';
 import PlayArrowIcon            from '@mui/icons-material/PlayArrow';
@@ -29,6 +28,7 @@ import HotelIcon                from '@mui/icons-material/Hotel';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { ALARM_SOUNDS, previewAlarmSound } from '../../lib/sounds';
+import { isNative, openRingtonePicker, previewSound as previewNativeSound } from '../../lib/nativeAlarms';
 import TimePicker from '../common/TimePicker';
 
 // ─── Static data ──────────────────────────────────────────────────────────────
@@ -49,16 +49,14 @@ const GAMES = [
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const SOUND_META = {
-  classic: { Icon: NotificationsActiveIcon, color: '#EF476F' },
-  chime:   { Icon: MusicNoteIcon,           color: '#FFD166' },
-  digital: { Icon: TuneIcon,               color: '#06D6A0' },
-  pulse:   { Icon: GraphicEqIcon,           color: '#FF6B35' },
-  rise:    { Icon: TrendingUpIcon,          color: '#8B5CF6' },
-  ping:    { Icon: RadioButtonCheckedIcon,  color: '#06D6A0' },
-  arcade:  { Icon: SportsEsportsIcon,       color: '#FF9F35' },
-  bell:    { Icon: CampaignIcon,            color: '#FFD166' },
-  warble:  { Icon: WavesIcon,              color: '#C97BE8' },
-  buzz:    { Icon: BoltIcon,               color: '#EF476F' },
+  gentle_chime: { Icon: MusicNoteIcon,         color: '#FFD166' },
+  morning_birds:{ Icon: WavesIcon,             color: '#06D6A0' },
+  soft_piano:   { Icon: GraphicEqIcon,         color: '#9AD1D4' },
+  rising_bell:  { Icon: TrendingUpIcon,        color: '#8B5CF6' },
+  classic_beep: { Icon: NotificationsActiveIcon,color: '#EF476F' },
+  digital_buzz: { Icon: TuneIcon,              color: '#FF6B35' },
+  urgent_ring:  { Icon: CampaignIcon,          color: '#F97316' },
+  radar_pulse:  { Icon: RadioButtonCheckedIcon,color: '#06B6D4' },
 };
 
 const QUICK_PRESETS = [
@@ -91,12 +89,13 @@ export default function CreateAlarm() {
   const [hardcoreWarningOpen, setHardcoreWarningOpen] = useState(false);
   const [showScrollCue, setShowScrollCue] = useState(true);
   const [repeatMode, setRepeatMode] = useState('');
+  const [deviceSoundName, setDeviceSoundName] = useState('');
 
   const [form, setForm] = useState({
     label: '',
     time: user?.wakeTime || '07:00',
     days: [],
-    sound: '',
+    sound: 'gentle_chime',
     pulse: { intensity: '', games: [] },
   });
 
@@ -159,6 +158,26 @@ export default function CreateAlarm() {
     });
   }
 
+  async function handlePreviewSound(soundId) {
+    if (isNative) {
+      await previewNativeSound(soundId, 3000);
+      return;
+    }
+    previewAlarmSound(soundId);
+  }
+
+  async function handlePickDeviceSound() {
+    if (!isNative) return;
+    const picked = await openRingtonePicker();
+    if (!picked?.uri) return;
+
+    setDeviceSoundName(picked.name || 'Device sound');
+    setForm(f => ({
+      ...f,
+      sound: picked.uri,
+    }));
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
 
   function handleSave() {
@@ -185,6 +204,9 @@ export default function CreateAlarm() {
     ? true
     : requiredGameCount > 0 && form.pulse.games.length === requiredGameCount;
   const repeatComplete = repeatMode === 'custom' ? form.days.length > 0 : Boolean(repeatMode);
+  const selectedSoundLabel = form.sound?.startsWith('content://')
+    ? deviceSoundName || 'Device sound'
+    : ALARM_SOUNDS.find(s => s.id === form.sound)?.label || 'Required';
   const canSave = Boolean(form.time)
     && Boolean(form.sound)
     && Boolean(form.pulse.intensity)
@@ -290,7 +312,7 @@ export default function CreateAlarm() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <SectionLabel>Alarm Sound</SectionLabel>
             <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              {ALARM_SOUNDS.find(s => s.id === form.sound)?.label || 'Required'}
+              {selectedSoundLabel}
             </span>
           </div>
           <div
@@ -331,7 +353,7 @@ export default function CreateAlarm() {
                     {/* Preview play button — shown on selected */}
                     {selected && (
                       <div
-                        onClick={e => { e.stopPropagation(); previewAlarmSound(sound.id); }}
+                        onClick={e => { e.stopPropagation(); handlePreviewSound(sound.id); }}
                         style={{
                           position: 'absolute', bottom: -4, right: -4,
                           width: 20, height: 20, borderRadius: '50%',
@@ -361,6 +383,62 @@ export default function CreateAlarm() {
               );
             })}
           </div>
+          <button
+            type="button"
+            onClick={handlePickDeviceSound}
+            disabled={!isNative}
+            style={{
+              marginTop: '0.75rem',
+              width: '100%',
+              borderRadius: '1rem',
+              border: form.sound?.startsWith('content://')
+                ? '1.5px solid rgba(255,209,102,0.45)'
+                : '1.5px solid rgba(255,255,255,0.08)',
+              background: form.sound?.startsWith('content://')
+                ? 'rgba(255,209,102,0.10)'
+                : 'rgba(255,255,255,0.04)',
+              color: '#fff',
+              padding: '0.875rem 1rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+              cursor: isNative ? 'pointer' : 'not-allowed',
+              opacity: isNative ? 1 : 0.55,
+              transition: 'border-color 0.2s ease, background-color 0.2s ease',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textAlign: 'left' }}>
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: '0.9rem',
+                  background: 'rgba(255,209,102,0.12)',
+                  border: '1px solid rgba(255,209,102,0.24)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <NotificationsActiveIcon style={{ color: '#FFD166' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '0.92rem', fontWeight: 700 }}>
+                  Choose from device
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.55)' }}>
+                  {form.sound?.startsWith('content://')
+                    ? deviceSoundName || 'Selected from Android ringtone library'
+                    : isNative
+                    ? 'Use any ringtone or alarm sound on this phone'
+                    : 'Available on Android'}
+                </div>
+              </div>
+            </div>
+            <KeyboardArrowDownIcon style={{ color: 'rgba(255,255,255,0.45)', transform: 'rotate(-90deg)' }} />
+          </button>
         </Section>
 
         <Separator />
