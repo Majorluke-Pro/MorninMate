@@ -138,6 +138,7 @@ export function AppProvider({ children }) {
   const [showAuthDirectly, setShowAuthDirectly] = useState(false);
   const loadingData      = useRef(false);
   const appUrlListenerRef = useRef(null);
+  const appStateListenerRef = useRef(null);
   const lastFiredRef     = useRef(null); // "alarmId-HH:MM" — prevents double-fire
   const alarmsRef    = useRef(alarms);
   const activeRef    = useRef(activeAlarm);
@@ -362,7 +363,80 @@ export function AppProvider({ children }) {
     return unsub;
   }, [session]);
 
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    const refreshFromServer = () => {
+      void refreshRemoteAlarms(userId);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refreshFromServer();
+    };
+
+    window.addEventListener('focus', refreshFromServer);
+    window.addEventListener('online', refreshFromServer);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) refreshFromServer();
+    }).then(handle => {
+      appStateListenerRef.current = handle;
+    });
+
+    return () => {
+      window.removeEventListener('focus', refreshFromServer);
+      window.removeEventListener('online', refreshFromServer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      appStateListenerRef.current?.remove();
+      appStateListenerRef.current = null;
+    };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`alarms-sync-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'alarms',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void refreshRemoteAlarms(userId);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id]);
+
   // ─── Data loading ───────────────────────────────────────────────────────────
+
+  function applyAlarmSnapshot(nextAlarms) {
+    const nextIds = new Set(nextAlarms.map(alarm => String(alarm.id)));
+
+    for (const alarm of alarmsRef.current) {
+      if (!nextIds.has(String(alarm.id))) {
+        void cancelAlarmNotifications(alarm.id);
+      }
+    }
+
+    if (activeRef.current && !nextIds.has(String(activeRef.current.id))) {
+      setActiveAlarm(null);
+    }
+
+    setCachedAlarms(nextAlarms);
+    setAlarms(nextAlarms);
+    void syncAllAlarms(nextAlarms);
+  }
 
   async function flushPendingOps() {
     const ops = getPendingOps();
@@ -390,16 +464,63 @@ export function AppProvider({ children }) {
           const { error } = await supabase.from('alarms').update(op.payload.updates).eq('id', op.payload.id);
           if (error) return false;
         }
-      // Remove this op from the queue now that it succeeded
-      const remaining = getPendingOps().filter(o => o.id !== op.id);
-      localStorage.setItem('mm_pending_ops', JSON.stringify(remaining));
-    } catch {
+        const remaining = getPendingOps().filter(o => o.id !== op.id);
+        localStorage.setItem('mm_pending_ops', JSON.stringify(remaining));
+      } catch {
       // Still offline — leave ops in queue, abort flush
-      return false;
+        return false;
+      }
     }
     return true;
   }
-}
+
+  async function refreshRemoteAlarms(
+    userId,
+    { preserveCachedWhilePending = false, syncPermissions = false, checkPendingAlarm = false } = {}
+  ) {
+    if (!userId || !navigator.onLine) return false;
+
+    let pendingOpsFlushed = false;
+    try {
+      pendingOpsFlushed = await flushPendingOps();
+    } catch {}
+
+    const { data, error } = await supabase
+      .from('alarms')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at');
+
+    if (error) {
+      console.error('Alarms fetch error:', error);
+      return false;
+    }
+
+    const cached = getCachedAlarms();
+    const mapped = (data ?? []).map(rowToAlarm);
+    const shouldPreserveCached =
+      preserveCachedWhilePending &&
+      !pendingOpsFlushed &&
+      getPendingOps().length > 0 &&
+      cached.length > 0;
+    const nextAlarms = shouldPreserveCached ? cached : mapped;
+
+    applyAlarmSnapshot(nextAlarms);
+    if (syncPermissions) checkAndRequestAlarmPermissions();
+
+    if (checkPendingAlarm) {
+      const pendingAlarmId = await getPendingAlarm();
+      if (pendingAlarmId) {
+        const alarm = nextAlarms.find(a => String(a.id) === pendingAlarmId);
+        if (alarm) {
+          vibrateAlarm();
+          setActiveAlarm(alarm);
+        }
+      }
+    }
+
+    return true;
+  }
 
   async function loadUserData(userId) {
     if (loadingData.current) return;
@@ -425,37 +546,18 @@ export function AppProvider({ children }) {
       return;
     }
 
-    // 3. Flush any offline writes before fetching (best-effort)
-    let pendingOpsFlushed = false;
-    try { pendingOpsFlushed = await flushPendingOps(); } catch {}
-
-    // 4. Fetch from Supabase — source of truth when online
-    const [profileResult, alarmsResult] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-      supabase.from('alarms').select('*').eq('user_id', userId).order('created_at'),
-    ]);
+    // 3. Fetch profile from Supabase and refresh alarms from the server
+    const profileResult = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
 
     if (profileResult.error) console.error('Profile fetch error:', profileResult.error);
-    if (alarmsResult.error)  console.error('Alarms fetch error:', alarmsResult.error);
 
     if (profileResult.data) setUser(rowToUser(profileResult.data));
 
-    if (alarmsResult.data) {
-      const mapped = alarmsResult.data.map(rowToAlarm);
-      const shouldPreserveCached = !pendingOpsFlushed && cached.length > 0;
-      const nextAlarms = shouldPreserveCached ? cached : mapped;
-      if (!shouldPreserveCached) setCachedAlarms(mapped);
-      setAlarms(nextAlarms);
-      syncAllAlarms(nextAlarms);
-      checkAndRequestAlarmPermissions();
-
-      // Cold-start: check if an alarm fired while the app was closed
-      const pendingAlarmId = await getPendingAlarm();
-      if (pendingAlarmId) {
-        const alarm = nextAlarms.find(a => String(a.id) === pendingAlarmId);
-        if (alarm) { vibrateAlarm(); setActiveAlarm(alarm); }
-      }
-    }
+    await refreshRemoteAlarms(userId, {
+      preserveCachedWhilePending: true,
+      syncPermissions: true,
+      checkPendingAlarm: true,
+    });
 
     refreshWakeStats(userId);
     if (cached.length === 0) {
@@ -511,8 +613,7 @@ export function AppProvider({ children }) {
       if (profileResult.data) setUser(rowToUser(profileResult.data));
       if (alarmsResult.data) {
         const mapped = alarmsResult.data.map(rowToAlarm);
-        setAlarms(mapped);
-        syncAllAlarms(mapped);
+        applyAlarmSnapshot(mapped);
       }
 
       refreshWakeStats(userId);
