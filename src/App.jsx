@@ -7,9 +7,9 @@ import CreateAlarm from './components/Alarm/CreateAlarm';
 import WakeUpFlow from './components/WakeUp/WakeUpFlow';
 
 function AppRoutes() {
-  const { session, user, activeAlarm, loading, pendingOnboarding, showAuthDirectly } = useApp();
+  const { session, user, activeAlarm, loading, authInitialized, pendingOnboarding, showAuthDirectly } = useApp();
 
-  if (loading) {
+  if (loading || !authInitialized) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-base">
         <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />

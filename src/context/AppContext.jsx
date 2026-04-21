@@ -121,8 +121,9 @@ function stripAuthParamsFromUrl(urlString) {
 
 export function AppProvider({ children }) {
   const [session, setSession] = useState(null);
+  const [authInitialized, setAuthInitialized] = useState(false);
   const [user, setUser] = useState(INITIAL_USER);
-  const [alarms, setAlarms] = useState([]);
+  const [alarms, setAlarms] = useState(() => getCachedAlarms());
   const [activeAlarm, setActiveAlarm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [wakeStats, setWakeStats] = useState({ success: 0, failed: 0, loading: false });
@@ -150,33 +151,68 @@ export function AppProvider({ children }) {
   useEffect(() => {
     // Use onAuthStateChange exclusively — it fires immediately with INITIAL_SESSION
     // on mount, so getSession() is not needed and avoids double-loading.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Token refresh & user updates don't need a full data reload
-      if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        setSession(session);
-        return;
-      }
+    let active = true;
+    let subscription;
 
-      setSession(session);
-      if (session) {
-        setLoading(true); // prevent flash of OnboardingFlow before data loads
-        // For new magic-link users: if pending onboarding data exists, write it
-        // to the profiles table before loading user data (handlePostAuth handles both).
-        if (event === 'SIGNED_IN' && sessionStorage.getItem('mm_pending_onboarding')) {
-          handlePostAuth(session);
+    async function hydrateAndSubscribe() {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        if (!active) return;
+
+        setSession(initialSession);
+        if (initialSession) {
+          setLoading(true);
+          await loadUserData(initialSession.user.id);
         } else {
-          loadUserData(session.user.id);
+          loadingData.current = false;
+          setUser(INITIAL_USER);
+          setAlarms([]);
+          setActiveAlarm(null);
+          setLoading(false);
         }
-      } else {
-        loadingData.current = false;
-        setUser(INITIAL_USER);
-        setAlarms([]);
-        setActiveAlarm(null);
-        setLoading(false);
+      } finally {
+        if (active) setAuthInitialized(true);
       }
-    });
 
-    return () => subscription.unsubscribe();
+      if (!active) return;
+
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'INITIAL_SESSION') return;
+
+        // Token refresh & user updates don't need a full data reload
+        if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          setSession(session);
+          return;
+        }
+
+        setSession(session);
+        if (session) {
+          setLoading(true);
+          // For new magic-link users: if pending onboarding data exists, write it
+          // to the profiles table before loading user data (handlePostAuth handles both).
+          if (event === 'SIGNED_IN' && sessionStorage.getItem('mm_pending_onboarding')) {
+            handlePostAuth(session);
+          } else {
+            loadUserData(session.user.id);
+          }
+        } else {
+          loadingData.current = false;
+          setUser(INITIAL_USER);
+          setAlarms([]);
+          setActiveAlarm(null);
+          setLoading(false);
+        }
+      });
+
+      subscription = data.subscription;
+    }
+
+    hydrateAndSubscribe();
+
+    return () => {
+      active = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   // ─── Magic link deep-link handler ────────────────────────────────────────────
@@ -330,7 +366,7 @@ export function AppProvider({ children }) {
 
   async function flushPendingOps() {
     const ops = getPendingOps();
-    if (ops.length === 0) return;
+    if (ops.length === 0) return true;
     for (const op of ops) {
       try {
         if (op.type === 'add') {
@@ -343,24 +379,25 @@ export function AppProvider({ children }) {
             active:   op.payload.active,
             days:     op.payload.days,
           });
-          if (error) return;
+          if (error) return false;
         } else if (op.type === 'toggle') {
           const { error } = await supabase.from('alarms').update({ active: op.payload.active }).eq('id', op.payload.id);
-          if (error) return;
+          if (error) return false;
         } else if (op.type === 'delete') {
           const { error } = await supabase.from('alarms').delete().eq('id', op.payload.id);
-          if (error) return;
+          if (error) return false;
         } else if (op.type === 'edit') {
           const { error } = await supabase.from('alarms').update(op.payload.updates).eq('id', op.payload.id);
-          if (error) return;
+          if (error) return false;
         }
       // Remove this op from the queue now that it succeeded
       const remaining = getPendingOps().filter(o => o.id !== op.id);
       localStorage.setItem('mm_pending_ops', JSON.stringify(remaining));
     } catch {
       // Still offline — leave ops in queue, abort flush
-      return;
+      return false;
     }
+    return true;
   }
 }
 
@@ -389,7 +426,8 @@ export function AppProvider({ children }) {
     }
 
     // 3. Flush any offline writes before fetching (best-effort)
-    try { await flushPendingOps(); } catch {}
+    let pendingOpsFlushed = false;
+    try { pendingOpsFlushed = await flushPendingOps(); } catch {}
 
     // 4. Fetch from Supabase — source of truth when online
     const [profileResult, alarmsResult] = await Promise.all([
@@ -404,15 +442,17 @@ export function AppProvider({ children }) {
 
     if (alarmsResult.data) {
       const mapped = alarmsResult.data.map(rowToAlarm);
-      setCachedAlarms(mapped);
-      setAlarms(mapped);
-      syncAllAlarms(mapped);
+      const shouldPreserveCached = !pendingOpsFlushed && cached.length > 0;
+      const nextAlarms = shouldPreserveCached ? cached : mapped;
+      if (!shouldPreserveCached) setCachedAlarms(mapped);
+      setAlarms(nextAlarms);
+      syncAllAlarms(nextAlarms);
       checkAndRequestAlarmPermissions();
 
       // Cold-start: check if an alarm fired while the app was closed
       const pendingAlarmId = await getPendingAlarm();
       if (pendingAlarmId) {
-        const alarm = mapped.find(a => String(a.id) === pendingAlarmId);
+        const alarm = nextAlarms.find(a => String(a.id) === pendingAlarmId);
         if (alarm) { vibrateAlarm(); setActiveAlarm(alarm); }
       }
     }
@@ -664,8 +704,11 @@ export function AppProvider({ children }) {
   async function resetAll() {
     const userId = session.user.id;
     localStorage.removeItem('mm_profile_icon');
+    sessionStorage.removeItem('mm_pending_onboarding');
     setCachedAlarms([]);
     clearPendingOps();
+    setPendingOnboardingState(null);
+    setShowAuthDirectly(false);
     await Promise.all([
       supabase.from('profiles').update({
         name: '',
@@ -687,6 +730,7 @@ export function AppProvider({ children }) {
     setAlarms([]);
     setActiveAlarm(null);
     setWakeStats({ success: 0, failed: 0, loading: false });
+    await supabase.auth.signOut();
   }
 
   function applyProgressionUpdate(updates) {
@@ -722,10 +766,11 @@ export function AppProvider({ children }) {
   }, []);
 
   return (
-    <AppContext.Provider
-      value={{
-        session,
-        user,
+      <AppContext.Provider
+        value={{
+          session,
+          authInitialized,
+          user,
         alarms,
         activeAlarm,
         loading,

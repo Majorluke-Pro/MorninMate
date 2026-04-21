@@ -106,17 +106,19 @@ function buildTestAlarm(alarm) {
 
 export default function Home() {
   const [tab, setTab] = useState(0);
+  const [alarmOverlayOpen, setAlarmOverlayOpen] = useState(false);
   const navigate = useNavigate();
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ flex: 1, overflowY: 'auto', pb: 9 }}>
-        {tab === 0 && <AlarmsTab onNavigate={navigate} />}
+        {tab === 0 && <AlarmsTab onNavigate={navigate} onOverlayChange={setAlarmOverlayOpen} />}
         {tab === 1 && <StatsTab />}
         {tab === 2 && <ProfileTab />}
       </Box>
 
       {/* Custom bottom nav with sliding pill */}
+      {!alarmOverlayOpen && (
       <Box sx={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
         bgcolor: 'rgba(10,10,22,0.93)',
@@ -166,13 +168,14 @@ export default function Home() {
           </Box>
         ))}
       </Box>
+      )}
     </Box>
   );
 }
 
 // ─── Alarms Tab ───────────────────────────────────────────────────────────────
 
-function AlarmsTab({ onNavigate }) {
+function AlarmsTab({ onNavigate, onOverlayChange }) {
   const { user, alarms, toggleAlarm, deleteAlarm, editAlarm, xpProgress, XP_PER_LEVEL, triggerAlarm } = useApp();
   const [editTarget, setEditTarget]     = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -183,6 +186,11 @@ function AlarmsTab({ onNavigate }) {
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    onOverlayChange?.(Boolean(editTarget));
+    return () => onOverlayChange?.(false);
+  }, [editTarget, onOverlayChange]);
+
   const xpInLevel = user.xp % XP_PER_LEVEL;
 
   const sortedAlarms = useMemo(() => (
@@ -192,7 +200,26 @@ function AlarmsTab({ onNavigate }) {
   const nextAlarm    = sortedAlarms.find(a => a.active && getNextFire(a));
   const msUntilNext  = nextAlarm ? getNextFire(nextAlarm) - now : null;
   const greeting     = getGreeting(now.getHours());
+  const gameLabel = {
+    math: 'Math Blitz',
+    memory: 'Memory Match',
+    reaction: 'Reaction Rush',
+  }[user.favoriteGame] || 'Wake Challenge';
+  const todayFocusLabel = nextAlarm
+    ? (nextAlarm.label || user.wakeGoal || 'Tomorrow focus')
+    : (user.wakeGoal || 'Build tomorrow tonight');
+  const heroTitle = nextAlarm ? formatTime(nextAlarm.time) : 'No alarm set';
+  /* eslint-disable no-unused-vars */
+  const heroSubtitleText = nextAlarm ? "Tomorrow's next alarm" : 'Set your next wake-up';
+  const heroMetaText = nextAlarm
+    ? `${gameLabel} - ${nextAlarm.days?.length ? `${nextAlarm.days.length} day routine` : 'One-time alarm'}`
+    : `${gameLabel} - ${user.streak > 0 ? `${user.streak} day streak` : 'Start your streak'}`;
+  const heroSubtitle = nextAlarm ? 'Tomorrow’s next alarm' : 'Set your next wake-up';
+  const heroMeta = nextAlarm
+    ? `${gameLabel} · ${nextAlarm.days?.length ? `${nextAlarm.days.length} day routine` : 'One-time alarm'}`
+    : `${gameLabel} · ${user.streak > 0 ? `${user.streak} day streak` : 'Start your streak'}`;
 
+  /* eslint-enable no-unused-vars */
   return (
     <>
       {/* ── Header ── */}
@@ -274,98 +301,189 @@ function AlarmsTab({ onNavigate }) {
           </Box>
         </Box>
 
-        {/* Top row: level ring + greeting + streak */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2.5 }}>
-          {/* Level ring */}
-          <Box sx={{ position: 'relative', flexShrink: 0, width: 64, height: 64 }}>
+        <Box sx={{
+          position: 'relative',
+          p: 1.4,
+          borderRadius: 3,
+          bgcolor: 'rgba(15,15,28,0.78)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          backdropFilter: 'blur(14px)',
+          boxShadow: '0 14px 28px rgba(0,0,0,0.2)',
+          overflow: 'hidden',
+          mb: 1,
+        }}>
+          <Box sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: 3,
+            background: 'linear-gradient(90deg, #FF6B35 0%, #FF9A6D 42%, rgba(255,255,255,0) 100%)',
+            opacity: 0.9,
+          }} />
+          <Box sx={{
+            position: 'absolute',
+            top: -36,
+            right: -18,
+            width: 96,
+            height: 96,
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,107,53,0.22) 0%, rgba(255,107,53,0.07) 46%, transparent 74%)',
+            pointerEvents: 'none',
+          }} />
+          <Box sx={{
+            position: 'absolute',
+            inset: 1,
+            borderRadius: 3.5,
+            border: '1px solid rgba(255,255,255,0.04)',
+            pointerEvents: 'none',
+          }} />
+
+          <Box sx={{
+            position: 'relative',
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 1.25,
+            alignItems: 'center',
+          }}>
+            <Box sx={{ minWidth: 0, flex: 1, py: 0.2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.55, mb: 0.45 }}>
+                <Box sx={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  bgcolor: '#FF9A6D',
+                  boxShadow: '0 0 12px rgba(255,107,53,0.45)',
+                  flexShrink: 0,
+                }} />
+                <Typography sx={{
+                  fontSize: '0.62rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(255,255,255,0.54)',
+                }}>
+                  {greeting}, {user.name}
+                </Typography>
+              </Box>
+              <Typography sx={{
+                fontFamily: '"Fraunces", serif',
+                fontWeight: 800,
+                fontSize: { xs: '1.5rem', sm: '1.72rem' },
+                lineHeight: 0.98,
+                letterSpacing: '-0.04em',
+                color: '#FFF5DF',
+              }}>
+                {heroTitle}
+              </Typography>
+              <Typography sx={{
+                mt: 0.45,
+                fontSize: '0.76rem',
+                color: 'rgba(255,255,255,0.62)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}>
+                {nextAlarm ? todayFocusLabel : heroSubtitleText}
+              </Typography>
+            </Box>
+
+            {nextAlarm && (
+              <Box sx={{
+                flexShrink: 0,
+                minWidth: 76,
+                px: 0.9,
+                py: 0.65,
+                borderRadius: 2.2,
+                bgcolor: 'rgba(255,255,255,0.045)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)',
+                textAlign: 'center',
+              }}>
+                <Typography sx={{
+                  fontSize: '0.58rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(255,255,255,0.52)',
+                  mb: 0.1,
+                }}>
+                  Next
+                </Typography>
+                <Typography sx={{
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  color: '#FFB07B',
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {heroSubtitleText}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+          {nextAlarm && msUntilNext != null && (
             <Box sx={{
-              position: 'absolute', inset: -4, borderRadius: '50%',
-              background: 'conic-gradient(from 210deg, rgba(255,107,53,0.16) 0deg, #FF6B35 110deg, #FFD166 220deg, rgba(255,255,255,0.12) 300deg, rgba(255,107,53,0.16) 360deg)',
-              boxShadow: '0 10px 24px rgba(255,107,53,0.22)',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                inset: 2,
-                borderRadius: '50%',
-                background: '#120D1E',
-              },
-            }} />
-            <Box sx={{
-              position: 'absolute', inset: -1, borderRadius: '50%',
-              border: '1px solid rgba(255,255,255,0.12)',
-              boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
-            }} />
-            <Box sx={{
-              position: 'absolute',
-              top: 5,
-              left: 8,
-              width: 18,
-              height: 10,
+              mt: 0.95,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.45,
+              px: 0.82,
+              py: 0.38,
               borderRadius: 999,
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.45), rgba(255,255,255,0))',
-              filter: 'blur(1px)',
-              opacity: 0.9,
-              pointerEvents: 'none',
-            }} />
-            <Avatar sx={{
-              width: 64, height: 64,
-              background: 'linear-gradient(135deg, #FF6B35 0%, #E54E1B 100%)',
-              fontWeight: 900, fontSize: '1.4rem',
-              fontFamily: '"Fraunces", serif',
-              boxShadow: '0 0 24px rgba(255,107,53,0.28), inset 0 1px 0 rgba(255,255,255,0.15)',
-              letterSpacing: '-1px',
+              bgcolor: 'rgba(6,214,160,0.08)',
+              border: '1px solid rgba(6,214,160,0.16)',
             }}>
-              {user.level}
-            </Avatar>
-            <Box sx={{
-              position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
-              px: 0.75, py: 0.15, borderRadius: 1,
-              bgcolor: '#FF6B35',
-              fontSize: '0.4rem', fontWeight: 900, letterSpacing: '0.08em', color: '#fff',
-              lineHeight: 1.7, whiteSpace: 'nowrap',
-            }}>
-              LEVEL
-            </Box>
-          </Box>
-
-          {/* Greeting */}
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Typography variant="h5" fontWeight={800} noWrap sx={{ letterSpacing: '-0.3px' }}>
-                {greeting}, {user.name}
-              </Typography>
-              <WbSunnyIcon sx={{
-                fontSize: '1.2rem', color: '#FFD166', flexShrink: 0,
-                filter: 'drop-shadow(0 0 6px rgba(255,209,102,0.5))',
-              }} />
-            </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.2, display: 'block', opacity: 0.8 }} noWrap>
-              {user.wakeGoal ? `"${user.wakeGoal}"` : 'Keep that streak alive!'}
-            </Typography>
-          </Box>
-
-          {/* Streak badge */}
-          {user.streak > 0 && (
-            <Box sx={{
-              flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center',
-              px: 1.25, py: 0.75, borderRadius: 2.5,
-              bgcolor: 'rgba(255,209,102,0.08)',
-              border: '1px solid rgba(255,209,102,0.2)',
-              boxShadow: '0 0 16px rgba(255,209,102,0.08)',
-            }}>
-              <LocalFireDepartmentIcon sx={{ fontSize: '1.15rem', color: '#FFD166', filter: 'drop-shadow(0 0 5px rgba(255,209,102,0.55))' }} />
-              <Typography fontWeight={900} fontSize="0.88rem" color="#FFD166" sx={{ lineHeight: 1.2, fontFamily: '"Fraunces", serif' }}>
-                {user.streak}
-              </Typography>
-              <Typography sx={{ fontSize: '0.45rem', color: 'rgba(255,209,102,0.6)', fontWeight: 700, letterSpacing: '0.06em' }}>
-                STREAK
+              <AlarmIcon sx={{ fontSize: 10, color: '#7CE6C6' }} />
+              <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: '#7CE6C6', fontVariantNumeric: 'tabular-nums' }}>
+                In {formatCountdown(msUntilNext)}
               </Typography>
             </Box>
           )}
+
+          <Box sx={{ mt: 0.95 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.45 }}>
+              <Typography sx={{
+                fontSize: '0.58rem',
+                fontWeight: 800,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.48)',
+              }}>
+                XP Progress
+              </Typography>
+              <Typography sx={{
+                fontSize: '0.62rem',
+                fontWeight: 700,
+                color: 'rgba(255,255,255,0.62)',
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {xpInLevel}/{XP_PER_LEVEL}
+              </Typography>
+            </Box>
+
+            <Box sx={{ position: 'relative' }}>
+              <LinearProgress
+                variant="determinate"
+                value={xpProgress * 100}
+                sx={{
+                  height: 6,
+                  borderRadius: 999,
+                  bgcolor: 'rgba(255,255,255,0.07)',
+                  '& .MuiLinearProgress-bar': {
+                    borderRadius: 999,
+                    background: 'linear-gradient(90deg, #FF6B35 0%, #FFD166 100%)',
+                    boxShadow: '0 0 10px rgba(255,107,53,0.38)',
+                  },
+                }}
+              />
+            </Box>
+          </Box>
         </Box>
 
         {/* XP section */}
         <Box sx={{
+          display: 'none',
           p: 2, borderRadius: 3,
           bgcolor: 'rgba(255,255,255,0.035)',
           border: '1px solid rgba(255,255,255,0.06)',
@@ -713,15 +831,58 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
   const [label, setLabel] = useState(alarm.label || '');
   const [time,  setTime]  = useState(alarm.time  || '07:00');
   const [days,  setDays]  = useState(alarm.days  || []);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
+
+  useEffect(() => {
+    function updateViewportMode() {
+      if (typeof window === 'undefined') return;
+      setIsCompactViewport(window.innerHeight <= 700 || window.innerWidth <= 380);
+    }
+
+    updateViewportMode();
+    window.addEventListener('resize', updateViewportMode);
+    return () => window.removeEventListener('resize', updateViewportMode);
+  }, []);
 
   function toggleDay(i) {
     setDays(prev => prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i]);
   }
 
   return (
-    <Dialog open onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle fontWeight={800} sx={{ pb: 1 }}>Edit Alarm</DialogTitle>
-      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: '8px !important' }}>
+    <Dialog
+      open
+      onClose={onClose}
+      fullWidth
+      fullScreen={isCompactViewport}
+      maxWidth="xs"
+      PaperProps={{
+        sx: isCompactViewport ? {
+          borderRadius: 0,
+          maxHeight: '100dvh',
+          height: '100dvh',
+        } : {
+          maxHeight: 'min(680px, calc(100dvh - 32px))',
+        },
+      }}
+      sx={isCompactViewport ? { padding: 0 } : undefined}
+    >
+      <DialogTitle fontWeight={800} sx={{
+        pb: 1,
+        pt: isCompactViewport ? 2 : undefined,
+        px: isCompactViewport ? 2 : undefined,
+        flexShrink: 0,
+      }}>
+        Edit Alarm
+      </DialogTitle>
+      <DialogContent sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: isCompactViewport ? 2.25 : 3,
+        pt: '8px !important',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        pb: isCompactViewport ? 2 : undefined,
+      }}>
         <TextField
           label="Label" value={label} onChange={e => setLabel(e.target.value)}
           fullWidth size="small" slotProps={{ inputLabel: { shrink: true } }}
@@ -735,7 +896,7 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
 
         <Box>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>Repeat on</Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 0.75 }}>
             {DAY_LABELS.map((d, i) => (
               <Box
                 key={i}
@@ -744,7 +905,8 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
                   flex: 1, aspectRatio: '1', borderRadius: '50%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   bgcolor: days.includes(i) ? 'primary.main' : 'rgba(255,255,255,0.07)',
-                  cursor: 'pointer', fontWeight: 700, fontSize: '0.68rem',
+                  cursor: 'pointer', fontWeight: 700, fontSize: isCompactViewport ? '0.62rem' : '0.68rem',
+                  minHeight: isCompactViewport ? 40 : undefined,
                   userSelect: 'none', touchAction: 'manipulation',
                   transition: 'background 0.15s, transform 0.1s',
                   '&:active': { transform: 'scale(0.9)' },
@@ -756,9 +918,20 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
           </Box>
         </Box>
       </DialogContent>
-      <DialogActions sx={{ p: 2, gap: 1 }}>
-        <Button onClick={onClose} sx={{ color: 'text.secondary' }}>Cancel</Button>
-        <Button variant="contained" onClick={() => onSave({ label, time, days })}>Save</Button>
+      <DialogActions sx={{
+        p: isCompactViewport ? 2 : 2,
+        gap: 1,
+        flexShrink: 0,
+        position: 'sticky',
+        bottom: 0,
+        background: 'rgba(22,22,42,0.96)',
+        backdropFilter: 'blur(14px)',
+        borderTop: '1px solid rgba(255,255,255,0.08)',
+        justifyContent: 'space-between',
+        pb: isCompactViewport ? 'max(env(safe-area-inset-bottom), 16px)' : undefined,
+      }}>
+        <Button onClick={onClose} sx={{ color: 'text.secondary', flex: 1 }}>Cancel</Button>
+        <Button variant="contained" onClick={() => onSave({ label, time, days })} sx={{ flex: 1 }}>Save</Button>
       </DialogActions>
     </Dialog>
   );

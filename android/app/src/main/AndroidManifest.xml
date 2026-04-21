@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
     <!-- Existing -->
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -25,7 +24,6 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
             android:name=".MainActivity"
@@ -33,7 +31,6 @@
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -45,34 +42,27 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="com.morninmate.app" android:host="login-callback" />
             </intent-filter>
-
         </activity>
 
         <!-- Alarm receiver — fires when AlarmManager triggers -->
-        <receiver
-            android:name=".AlarmReceiver"
-            android:exported="false" />
+        <receiver android:name=".AlarmReceiver" android:exported="false" />
 
         <!-- Boot receiver — reschedules alarms after phone reboot -->
-        <receiver
-            android:name=".BootReceiver"
-            android:exported="true">
+        <receiver android:name=".BootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
         <!-- Foreground service — plays ringtone while alarm is ringing -->
-        <service
-            android:name=".AlarmService"
-            android:foregroundServiceType="mediaPlayback"
-            android:exported="false" />
+        <service android:name=".AlarmService" android:foregroundServiceType="mediaPlayback" android:exported="false" />
 
         <!-- Hardcore guard — re-launches app if user backgrounds during hardcore alarm -->
         <service
             android:name=".HardcoreGuardService"
             android:foregroundServiceType="mediaPlayback"
-            android:exported="false" />
+            android:exported="false"
+        />
 
         <!-- Receives the "Dismiss" action from the alarm notification -->
         <receiver android:name=".AlarmDismissReceiver" android:exported="false" />
@@ -85,11 +75,7 @@
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
-
     </application>
-
 </manifest>

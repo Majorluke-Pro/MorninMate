@@ -422,36 +422,42 @@ export const Fab = forwardRef(function Fab({ children, sx, style, ...props }, re
   );
 });
 
-export function Dialog({ open, onClose, fullWidth, maxWidth = 'sm', children }) {
+export function Dialog({ open, onClose, fullWidth, fullScreen, maxWidth = 'sm', children, sx, style, PaperProps }) {
   if (!open) return null;
 
   const widths = { xs: 420, sm: 560, md: 720 };
   const width = widths[maxWidth] ?? 560;
+  const paperStyle = sxToStyle(PaperProps?.sx);
 
   return (
     <div
       onClick={onClose}
-      style={{
+      style={mergeStyles({
         position: 'fixed',
         inset: 0,
         background: 'rgba(0,0,0,0.58)',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: fullScreen ? 'stretch' : 'center',
         justifyContent: 'center',
         padding: '16px',
         zIndex: 40,
-      }}
+      }, sxToStyle(sx), style)}
     >
       <div
         onClick={(event) => event.stopPropagation()}
-        style={{
-          width: fullWidth ? '100%' : 'auto',
-          maxWidth: `${width}px`,
+        style={mergeStyles({
+          width: fullScreen || fullWidth ? '100%' : 'auto',
+          maxWidth: fullScreen ? '100%' : `${width}px`,
+          height: fullScreen ? '100%' : 'auto',
+          maxHeight: fullScreen ? '100%' : 'calc(100vh - 32px)',
           background: '#16162A',
-          borderRadius: '18px',
+          borderRadius: fullScreen ? '0px' : '18px',
           border: '1px solid rgba(255,255,255,0.08)',
           boxShadow: '0 24px 60px rgba(0,0,0,0.38)',
-        }}
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        }, paperStyle)}
       >
         {children}
       </div>
