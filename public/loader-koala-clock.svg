@@ -1,0 +1,88 @@
+<svg width="240" height="240" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="24" y1="12" x2="216" y2="228" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2E3146"/>
+      <stop offset="1" stop-color="#1E2032"/>
+    </linearGradient>
+    <radialGradient id="clockGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(120 142) rotate(90) scale(74 74)">
+      <stop stop-color="#FFE59B" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#FFB13C" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="clockOuter" x1="52" y1="72" x2="188" y2="214" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFB33C"/>
+      <stop offset="0.5" stop-color="#FF7B1E"/>
+      <stop offset="1" stop-color="#D9550F"/>
+    </linearGradient>
+    <linearGradient id="clockInner" x1="72" y1="95" x2="168" y2="188" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF8C7"/>
+      <stop offset="1" stop-color="#FFD76D"/>
+    </linearGradient>
+    <linearGradient id="koalaFace" x1="82" y1="16" x2="158" y2="88" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F4F7F3"/>
+      <stop offset="1" stop-color="#CBD2DA"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="224" height="224" rx="42" fill="url(#bg)"/>
+  <circle cx="120" cy="146" r="74" fill="url(#clockGlow)"/>
+
+  <g opacity="0.9">
+    <circle cx="32" cy="112" r="2.4" fill="#FFB454"/>
+    <circle cx="36" cy="126" r="1.6" fill="#FFCB74"/>
+    <circle cx="205" cy="104" r="2.4" fill="#FFB454"/>
+    <circle cx="198" cy="118" r="1.8" fill="#FFCB74"/>
+    <circle cx="210" cy="138" r="2.1" fill="#FFB454"/>
+  </g>
+
+  <circle cx="78" cy="84" r="19" fill="url(#clockOuter)"/>
+  <circle cx="162" cy="84" r="19" fill="url(#clockOuter)"/>
+  <circle cx="78" cy="84" r="14" fill="#FFC455" opacity="0.78"/>
+  <circle cx="162" cy="84" r="14" fill="#FFC455" opacity="0.78"/>
+
+  <circle cx="120" cy="148" r="64" fill="url(#clockOuter)"/>
+  <circle cx="120" cy="148" r="55" fill="url(#clockInner)" stroke="#9C531B" stroke-width="2"/>
+
+  <g fill="#6A3C1F">
+    <circle cx="120" cy="98" r="3.5"/>
+    <circle cx="120" cy="198" r="3.5"/>
+    <circle cx="70" cy="148" r="3.5"/>
+    <circle cx="170" cy="148" r="3.5"/>
+    <circle cx="87" cy="115" r="3"/>
+    <circle cx="153" cy="115" r="3"/>
+    <circle cx="87" cy="181" r="3"/>
+    <circle cx="153" cy="181" r="3"/>
+    <circle cx="102" cy="103" r="2.6"/>
+    <circle cx="138" cy="103" r="2.6"/>
+    <circle cx="102" cy="193" r="2.6"/>
+    <circle cx="138" cy="193" r="2.6"/>
+    <circle cx="75" cy="130" r="2.6"/>
+    <circle cx="165" cy="130" r="2.6"/>
+    <circle cx="75" cy="166" r="2.6"/>
+    <circle cx="165" cy="166" r="2.6"/>
+  </g>
+
+  <text x="120" y="114" text-anchor="middle" fill="#6A3C1F" font-size="18" font-family="Georgia, serif" font-weight="700">12</text>
+
+  <circle cx="120" cy="148" r="8" fill="#FF7B1E" stroke="#5A2E19" stroke-width="2"/>
+  <path d="M120 148L120 112" stroke="#4E2A20" stroke-width="8" stroke-linecap="round"/>
+  <path d="M120 148L97 137" stroke="#4E2A20" stroke-width="8" stroke-linecap="round"/>
+
+  <ellipse cx="70" cy="206" rx="10" ry="9" fill="#EF6A1A"/>
+  <ellipse cx="170" cy="206" rx="10" ry="9" fill="#EF6A1A"/>
+
+  <ellipse cx="88" cy="46" rx="17" ry="17" fill="#D7DEE5"/>
+  <ellipse cx="152" cy="46" rx="17" ry="17" fill="#D7DEE5"/>
+  <ellipse cx="88" cy="46" rx="10" ry="10" fill="#FFB0A1"/>
+  <ellipse cx="152" cy="46" rx="10" ry="10" fill="#FFB0A1"/>
+  <ellipse cx="120" cy="48" rx="34" ry="29" fill="url(#koalaFace)"/>
+  <ellipse cx="120" cy="57" rx="14" ry="10" fill="#4A3A3A"/>
+  <circle cx="105" cy="47" r="3.2" fill="#3E3234"/>
+  <circle cx="135" cy="47" r="3.2" fill="#3E3234"/>
+  <circle cx="104" cy="46" r="1.1" fill="#FFF"/>
+  <circle cx="134" cy="46" r="1.1" fill="#FFF"/>
+  <path d="M111 68C114 72 117 74 120 74C123 74 126 72 129 68" stroke="#4A3A3A" stroke-width="3.4" stroke-linecap="round"/>
+  <path d="M97 68C99 72 101 75 104 77" stroke="#B6BDC6" stroke-width="5" stroke-linecap="round"/>
+  <path d="M143 68C141 72 139 75 136 77" stroke="#B6BDC6" stroke-width="5" stroke-linecap="round"/>
+  <ellipse cx="94" cy="72" rx="8" ry="7" fill="#E9EEF4"/>
+  <ellipse cx="146" cy="72" rx="8" ry="7" fill="#E9EEF4"/>
+</svg>

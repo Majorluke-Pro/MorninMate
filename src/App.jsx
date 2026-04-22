@@ -1,10 +1,13 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import AuthScreen from './components/Auth/AuthScreenModern';
 import OnboardingFlow from './components/Onboarding/OnboardingFlow';
 import Home from './components/Home/Home';
 import CreateAlarm from './components/Alarm/CreateAlarm';
 import WakeUpFlow from './components/WakeUp/WakeUpFlow';
+import { LoadingScreen, LoadingScreenPreview } from './components/common/LoadingScreen';
+
+const ACTIVE_LOADING_VARIANT = 'pulse';
 
 function AppRoutes() {
   const {
@@ -16,13 +19,23 @@ function AppRoutes() {
     pendingOnboarding,
     showAuthDirectly,
     offlineAccess,
+    cloudReachable,
+    canContinueOffline,
   } = useApp();
+  const location = useLocation();
+
+  if (location.pathname === '/loader-preview') {
+    return <LoadingScreenPreview />;
+  }
 
   if (loading || !authInitialized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-base">
-        <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
+      <LoadingScreen
+        variant={ACTIVE_LOADING_VARIANT}
+        offlineAccess={offlineAccess}
+        cloudReachable={cloudReachable}
+        canUseOffline={canContinueOffline}
+      />
     );
   }
 

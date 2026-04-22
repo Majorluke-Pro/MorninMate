@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="fur" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e3e8f0"/>
+      <stop offset="100%" stop-color="#bcc6d4"/>
+    </linearGradient>
+    <linearGradient id="innerEar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffd4ca"/>
+      <stop offset="100%" stop-color="#ffab97"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000000" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)" transform="translate(0 68)">
+    <ellipse cx="348" cy="314" rx="116" ry="122" fill="url(#fur)"/>
+    <ellipse cx="676" cy="314" rx="116" ry="122" fill="url(#fur)"/>
+    <ellipse cx="348" cy="324" rx="68" ry="74" fill="url(#innerEar)"/>
+    <ellipse cx="676" cy="324" rx="68" ry="74" fill="url(#innerEar)"/>
+
+    <path
+      d="M512 224c142 0 240 106 240 246 0 132-93 244-240 244S272 602 272 470c0-140 98-246 240-246z"
+      fill="url(#fur)"
+    />
+
+    <ellipse cx="512" cy="298" rx="168" ry="74" fill="#edf2f8" opacity="0.58"/>
+
+    <ellipse cx="440" cy="462" rx="18" ry="24" fill="#2f3746"/>
+    <ellipse cx="584" cy="462" rx="18" ry="24" fill="#2f3746"/>
+    <ellipse cx="446" cy="452" rx="5.5" ry="7" fill="#ffffff" opacity="0.92"/>
+    <ellipse cx="590" cy="452" rx="5.5" ry="7" fill="#ffffff" opacity="0.92"/>
+
+    <path
+      d="M512 510c44 0 78 28 78 64 0 42-33 74-78 74s-78-32-78-74c0-36 34-64 78-64z"
+      fill="#373e4a"
+    />
+    <ellipse cx="488" cy="544" rx="18" ry="10" fill="#5b6574" opacity="0.82"/>
+
+    <path
+      d="M462 654c18 22 34 32 50 32s32-10 50-32"
+      fill="none"
+      stroke="#303746"
+      stroke-linecap="round"
+      stroke-width="12"
+    />
+
+    <ellipse cx="376" cy="560" rx="38" ry="22" fill="#ff9f8c" opacity="0.26"/>
+    <ellipse cx="648" cy="560" rx="38" ry="22" fill="#ff9f8c" opacity="0.26"/>
+  </g>
+</svg>
