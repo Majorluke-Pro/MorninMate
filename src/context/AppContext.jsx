@@ -50,6 +50,8 @@ function getStoredProfileIcon() {
 
 const INITIAL_USER = {
   name: '',
+  age: '',
+  country: '',
   wakeTime: '07:00',
   morningRating: 3,
   favoriteGame: 'math',
@@ -66,6 +68,93 @@ const INITIAL_WAKE_STATS = { success: 0, failed: 0, loading: false };
 const XP_PER_LEVEL = 100;
 const WAKE_REWARD = { gentle: 20, moderate: 35, intense: 60, hardcore: 100 };
 const AUTH_BOOT_TIMEOUT_MS = 4000;
+const PROFILE_SYNC_COMPAT_COLUMNS = [
+  'age',
+  'country',
+  'wake_time',
+  'morning_rating',
+  'favorite_game',
+  'wake_goal',
+  'profile_icon',
+  'onboarding_complete',
+  'level',
+  'xp',
+  'demerits',
+  'streak',
+  'updated_at',
+];
+const UNSUPPORTED_PROFILE_COLUMNS_KEY = 'mm_unsupported_profile_columns';
+
+function getStoredUnsupportedProfileColumns() {
+  try {
+    const raw = localStorage.getItem(UNSUPPORTED_PROFILE_COLUMNS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((column) => PROFILE_SYNC_COMPAT_COLUMNS.includes(column))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+const unsupportedProfileColumns = new Set(getStoredUnsupportedProfileColumns());
+
+function persistUnsupportedProfileColumns() {
+  try {
+    if (unsupportedProfileColumns.size === 0) {
+      localStorage.removeItem(UNSUPPORTED_PROFILE_COLUMNS_KEY);
+      return;
+    }
+    localStorage.setItem(UNSUPPORTED_PROFILE_COLUMNS_KEY, JSON.stringify([...unsupportedProfileColumns]));
+  } catch {}
+}
+
+function normalizeAge(value) {
+  if (value === null || value === undefined || value === '') return '';
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) return '';
+  return String(parsed);
+}
+
+function ageToDbValue(value) {
+  const normalized = normalizeAge(value);
+  return normalized ? Number(normalized) : null;
+}
+
+function normalizeCountry(value) {
+  return value?.trim?.() || '';
+}
+
+function stripUnsupportedProfileExtras(payload) {
+  if (unsupportedProfileColumns.size === 0) return payload;
+  const nextPayload = { ...payload };
+  unsupportedProfileColumns.forEach((column) => {
+    delete nextPayload[column];
+  });
+  return nextPayload;
+}
+
+function findMissingOptionalProfileColumn(error) {
+  const errorText = JSON.stringify(error ?? '');
+  const lowerErrorText = errorText.toLowerCase();
+  if (!lowerErrorText.includes('profiles') && !lowerErrorText.includes('column') && !lowerErrorText.includes('schema cache')) return null;
+
+  const quotedColumnMatch = errorText.match(/'([^']+)' column of 'profiles'/i);
+  if (quotedColumnMatch?.[1] && PROFILE_SYNC_COMPAT_COLUMNS.includes(quotedColumnMatch[1])) {
+    return quotedColumnMatch[1];
+  }
+
+  return PROFILE_SYNC_COMPAT_COLUMNS.find((column) => lowerErrorText.includes(column.toLowerCase())) || null;
+}
+
+function markProfileExtrasUnsupported(error) {
+  const missingColumn = findMissingOptionalProfileColumn(error);
+  if (!missingColumn || unsupportedProfileColumns.has(missingColumn)) return false;
+  unsupportedProfileColumns.add(missingColumn);
+  persistUnsupportedProfileColumns();
+  return true;
+}
 
 function newProfilePayload(userId, data) {
   if (data.profileIcon) {
@@ -74,9 +163,11 @@ function newProfilePayload(userId, data) {
     } catch {}
   }
 
-  return {
+  return stripUnsupportedProfileExtras({
     id: userId,
     name: data.name,
+    age: ageToDbValue(data.age),
+    country: normalizeCountry(data.country),
     wake_time: data.wakeTime,
     morning_rating: data.morningRating,
     favorite_game: data.favoriteGame,
@@ -88,13 +179,15 @@ function newProfilePayload(userId, data) {
     demerits: 0,
     streak: 0,
     updated_at: new Date().toISOString(),
-  };
+  });
 }
 
 function rowToUser(row) {
   const profileIcon = row.profile_icon || getStoredProfileIcon();
   return {
     name: row.name || '',
+    age: normalizeAge(row.age),
+    country: normalizeCountry(row.country),
     wakeTime: row.wake_time || '07:00',
     morningRating: row.morning_rating ?? 3,
     favoriteGame: row.favorite_game || 'math',
@@ -109,8 +202,10 @@ function rowToUser(row) {
 }
 
 function userToProfileSync(user) {
-  return {
+  return stripUnsupportedProfileExtras({
     name: user.name || '',
+    age: ageToDbValue(user.age),
+    country: normalizeCountry(user.country),
     wake_time: user.wakeTime || '07:00',
     morning_rating: user.morningRating ?? 3,
     favorite_game: user.favoriteGame || 'math',
@@ -118,7 +213,39 @@ function userToProfileSync(user) {
     profile_icon: user.profileIcon || getStoredProfileIcon(),
     onboarding_complete: user.onboardingComplete ?? false,
     updated_at: new Date().toISOString(),
-  };
+  });
+}
+
+async function upsertProfileRecord(userId, payload) {
+  let result;
+
+  for (let attempt = 0; attempt <= PROFILE_SYNC_COMPAT_COLUMNS.length; attempt += 1) {
+    result = await supabase.from('profiles').upsert({
+      id: userId,
+      ...stripUnsupportedProfileExtras(payload),
+    });
+
+    if (!result.error) return result;
+    if (!markProfileExtrasUnsupported(result.error)) return result;
+  }
+
+  return result;
+}
+
+async function updateProfileRecord(userId, payload) {
+  let result;
+
+  for (let attempt = 0; attempt <= PROFILE_SYNC_COMPAT_COLUMNS.length; attempt += 1) {
+    result = await supabase
+      .from('profiles')
+      .update(stripUnsupportedProfileExtras(payload))
+      .eq('id', userId);
+
+    if (!result.error) return result;
+    if (!markProfileExtrasUnsupported(result.error)) return result;
+  }
+
+  return result;
 }
 
 function normalizeAlarmDays(days) {
@@ -195,6 +322,8 @@ function buildOfflineUser(data) {
   return {
     ...INITIAL_USER,
     ...data,
+    age: normalizeAge(data.age),
+    country: normalizeCountry(data.country),
     profileIcon: data.profileIcon || getStoredProfileIcon(),
     onboardingComplete: true,
   };
@@ -432,10 +561,7 @@ export function AppProvider({ children }) {
     if (!userId) return false;
 
     try {
-      const { error } = await supabase.from('profiles').upsert({
-        id: userId,
-        ...pendingProfile,
-      });
+      const { error } = await upsertProfileRecord(userId, pendingProfile);
 
       if (error) return false;
 
@@ -729,17 +855,14 @@ export function AppProvider({ children }) {
 
       if (pendingRaw) {
         const pending = JSON.parse(pendingRaw);
-        const { error } = await supabase.from('profiles').upsert(newProfilePayload(userId, pending));
+        const { error } = await upsertProfileRecord(userId, newProfilePayload(userId, pending));
         if (!error) {
           sessionStorage.removeItem('mm_pending_onboarding');
           setPendingOnboardingState(null);
           clearPendingProfileSync();
         }
       } else if (pendingProfile) {
-        const { error } = await supabase.from('profiles').upsert({
-          id: userId,
-          ...pendingProfile,
-        });
+        const { error } = await upsertProfileRecord(userId, pendingProfile);
 
         if (!error) {
           clearPendingProfileSync();
@@ -1104,7 +1227,7 @@ export function AppProvider({ children }) {
     }
 
     const userId = sessionRef.current.user.id;
-    const { error } = await supabase.from('profiles').upsert(newProfilePayload(userId, data));
+    const { error } = await upsertProfileRecord(userId, newProfilePayload(userId, data));
 
     if (error) {
       console.error('Failed to save profile:', error);
@@ -1282,6 +1405,8 @@ export function AppProvider({ children }) {
   async function updateUser(updates) {
     const safeUpdates = {};
     if (updates.name !== undefined) safeUpdates.name = updates.name;
+    if (updates.age !== undefined) safeUpdates.age = normalizeAge(updates.age);
+    if (updates.country !== undefined) safeUpdates.country = normalizeCountry(updates.country);
     if (updates.wakeTime !== undefined) safeUpdates.wakeTime = updates.wakeTime;
     if (updates.morningRating !== undefined) safeUpdates.morningRating = updates.morningRating;
     if (updates.favoriteGame !== undefined) safeUpdates.favoriteGame = updates.favoriteGame;
@@ -1301,12 +1426,7 @@ export function AppProvider({ children }) {
     if (!userId || !navigator.onLine) return;
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          ...userToProfileSync(nextUser),
-        })
-        .eq('id', userId);
+      const { error } = await updateProfileRecord(userId, userToProfileSync(nextUser));
 
       if (error) throw error;
 
@@ -1333,23 +1453,22 @@ export function AppProvider({ children }) {
 
     try {
       await Promise.all([
-        supabase
-          .from('profiles')
-          .update({
-            name: '',
-            wake_time: '07:00',
-            morning_rating: 3,
-            favorite_game: 'math',
-            wake_goal: '',
-            profile_icon: 'bolt',
-            onboarding_complete: false,
-            level: 1,
-            xp: 0,
-            demerits: 0,
-            streak: 0,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', userId),
+        updateProfileRecord(userId, {
+          name: '',
+          age: null,
+          country: null,
+          wake_time: '07:00',
+          morning_rating: 3,
+          favorite_game: 'math',
+          wake_goal: '',
+          profile_icon: 'bolt',
+          onboarding_complete: false,
+          level: 1,
+          xp: 0,
+          demerits: 0,
+          streak: 0,
+          updated_at: new Date().toISOString(),
+        }),
         supabase.from('alarms').delete().eq('user_id', userId),
       ]);
 

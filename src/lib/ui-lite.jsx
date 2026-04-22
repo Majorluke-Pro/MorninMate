@@ -270,11 +270,15 @@ export function TextField({
   sx,
   style,
   inputProps,
+  InputProps,
+  slotProps,
   placeholder,
   disabled,
   type = 'text',
   ...props
 }) {
+  const startAdornment = InputProps?.startAdornment ?? null;
+  const endAdornment = InputProps?.endAdornment ?? null;
   const fieldStyle = variant === 'standard'
     ? {
         width: '100%',
@@ -297,25 +301,62 @@ export function TextField({
         fontSize: size === 'small' ? '0.95rem' : '1rem',
       };
 
+  const wrapperStyle = mergeStyles({
+    width: fullWidth ? '100%' : undefined,
+  }, sxToStyle(sx), style);
+
+  const controlShellStyle = startAdornment || endAdornment
+    ? mergeStyles({
+        display: 'flex',
+        alignItems: multiline ? 'flex-start' : 'center',
+        gap: '10px',
+      }, variant === 'standard'
+        ? { borderBottom: '1px solid rgba(255,255,255,0.18)', padding: multiline ? '10px 0' : '0' }
+        : {
+            background: 'rgba(12,12,28,0.58)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: '12px',
+            padding: multiline ? '12px 14px' : '10px 14px',
+          })
+    : null;
+
+  const inputStyle = controlShellStyle
+    ? mergeStyles(fieldStyle, {
+        flex: 1,
+        border: 'none',
+        background: 'transparent',
+        borderRadius: 0,
+        padding: multiline ? '2px 0 0' : '0',
+      })
+    : fieldStyle;
+
   const sharedProps = {
     value,
     onChange,
     placeholder,
     disabled,
     type,
-    style: fieldStyle,
+    style: inputStyle,
     ...inputProps,
     ...props,
   };
 
   return (
-    <div style={mergeStyles({ width: fullWidth ? '100%' : undefined }, sxToStyle(sx), style)}>
+    <div style={wrapperStyle}>
       {label && (
         <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.75rem', color: 'rgba(255,255,255,0.52)', fontWeight: 700 }}>
           {label}
         </label>
       )}
-      {multiline ? <textarea rows={rows} {...sharedProps} /> : <input {...sharedProps} />}
+      {controlShellStyle ? (
+        <div style={controlShellStyle}>
+          {startAdornment}
+          {multiline ? <textarea rows={rows} {...sharedProps} /> : <input {...sharedProps} />}
+          {endAdornment}
+        </div>
+      ) : (
+        multiline ? <textarea rows={rows} {...sharedProps} /> : <input {...sharedProps} />
+      )}
     </div>
   );
 }

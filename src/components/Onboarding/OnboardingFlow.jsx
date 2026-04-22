@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from '../../lib/motion-lite';
-import { Box, Typography, Button, TextField, IconButton, CircularProgress, Alert } from '../../lib/ui-lite';
+import { Box, Typography, Button, TextField, IconButton, CircularProgress, Alert, Dialog, DialogTitle, DialogContent } from '../../lib/ui-lite';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import AlarmIcon from '@mui/icons-material/Alarm';
 import PersonIcon from '@mui/icons-material/Person';
+import CakeIcon from '@mui/icons-material/Cake';
+import PublicIcon from '@mui/icons-material/Public';
+import SearchIcon from '@mui/icons-material/Search';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
-import EmojiObjectsIcon from '@mui/icons-material/EmojiObjects';
 import EmojiPeopleIcon from '@mui/icons-material/EmojiPeople';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import StyleIcon from '@mui/icons-material/Style';
@@ -39,7 +41,7 @@ const MORNING_TYPES = [
 const GAMES = [
   { value: 'math', Icon: CalculateIcon, label: 'Math Blitz', desc: 'Solve quick arithmetic to dismiss', tag: 'Brain' },
   { value: 'memory', Icon: StyleIcon, label: 'Memory Match', desc: 'Flip and match emoji pairs', tag: 'Visual' },
-  { value: 'reaction', Icon: BoltIcon, label: 'Reaction Rush', desc: 'Tap right on cue — no cheating', tag: 'Reflex' },
+  { value: 'reaction', Icon: BoltIcon, label: 'Reaction Rush', desc: 'Tap right on cue - no cheating', tag: 'Reflex' },
 ];
 
 const GOAL_PRESETS = [
@@ -51,15 +53,36 @@ const GOAL_PRESETS = [
   { Icon: HistoryEduIcon, label: 'Journaling' },
 ];
 
-const STEP_IDS = ['welcome', 'name', 'avatar', 'wakeTime', 'morningType', 'game', 'goal', 'summary'];
+const COUNTRY_PRESETS = [
+  'South Africa',
+  'United States',
+  'United Kingdom',
+  'Canada',
+  'Australia',
+  'India',
+];
 
-const pageVariants = {
-  enter: { opacity: 0 },
-  center: { opacity: 1 },
-  exit: { opacity: 0 },
-};
+const COUNTRIES = [
+  'Argentina', 'Australia', 'Austria', 'Belgium', 'Botswana', 'Brazil', 'Canada', 'Chile', 'China',
+  'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Finland', 'France', 'Germany', 'Ghana',
+  'Greece', 'Hong Kong', 'Hungary', 'India', 'Indonesia', 'Ireland', 'Israel', 'Italy', 'Japan',
+  'Kenya', 'Malaysia', 'Mexico', 'Morocco', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway',
+  'Pakistan', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Saudi Arabia', 'Serbia',
+  'Singapore', 'South Africa', 'South Korea', 'Spain', 'Sweden', 'Switzerland', 'Thailand',
+  'Turkey', 'United Arab Emirates', 'United Kingdom', 'United States', 'Vietnam', 'Zambia', 'Zimbabwe',
+];
 
-const pageTransition = { type: 'tween', duration: 0.18, ease: 'easeOut' };
+const STEP_IDS = ['welcome', 'wakeTime', 'morningType', 'game', 'goal', 'name', 'age', 'country', 'avatar', 'summary'];
+
+function makePageVariants(direction) {
+  return {
+    enter: { x: direction * 40, opacity: 0 },
+    center: { x: 0, opacity: 1 },
+    exit: { x: direction * -40, opacity: 0 },
+  };
+}
+
+const pageTransition = { type: 'tween', duration: 0.22, ease: 'easeOut' };
 
 function DotsProgress({ step, totalSteps }) {
   return (
@@ -140,16 +163,27 @@ function WelcomeStep() {
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, py: 2 }}>
         <Box
           sx={{
-            width: 56,
-            height: 56,
-            borderRadius: '18px',
-            background: 'linear-gradient(135deg, #FF6B35, #FFD166)',
+            width: 152,
+            height: 152,
+            borderRadius: '34px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            overflow: 'hidden',
+            boxShadow: '0 20px 44px rgba(0,0,0,0.28)',
           }}
         >
-          <WbSunnyIcon sx={{ fontSize: '1.8rem', color: 'white' }} />
+          <Box
+            component="img"
+            src="/loader-koala-clock.svg"
+            alt="Koala alarm clock"
+            sx={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+            }}
+          />
         </Box>
 
         <Box>
@@ -161,14 +195,14 @@ function WelcomeStep() {
             </Box>
           </Box>
           <Box sx={{ fontSize: '0.9rem', color: '#6b7280', fontFamily: '"Outfit", sans-serif', lineHeight: 1.6, maxWidth: 260, mx: 'auto' }}>
-            Earn XP, build streaks, and actually wake up one game at a time.
+            We&apos;ll dial in your mornings first, then finish your profile at the end.
           </Box>
         </Box>
 
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
           {[
+            { Icon: AlarmIcon, label: 'Alarm setup' },
             { Icon: SportsEsportsIcon, label: 'Mini-games' },
-            { Icon: EmojiObjectsIcon, label: 'XP & Levels' },
             { Icon: FlashOnIcon, label: 'Streaks' },
           ].map(({ Icon, label }) => (
             <Box
@@ -201,7 +235,7 @@ function NameStep({ value, onChange, onSubmit }) {
 
   return (
     <Box>
-      <StepHeader Icon={PersonIcon} eyebrow="Step 2" title="What's your name?" subtitle="We'll personalise your experience" />
+      <StepHeader Icon={PersonIcon} eyebrow="Step 5" title="What&apos;s your name?" subtitle="Now let&apos;s make the app feel like yours" />
       <Box
         sx={{
           background: '#111827',
@@ -250,10 +284,275 @@ function NameStep({ value, onChange, onSubmit }) {
   );
 }
 
+function AgeStep({ value, onChange, onSubmit }) {
+  return (
+    <Box>
+      <StepHeader Icon={CakeIcon} eyebrow="Step 6" title="How old are you?" subtitle="A quick detail so we know who we&apos;re building mornings for" />
+      <TextField
+        fullWidth
+        autoFocus
+        placeholder="Enter your age..."
+        value={value}
+        onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 3))}
+        onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
+        inputProps={{
+          inputMode: 'numeric',
+          pattern: '[0-9]*',
+          maxLength: 3,
+        }}
+        size="small"
+        InputProps={{
+          startAdornment: (
+            <CakeIcon sx={{ color: '#6b7280', fontSize: '1.2rem', mr: 1 }} />
+          ),
+        }}
+        sx={{
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 2,
+            fontFamily: '"Outfit", sans-serif',
+            background: '#111827',
+            color: '#f9fafb',
+            '& fieldset': { borderColor: '#2d3748' },
+            '&:hover fieldset': { borderColor: '#4b5563' },
+            '&.Mui-focused fieldset': { borderColor: '#FF6B35' },
+          },
+          '& .MuiOutlinedInput-input': {
+            fontSize: '1.1rem',
+            fontWeight: 600,
+            fontFamily: '"Fraunces", serif',
+          },
+        }}
+      />
+    </Box>
+  );
+}
+
+function CountryStep({ value, onChange }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const filteredCountries = COUNTRIES.filter((country) => country.toLowerCase().includes(query.trim().toLowerCase()));
+
+  return (
+    <Box>
+      <StepHeader Icon={PublicIcon} eyebrow="Step 7" title="Which country are you in?" subtitle="We&apos;ll tailor the experience around where you are" />
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, mt: 1 }}>
+        {COUNTRY_PRESETS.map((country) => {
+          const selected = value === country;
+          return (
+            <Box
+              key={country}
+              onClick={() => onChange(selected ? '' : country)}
+              sx={{
+                px: 1.75,
+                py: 0.85,
+                borderRadius: 20,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.75,
+                background: selected ? 'rgba(255,107,53,0.08)' : '#111827',
+                border: `1px solid ${selected ? '#FF6B35' : '#2d3748'}`,
+                transition: 'all 0.15s',
+              }}
+            >
+              <PublicIcon sx={{ fontSize: '0.95rem', color: selected ? '#FF6B35' : '#6b7280' }} />
+              <Box sx={{ fontSize: '0.82rem', fontWeight: selected ? 700 : 500, fontFamily: '"Outfit", sans-serif', color: selected ? '#FF6B35' : '#9ca3af' }}>
+                {country}
+              </Box>
+            </Box>
+          );
+        })}
+      </Box>
+      <Box
+        onClick={() => setPickerOpen(true)}
+        sx={{
+          background: '#111827',
+          border: `1px solid ${value ? '#FF6B35' : '#2d3748'}`,
+          borderRadius: '12px',
+          px: 2,
+          py: 1.75,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          transition: 'border-color 0.15s',
+          cursor: 'pointer',
+        }}
+      >
+        <PublicIcon sx={{ color: value ? '#FF6B35' : '#6b7280', fontSize: '1.2rem', flexShrink: 0, transition: 'color 0.15s' }} />
+        <Box sx={{ flex: 1, color: value ? '#f9fafb' : '#6b7280', fontSize: '1rem', fontWeight: value ? 600 : 500, fontFamily: '"Outfit", sans-serif' }}>
+          {value || 'Pick your country'}
+        </Box>
+        <ExpandMoreIcon sx={{ color: '#6b7280', fontSize: '1.1rem', flexShrink: 0 }} />
+      </Box>
+      <Dialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        fullScreen
+        PaperProps={{
+          sx: {
+            background: '#111827',
+          },
+        }}
+      >
+        <DialogTitle sx={{ p: 0 }}>
+          <Box sx={{ px: 2, pt: 'max(env(safe-area-inset-top), 18px)', pb: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <IconButton
+              onClick={() => setPickerOpen(false)}
+              sx={{
+                width: 36,
+                height: 36,
+                bgcolor: '#1f2937',
+                borderRadius: '10px',
+                color: '#9ca3af',
+              }}
+            >
+              <ArrowBackIcon sx={{ fontSize: '1rem' }} />
+            </IconButton>
+            <Box sx={{ fontFamily: '"Fraunces", serif', fontSize: '1.1rem', color: '#f9fafb' }}>
+              Select country
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ px: 2, pb: 'max(24px, env(safe-area-inset-bottom))', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, pb: 1.5 }}>
+            <Box
+              sx={{
+                background: '#1E2533',
+                border: '1px solid #2d3748',
+                borderRadius: '12px',
+                px: 2,
+                py: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.25,
+              }}
+            >
+              <SearchIcon sx={{ color: '#6b7280', fontSize: '1.15rem', flexShrink: 0 }} />
+              <Box
+                component="input"
+                autoFocus
+                placeholder="Search countries..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                sx={{
+                  flex: 1,
+                  background: 'none',
+                  border: 'none',
+                  outline: 'none',
+                  color: '#f9fafb',
+                  caretColor: '#FF6B35',
+                  fontSize: '0.98rem',
+                  fontFamily: '"Outfit", sans-serif',
+                  '&::placeholder': {
+                    color: '#4b5563',
+                  },
+                }}
+              />
+            </Box>
+
+            {value && (
+              <Box sx={{ px: 0.5, color: '#6b7280', fontSize: '0.76rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: '"Outfit", sans-serif' }}>
+                Selected country
+              </Box>
+            )}
+            {value && (
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1.2,
+                  borderRadius: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: 'rgba(255,107,53,0.09)',
+                  border: '1px solid #FF6B35',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.1 }}>
+                  <PublicIcon sx={{ fontSize: '1rem', color: '#FF6B35' }} />
+                  <Box sx={{ color: '#f9fafb', fontWeight: 700, fontFamily: '"Outfit", sans-serif' }}>
+                    {value}
+                  </Box>
+                </Box>
+                <Box
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onChange('');
+                  }}
+                  sx={{ color: '#FF6B35', fontWeight: 700, fontSize: '0.8rem', fontFamily: '"Outfit", sans-serif', cursor: 'pointer' }}
+                >
+                  Clear
+                </Box>
+              </Box>
+            )}
+          </Box>
+
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-y',
+              pr: 0.5,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+            }}
+          >
+            {filteredCountries.map((country) => {
+              const selected = value === country;
+              return (
+                <Box
+                  key={country}
+                  onClick={() => {
+                    onChange(country);
+                    setPickerOpen(false);
+                    setQuery('');
+                  }}
+                  sx={{
+                    px: 2,
+                    py: 1.45,
+                    borderRadius: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: selected ? 'rgba(255,107,53,0.09)' : '#1E2533',
+                    border: `1px solid ${selected ? '#FF6B35' : '#262f40'}`,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                    <PublicIcon sx={{ fontSize: '1rem', color: selected ? '#FF6B35' : '#6b7280' }} />
+                    <Box sx={{ color: selected ? '#f9fafb' : '#d1d5db', fontWeight: 600, fontFamily: '"Outfit", sans-serif' }}>
+                      {country}
+                    </Box>
+                  </Box>
+                  {selected && (
+                    <Box sx={{ color: '#FF6B35', fontWeight: 700, fontSize: '0.8rem', fontFamily: '"Outfit", sans-serif' }}>
+                      Selected
+                    </Box>
+                  )}
+                </Box>
+              );
+            })}
+            {filteredCountries.length === 0 && (
+              <Box sx={{ px: 2, py: 2.5, borderRadius: '14px', background: '#1E2533', border: '1px solid #262f40', color: '#6b7280', fontFamily: '"Outfit", sans-serif', textAlign: 'center' }}>
+                No countries match that search.
+              </Box>
+            )}
+          </Box>
+        </DialogContent>
+      </Dialog>
+    </Box>
+  );
+}
+
 function AvatarStep({ value, onChange }) {
   return (
     <Box>
-      <StepHeader Icon={FaceIcon} eyebrow="Step 3" title="Pick your profile icon" subtitle="This shows up on your home screen" />
+      <StepHeader Icon={FaceIcon} eyebrow="Step 8" title="Pick your profile icon" subtitle="This shows up on your home screen" />
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1.5 }}>
         {AVATAR_OPTIONS.map((opt) => {
           const selected = value === opt.value;
@@ -292,7 +591,7 @@ function AvatarStep({ value, onChange }) {
 function WakeTimeStep({ value, onChange }) {
   return (
     <Box>
-      <StepHeader Icon={AlarmIcon} eyebrow="Step 4" title="When do you wake up?" subtitle="Use the same clock picker as your alarm setup" />
+      <StepHeader Icon={AlarmIcon} eyebrow="Step 1" title="When do you wake up?" subtitle="Let&apos;s start with your target alarm time" />
       <TimePicker value={value} onChange={onChange} />
     </Box>
   );
@@ -301,7 +600,7 @@ function WakeTimeStep({ value, onChange }) {
 function MorningTypeStep({ value, onChange }) {
   return (
     <Box>
-      <StepHeader Icon={EmojiPeopleIcon} eyebrow="Step 5" title="What kind of morning person are you?" subtitle="Be honest — this shapes your experience" />
+      <StepHeader Icon={EmojiPeopleIcon} eyebrow="Step 2" title="What kind of morning person are you?" subtitle="Be honest and we&apos;ll shape the wake-up experience around it" />
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
         {MORNING_TYPES.map((type) => {
           const selected = value === type.value;
@@ -343,7 +642,7 @@ function MorningTypeStep({ value, onChange }) {
 function GameStep({ value, onChange }) {
   return (
     <Box>
-      <StepHeader Icon={SportsEsportsIcon} eyebrow="Step 6" title="Pick your wake-up game" subtitle="This is how you'll prove you're actually awake" />
+      <StepHeader Icon={SportsEsportsIcon} eyebrow="Step 3" title="Pick your wake-up game" subtitle="This is how you&apos;ll prove you&apos;re actually awake" />
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
         {GAMES.map((game) => {
           const selected = value === game.value;
@@ -388,7 +687,7 @@ function GameStep({ value, onChange }) {
 function GoalStep({ value, onChange }) {
   return (
     <Box>
-      <StepHeader Icon={TrackChangesIcon} eyebrow="Step 7" title="What's your morning goal?" subtitle="What gets you out of bed? It shows on your home screen" />
+      <StepHeader Icon={TrackChangesIcon} eyebrow="Step 4" title="What&apos;s your morning goal?" subtitle="What gets you out of bed? It shows on your home screen" />
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2, mt: 1 }}>
         {GOAL_PRESETS.map((preset) => {
           const selected = value === preset.label;
@@ -450,11 +749,14 @@ function SummaryStep({ data }) {
   const formattedTime = `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
 
   const rows = [
-    { label: 'Icon', value: avatar?.label ?? '—' },
     { label: 'Wake time', value: formattedTime },
-    { label: 'Morning type', value: morningType?.label ?? '—' },
-    { label: 'Wake-up game', value: game?.label ?? '—' },
-    { label: 'Morning goal', value: data.wakeGoal || '—' },
+    { label: 'Morning type', value: morningType?.label ?? '-' },
+    { label: 'Wake-up game', value: game?.label ?? '-' },
+    { label: 'Morning goal', value: data.wakeGoal || '-' },
+    { label: 'Name', value: data.name || '-' },
+    { label: 'Age', value: data.age || '-' },
+    { label: 'Country', value: data.country || '-' },
+    { label: 'Icon', value: avatar?.label ?? '-' },
   ];
 
   return (
@@ -464,7 +766,7 @@ function SummaryStep({ data }) {
           All set
         </Box>
         <Box sx={{ fontSize: '1.4rem', fontWeight: 700, fontFamily: '"Fraunces", serif', color: '#f9fafb', mb: 0.5 }}>
-          Here's your profile, {data.name}
+          Here&apos;s your setup, {data.name || 'legend'}
         </Box>
         <Box sx={{ fontSize: '0.85rem', color: '#6b7280', fontFamily: '"Outfit", sans-serif' }}>
           Everything looks good. Create your account below.
@@ -502,10 +804,13 @@ export default function OnboardingFlow() {
   const { session, completeOnboarding, setPendingOnboarding, setShowAuthDirectly } = useApp();
   const [step, setStep] = useState(0);
   const [animKey, setAnimKey] = useState(0);
+  const [direction, setDirection] = useState(1);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [data, setData] = useState({
     name: '',
+    age: '',
+    country: '',
     wakeTime: '07:00',
     morningRating: 3,
     favoriteGame: 'math',
@@ -515,12 +820,15 @@ export default function OnboardingFlow() {
 
   const currentId = STEP_IDS[step];
   const isWelcome = currentId === 'welcome';
+  const progressStep = Math.max(step - 1, 0);
+  const totalProgressSteps = STEP_IDS.length - 1;
 
   useEffect(() => {
     setSaveError('');
   }, [step]);
 
   function go(delta) {
+    setDirection(delta > 0 ? 1 : -1);
     setStep((s) => s + delta);
     setAnimKey((k) => k + 1);
   }
@@ -546,6 +854,11 @@ export default function OnboardingFlow() {
 
   function canProceed() {
     if (currentId === 'name') return data.name.trim().length >= 2;
+    if (currentId === 'age') {
+      const age = Number(data.age);
+      return Number.isInteger(age) && age >= 1 && age <= 120;
+    }
+    if (currentId === 'country') return data.country.trim().length >= 2;
     if (currentId === 'goal') return data.wakeGoal.trim().length > 0;
     return true;
   }
@@ -595,13 +908,13 @@ export default function OnboardingFlow() {
           <Box sx={{ width: 32 }} />
         </Box>
 
-        {!isWelcome && <DotsProgress step={step} totalSteps={STEP_IDS.length} />}
+        {!isWelcome && <DotsProgress step={progressStep} totalSteps={totalProgressSteps} />}
 
         <Box sx={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={animKey}
-              variants={pageVariants}
+              variants={makePageVariants(direction)}
               initial="enter"
               animate="center"
               exit="exit"
@@ -619,12 +932,14 @@ export default function OnboardingFlow() {
             >
               <Box sx={{ background: '#1E2533', borderRadius: '20px', border: '1px solid #262f40', p: '22px 18px' }}>
                 {currentId === 'welcome' && <WelcomeStep />}
-                {currentId === 'name' && <NameStep value={data.name} onChange={(v) => patch({ name: v })} onSubmit={() => canProceed() && handleButtonClick()} />}
-                {currentId === 'avatar' && <AvatarStep value={data.profileIcon} onChange={(v) => patch({ profileIcon: v })} />}
                 {currentId === 'wakeTime' && <WakeTimeStep value={data.wakeTime} onChange={(v) => patch({ wakeTime: v })} />}
                 {currentId === 'morningType' && <MorningTypeStep value={data.morningRating} onChange={(v) => patch({ morningRating: v })} />}
                 {currentId === 'game' && <GameStep value={data.favoriteGame} onChange={(v) => patch({ favoriteGame: v })} />}
                 {currentId === 'goal' && <GoalStep value={data.wakeGoal} onChange={(v) => patch({ wakeGoal: v })} />}
+                {currentId === 'name' && <NameStep value={data.name} onChange={(v) => patch({ name: v })} onSubmit={() => canProceed() && handleButtonClick()} />}
+                {currentId === 'age' && <AgeStep value={data.age} onChange={(v) => patch({ age: v })} onSubmit={() => canProceed() && handleButtonClick()} />}
+                {currentId === 'country' && <CountryStep value={data.country} onChange={(v) => patch({ country: v })} />}
+                {currentId === 'avatar' && <AvatarStep value={data.profileIcon} onChange={(v) => patch({ profileIcon: v })} />}
                 {currentId === 'summary' && <SummaryStep data={data} />}
               </Box>
             </motion.div>

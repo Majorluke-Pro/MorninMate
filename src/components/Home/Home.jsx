@@ -10,6 +10,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
@@ -29,6 +30,10 @@ import AlarmIcon from '@mui/icons-material/Alarm';
 import HomeIcon from '@mui/icons-material/Home';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PersonIcon from '@mui/icons-material/Person';
+import CakeIcon from '@mui/icons-material/Cake';
+import PublicIcon from '@mui/icons-material/Public';
+import SearchIcon from '@mui/icons-material/Search';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 
@@ -1256,33 +1261,71 @@ const GAMES_PROFILE = [
   { value: 'reaction', Icon: BoltIcon,      label: 'Reaction Rush' },
 ];
 
+const COUNTRY_PRESETS_PROFILE = [
+  'South Africa',
+  'United States',
+  'United Kingdom',
+  'Canada',
+  'Australia',
+  'India',
+];
+
+const COUNTRIES_PROFILE = [
+  'Argentina', 'Australia', 'Austria', 'Belgium', 'Botswana', 'Brazil', 'Canada', 'Chile', 'China',
+  'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Finland', 'France', 'Germany', 'Ghana',
+  'Greece', 'Hong Kong', 'Hungary', 'India', 'Indonesia', 'Ireland', 'Israel', 'Italy', 'Japan',
+  'Kenya', 'Malaysia', 'Mexico', 'Morocco', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway',
+  'Pakistan', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Saudi Arabia', 'Serbia',
+  'Singapore', 'South Africa', 'South Korea', 'Spain', 'Sweden', 'Switzerland', 'Thailand',
+  'Turkey', 'United Arab Emirates', 'United Kingdom', 'United States', 'Vietnam', 'Zambia', 'Zimbabwe',
+];
+
 function ProfileTab() {
   const { session, user, resetAll, updateUser, signOut } = useApp();
   const [editing,       setEditing]      = useState(false);
   const [draft,         setDraft]        = useState(null);
   const [confirmReset,  setConfirmReset] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [countryPickerOpen, setCountryPickerOpen] = useState(false);
+  const [countryQuery, setCountryQuery] = useState('');
+  const filteredCountries = COUNTRIES_PROFILE.filter((country) => country.toLowerCase().includes(countryQuery.trim().toLowerCase()));
 
-  const avatarOpt = AVATAR_OPTIONS.find(a => a.value === user.profileIcon) ?? AVATAR_OPTIONS[0];
+  const avatarOpt = AVATAR_OPTIONS.find(a => a.value === (editing && draft ? draft.profileIcon : user.profileIcon)) ?? AVATAR_OPTIONS[0];
   const morningLabel = MORNING_TYPES_PROFILE.find(t => t.value === user.morningRating)?.label || '—';
   const gameLabel    = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush' }[user.favoriteGame] || '—';
   const email = session?.user?.email || '—';
 
   function startEdit() {
-    setDraft({ name: user.name, wakeTime: user.wakeTime, morningRating: user.morningRating, favoriteGame: user.favoriteGame, wakeGoal: user.wakeGoal || '' });
+    setDraft({
+      name: user.name,
+      age: user.age || '',
+      country: user.country || '',
+      wakeTime: user.wakeTime,
+      morningRating: user.morningRating,
+      favoriteGame: user.favoriteGame,
+      wakeGoal: user.wakeGoal || '',
+      profileIcon: user.profileIcon,
+    });
+    setCountryQuery('');
     setEditing(true);
   }
 
   function saveEdit() {
     if (!draft.name.trim()) return;
+    if (!draft.country.trim()) return;
+    if (draft.age && (!Number.isInteger(Number(draft.age)) || Number(draft.age) < 1 || Number(draft.age) > 120)) return;
     updateUser(draft);
     setEditing(false);
     setDraft(null);
+    setCountryPickerOpen(false);
+    setCountryQuery('');
   }
 
   function cancelEdit() {
     setEditing(false);
     setDraft(null);
+    setCountryPickerOpen(false);
+    setCountryQuery('');
   }
 
   return (
@@ -1362,6 +1405,69 @@ function ProfileTab() {
                   '& .MuiInput-underline:after':  { borderBottomColor: '#FF6B35' },
                 }}
               />
+            </Box>
+
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>Age</Typography>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Enter your age"
+                value={draft.age}
+                onChange={e => setDraft(d => ({ ...d, age: e.target.value.replace(/\D/g, '').slice(0, 3) }))}
+                inputProps={{ inputMode: 'numeric', maxLength: 3 }}
+              />
+            </Box>
+
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>Country</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.25 }}>
+                {COUNTRY_PRESETS_PROFILE.map(country => {
+                  const selected = draft.country === country;
+                  return (
+                    <Box
+                      key={country}
+                      onClick={() => setDraft(d => ({ ...d, country: selected ? '' : country }))}
+                      sx={{
+                        px: 1.5,
+                        py: 0.8,
+                        borderRadius: 20,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.6,
+                        background: selected ? 'rgba(255,107,53,0.08)' : '#111827',
+                        border: `1px solid ${selected ? '#FF6B35' : '#2d3748'}`,
+                      }}
+                    >
+                      <PublicIcon sx={{ fontSize: '0.9rem', color: selected ? '#FF6B35' : '#6b7280' }} />
+                      <Typography variant="body2" sx={{ color: selected ? '#FF6B35' : '#9ca3af', fontWeight: selected ? 700 : 500 }}>
+                        {country}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
+              <Box
+                onClick={() => setCountryPickerOpen(true)}
+                sx={{
+                  background: '#111827',
+                  border: `1px solid ${draft.country ? '#FF6B35' : '#2d3748'}`,
+                  borderRadius: '12px',
+                  px: 2,
+                  py: 1.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  cursor: 'pointer',
+                }}
+              >
+                <PublicIcon sx={{ color: draft.country ? '#FF6B35' : '#6b7280', fontSize: '1.1rem' }} />
+                <Typography sx={{ flex: 1, color: draft.country ? '#f9fafb' : '#6b7280', fontWeight: draft.country ? 600 : 500 }}>
+                  {draft.country || 'Pick your country'}
+                </Typography>
+                <ExpandMoreIcon sx={{ color: '#6b7280', fontSize: '1.1rem' }} />
+              </Box>
             </Box>
 
             <Box>
@@ -1451,6 +1557,40 @@ function ProfileTab() {
               </Typography>
             </Box>
 
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1.25, display: 'block' }}>Profile Icon</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1.25 }}>
+                {AVATAR_OPTIONS.map((opt) => {
+                  const selected = draft.profileIcon === opt.value;
+                  return (
+                    <Box
+                      key={opt.value}
+                      onClick={() => setDraft(d => ({ ...d, profileIcon: opt.value }))}
+                      sx={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.7 }}
+                    >
+                      <Box
+                        sx={{
+                          width: 54,
+                          height: 54,
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: selected ? `${opt.color}18` : '#111827',
+                          border: `1px solid ${selected ? opt.color : '#2d3748'}`,
+                        }}
+                      >
+                        <opt.Icon sx={{ fontSize: '1.45rem', color: selected ? opt.color : '#6b7280' }} />
+                      </Box>
+                      <Typography variant="caption" sx={{ color: selected ? opt.color : '#6b7280', fontWeight: selected ? 700 : 500, textAlign: 'center' }}>
+                        {opt.label}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
+
             <Box sx={{ display: 'flex', gap: 1.5, mt: 0.5 }}>
               <Button
                 variant="outlined" fullWidth onClick={cancelEdit}
@@ -1460,7 +1600,7 @@ function ProfileTab() {
               </Button>
               <Button
                 variant="contained" fullWidth onClick={saveEdit}
-                disabled={!draft.name.trim()}
+                disabled={!draft.name.trim() || !draft.country.trim() || (draft.age && (!Number.isInteger(Number(draft.age)) || Number(draft.age) < 1 || Number(draft.age) > 120))}
               >
                 Save Changes
               </Button>
@@ -1470,6 +1610,12 @@ function ProfileTab() {
           <>
             <Card sx={{ bgcolor: 'rgba(20,20,36,0.95)', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
               <ProfileRow label="Email"                value={email} />
+              <Divider sx={{ borderColor: 'rgba(255,255,255,0.055)' }} />
+              <ProfileRow label="Age"                  value={user.age || '-'} />
+              <Divider sx={{ borderColor: 'rgba(255,255,255,0.055)' }} />
+              <ProfileRow label="Country"              value={user.country || '-'} />
+              <Divider sx={{ borderColor: 'rgba(255,255,255,0.055)' }} />
+              <ProfileRow label="Profile icon"         value={avatarOpt.label} />
               <Divider sx={{ borderColor: 'rgba(255,255,255,0.055)' }} />
               <ProfileRow label="Default wake-up time" value={formatTime(user.wakeTime)} />
               <Divider sx={{ borderColor: 'rgba(255,255,255,0.055)' }} />
@@ -1501,6 +1647,106 @@ function ProfileTab() {
             </Button>
           </>
         )}
+
+        <Dialog
+          open={countryPickerOpen}
+          onClose={() => setCountryPickerOpen(false)}
+          fullScreen
+          PaperProps={{ sx: { background: '#111827' } }}
+        >
+          <DialogTitle sx={{ p: 0 }}>
+            <Box sx={{ px: 2, pt: 'max(env(safe-area-inset-top), 18px)', pb: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <IconButton
+                onClick={() => setCountryPickerOpen(false)}
+                sx={{ width: 36, height: 36, bgcolor: '#1f2937', borderRadius: '10px', color: '#9ca3af' }}
+              >
+                <ArrowBackIcon sx={{ fontSize: '1rem' }} />
+              </IconButton>
+              <Box sx={{ fontFamily: '"Fraunces", serif', fontSize: '1.1rem', color: '#f9fafb' }}>
+                Select country
+              </Box>
+            </Box>
+          </DialogTitle>
+          <DialogContent sx={{ px: 2, pb: 'max(24px, env(safe-area-inset-bottom))', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <Box sx={{ pb: 1.5 }}>
+              <Box
+                sx={{
+                  background: '#1E2533',
+                  border: '1px solid #2d3748',
+                  borderRadius: '12px',
+                  px: 2,
+                  py: 1.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.25,
+                }}
+              >
+                <SearchIcon sx={{ color: '#6b7280', fontSize: '1.15rem', flexShrink: 0 }} />
+                <Box
+                  component="input"
+                  autoFocus
+                  placeholder="Search countries..."
+                  value={countryQuery}
+                  onChange={(e) => setCountryQuery(e.target.value)}
+                  sx={{
+                    flex: 1,
+                    background: 'none',
+                    border: 'none',
+                    outline: 'none',
+                    color: '#f9fafb',
+                    caretColor: '#FF6B35',
+                    fontSize: '0.98rem',
+                    fontFamily: '"Outfit", sans-serif',
+                  }}
+                />
+              </Box>
+            </Box>
+
+            <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', pr: 0.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {filteredCountries.map((country) => {
+                const selected = draft?.country === country;
+                return (
+                  <Box
+                    key={country}
+                    onClick={() => {
+                      setDraft((d) => ({ ...d, country }));
+                      setCountryPickerOpen(false);
+                      setCountryQuery('');
+                    }}
+                    sx={{
+                      px: 2,
+                      py: 1.45,
+                      borderRadius: '14px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: selected ? 'rgba(255,107,53,0.09)' : '#1E2533',
+                      border: `1px solid ${selected ? '#FF6B35' : '#262f40'}`,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                      <PublicIcon sx={{ fontSize: '1rem', color: selected ? '#FF6B35' : '#6b7280' }} />
+                      <Box sx={{ color: selected ? '#f9fafb' : '#d1d5db', fontWeight: 600, fontFamily: '"Outfit", sans-serif' }}>
+                        {country}
+                      </Box>
+                    </Box>
+                    {selected && (
+                      <Box sx={{ color: '#FF6B35', fontWeight: 700, fontSize: '0.8rem', fontFamily: '"Outfit", sans-serif' }}>
+                        Selected
+                      </Box>
+                    )}
+                  </Box>
+                );
+              })}
+              {filteredCountries.length === 0 && (
+                <Box sx={{ px: 2, py: 2.5, borderRadius: '14px', background: '#1E2533', border: '1px solid #262f40', color: '#6b7280', fontFamily: '"Outfit", sans-serif', textAlign: 'center' }}>
+                  No countries match that search.
+                </Box>
+              )}
+            </Box>
+          </DialogContent>
+        </Dialog>
 
         <ConfirmDialog
           open={confirmLogout}
