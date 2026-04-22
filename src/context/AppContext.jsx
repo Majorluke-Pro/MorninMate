@@ -65,6 +65,7 @@ const INITIAL_USER = {
 const INITIAL_WAKE_STATS = { success: 0, failed: 0, loading: false };
 const XP_PER_LEVEL = 100;
 const WAKE_REWARD = { gentle: 20, moderate: 35, intense: 60, hardcore: 100 };
+const AUTH_BOOT_TIMEOUT_MS = 4000;
 
 function newProfilePayload(userId, data) {
   if (data.profileIcon) {
@@ -201,6 +202,15 @@ function buildOfflineUser(data) {
 
 function hasLocalAccess(userSnapshot, alarmSnapshot) {
   return Boolean(userSnapshot?.onboardingComplete || (alarmSnapshot?.length ?? 0) > 0);
+}
+
+async function getSessionWithTimeout() {
+  return Promise.race([
+    supabase.auth.getSession(),
+    new Promise((_, reject) => {
+      window.setTimeout(() => reject(new Error('Auth bootstrap timed out')), AUTH_BOOT_TIMEOUT_MS);
+    }),
+  ]);
 }
 
 export function AppProvider({ children }) {
@@ -776,13 +786,17 @@ export function AppProvider({ children }) {
     let subscription;
 
     async function hydrateAndSubscribe() {
-      loadCachedState();
+      const canBootFromCache = loadCachedState();
+      if (canBootFromCache) {
+        setLoading(false);
+        setAuthInitialized(true);
+      }
 
       try {
         const {
           data: { session: initialSession },
           error,
-        } = await supabase.auth.getSession();
+        } = await getSessionWithTimeout();
 
         if (!active) return;
         if (error) throw error;
