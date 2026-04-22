@@ -17,7 +17,6 @@ import { useApp } from '../../context/AppContext';
 import MathGame from '../Games/MathGame';
 import MemoryGame from '../Games/MemoryGame';
 import ReactionGame from '../Games/ReactionGame';
-import { supabase } from '../../lib/supabase';
 import {
   isNative,
   setHardcoreVolume,
@@ -36,7 +35,14 @@ const XP_REWARD      = { gentle: 20, moderate: 35, intense: 60, hardcore: 100 };
 const INACTIVITY_BY_INTENSITY = { gentle: 30, moderate: 30, intense: 30, hardcore: 10 };
 
 export default function WakeUpFlow() {
-  const { session, activeAlarm, clearActiveAlarm, applyProgressionUpdate, refreshWakeStats } = useApp();
+  const {
+    activeAlarm,
+    clearActiveAlarm,
+    startWakeSession: beginWakeSessionTracking,
+    recordWakeGameFail,
+    finalizeWakeSession: completeWakeSessionTracking,
+    resetWakeSessionTracking,
+  } = useApp();
 
   const games            = activeAlarm?.pulse?.games || ['math'];
   const intensity        = activeAlarm?.pulse?.intensity || 'moderate';
@@ -68,7 +74,6 @@ export default function WakeUpFlow() {
   const [results,    setResults]    = useState([]);
   const [phase,      setPhase]      = useState('intro');
   const [ending,     setEnding]     = useState(false);
-  const sessionIdRef = useRef(null);
 
   // Inactivity tracking
   const lastActivityRef      = useRef(Date.now());
@@ -95,7 +100,7 @@ export default function WakeUpFlow() {
         } else {
           startAlarm(activeAlarm?.sound ?? 'gentle_chime');
         }
-        sessionIdRef.current = null;
+        resetWakeSessionTracking();
         setGameIndex(0);
         setGameKey(k => k + 1);
         setFailCount(0);
@@ -135,51 +140,26 @@ export default function WakeUpFlow() {
     const newTotal = totalFails + 1;
     setTotalFails(newTotal);
     setFailCount(f => f + 1);
-    if (sessionIdRef.current) {
-      const { data, error } = await supabase.rpc('record_wake_game_fail', {
-        p_session_id: sessionIdRef.current,
-      });
-      if (!error && data) applyProgressionUpdate(data);
-    }
+    await recordWakeGameFail();
 
     // Restart the current game — you cannot dismiss the alarm by failing
     setGameKey(k => k + 1);
   }
 
   async function startWakeSession() {
-    const userId = session?.user?.id;
-    if (!userId || sessionIdRef.current) return;
-    const payload = {
-      user_id: userId,
-      alarm_id: activeAlarm?.id ?? null,
-      started_at: new Date().toISOString(),
-      status: 'in_progress',
+    await beginWakeSessionTracking({
+      alarmId: activeAlarm?.id ?? null,
       intensity,
       games,
-      total_fails: 0,
-    };
-    const { data, error } = await supabase.from('wake_sessions').insert(payload).select('id').single();
-    if (!error && data?.id) sessionIdRef.current = data.id;
+    });
   }
 
   async function finalizeWakeSession(status, finalResults = results) {
-    const userId = session?.user?.id;
-    if (!userId) return;
-    const id = sessionIdRef.current;
-    if (!id) return;
-
     setEnding(true);
     try {
-      const { data, error } = await supabase.rpc('complete_wake_session', {
-        p_session_id: id,
-        p_status: status,
-        p_results: finalResults,
-      });
-      if (error) throw error;
-      if (data) applyProgressionUpdate(data);
+      await completeWakeSessionTracking(status, finalResults);
     } finally {
       setEnding(false);
-      refreshWakeStats?.(userId);
     }
   }
 

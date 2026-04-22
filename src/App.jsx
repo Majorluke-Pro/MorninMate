@@ -7,7 +7,16 @@ import CreateAlarm from './components/Alarm/CreateAlarm';
 import WakeUpFlow from './components/WakeUp/WakeUpFlow';
 
 function AppRoutes() {
-  const { session, user, activeAlarm, loading, authInitialized, pendingOnboarding, showAuthDirectly } = useApp();
+  const {
+    session,
+    user,
+    activeAlarm,
+    loading,
+    authInitialized,
+    pendingOnboarding,
+    showAuthDirectly,
+    offlineAccess,
+  } = useApp();
 
   if (loading || !authInitialized) {
     return (
@@ -17,22 +26,28 @@ function AppRoutes() {
     );
   }
 
+  if (activeAlarm) return <WakeUpFlow />;
+
+  const canUseApp = Boolean(session || offlineAccess || user.onboardingComplete);
+
+  if (canUseApp && !user.onboardingComplete) {
+    return <OnboardingFlow />;
+  }
+
+  if (canUseApp) {
+    return (
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/create-alarm" element={<CreateAlarm />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
+
   if (!session) {
     if (pendingOnboarding || showAuthDirectly) return <AuthScreen />;
     return <OnboardingFlow />;
   }
-
-  if (activeAlarm) return <WakeUpFlow />;
-
-  if (!user.onboardingComplete) return <OnboardingFlow />;
-
-  return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/create-alarm" element={<CreateAlarm />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
-  );
 }
 
 export default function App() {

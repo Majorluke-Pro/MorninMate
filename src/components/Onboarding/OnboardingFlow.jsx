@@ -527,7 +527,7 @@ export default function OnboardingFlow() {
 
   async function handleNext() {
     if (currentId === 'summary') {
-      if (session) {
+      if (session || !navigator.onLine) {
         setSaving(true);
         setSaveError('');
         try {
@@ -562,7 +562,7 @@ export default function OnboardingFlow() {
   const buttonLabel = currentId === 'welcome'
     ? 'Get Started'
     : currentId === 'summary'
-      ? (session ? 'Save Profile' : 'Create My Account')
+      ? (session ? 'Save Profile' : !navigator.onLine ? 'Continue Offline' : 'Create My Account')
       : 'Continue';
 
   return (

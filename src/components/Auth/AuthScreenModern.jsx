@@ -63,7 +63,12 @@ function AuthField({
 }
 
 export default function AuthScreenModern() {
-  const { pendingOnboarding, setShowAuthDirectly } = useApp();
+  const {
+    pendingOnboarding,
+    setShowAuthDirectly,
+    canContinueOffline,
+    enterOfflineMode,
+  } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -233,6 +238,21 @@ export default function AuthScreenModern() {
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 14 }}>
+            {!navigator.onLine && canContinueOffline && (
+              <div
+                style={{
+                  borderRadius: 14,
+                  border: '1px solid rgba(255,209,102,0.24)',
+                  background: 'rgba(255,209,102,0.08)',
+                  color: '#FFD166',
+                  padding: '12px 14px',
+                  fontSize: '0.9rem',
+                }}
+              >
+                You're offline right now. You can keep using the app with your local data and sync later.
+              </div>
+            )}
+
             {error && (
               <div
                 style={{
@@ -349,6 +369,26 @@ export default function AuthScreenModern() {
             >
               {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
             </button>
+
+            {canContinueOffline && (
+              <button
+                type="button"
+                onClick={() => enterOfflineMode()}
+                style={{
+                  minHeight: 48,
+                  borderRadius: 14,
+                  border: '1px solid #3B455A',
+                  background: '#111827',
+                  color: '#F9FAFB',
+                  cursor: 'pointer',
+                  fontSize: '0.96rem',
+                  fontWeight: 700,
+                  fontFamily: '"Outfit", sans-serif',
+                }}
+              >
+                Continue Offline
+              </button>
+            )}
           </form>
 
           <div
