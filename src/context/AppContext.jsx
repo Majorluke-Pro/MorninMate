@@ -12,6 +12,8 @@ import {
   getPendingAlarm,
   dismissAlarm,
   checkAndRequestAlarmPermissions,
+  getAlarmPermissionStatus,
+  requestAlarmPermissions,
 } from '../lib/nativeAlarms';
 import {
   addPendingOp,
@@ -65,6 +67,14 @@ const INITIAL_USER = {
 };
 
 const INITIAL_WAKE_STATS = { success: 0, failed: 0, loading: false };
+const INITIAL_NATIVE_ALARM_STATUS = {
+  isNative,
+  loading: isNative,
+  exactAlarm: !isNative,
+  postNotifications: !isNative,
+  fullScreenIntent: !isNative,
+  batteryOptimization: !isNative,
+};
 const XP_PER_LEVEL = 100;
 const WAKE_REWARD = { gentle: 20, moderate: 35, intense: 60, hardcore: 100 };
 const AUTH_BOOT_TIMEOUT_MS = 4000;
@@ -359,6 +369,7 @@ export function AppProvider({ children }) {
   }));
   const [offlineAccess, setOfflineAccess] = useState(() => hasLocalAccess(initialCachedUser, initialCachedAlarms));
   const [cloudReachable, setCloudReachable] = useState(() => navigator.onLine);
+  const [nativeAlarmStatus, setNativeAlarmStatus] = useState(INITIAL_NATIVE_ALARM_STATUS);
 
   const [pendingOnboarding, setPendingOnboardingState] = useState(() => {
     const saved = sessionStorage.getItem('mm_pending_onboarding');
@@ -448,6 +459,48 @@ export function AppProvider({ children }) {
 
   function getResolvedUserId() {
     return sessionRef.current?.user?.id ?? getCachedAuthUser()?.id ?? null;
+  }
+
+  async function refreshNativeAlarmStatus() {
+    if (!isNative) return INITIAL_NATIVE_ALARM_STATUS;
+
+    setNativeAlarmStatus((prev) => ({ ...prev, loading: true }));
+    try {
+      const status = await getAlarmPermissionStatus();
+      const nextStatus = {
+        ...INITIAL_NATIVE_ALARM_STATUS,
+        ...status,
+        isNative: true,
+        loading: false,
+      };
+      setNativeAlarmStatus(nextStatus);
+      return nextStatus;
+    } catch (error) {
+      console.warn('Failed to read native alarm status:', error);
+      setNativeAlarmStatus((prev) => ({ ...prev, loading: false }));
+      return null;
+    }
+  }
+
+  async function requestNativeAlarmPermissions() {
+    if (!isNative) return INITIAL_NATIVE_ALARM_STATUS;
+
+    setNativeAlarmStatus((prev) => ({ ...prev, loading: true }));
+    try {
+      const status = await requestAlarmPermissions();
+      const nextStatus = {
+        ...INITIAL_NATIVE_ALARM_STATUS,
+        ...status,
+        isNative: true,
+        loading: false,
+      };
+      setNativeAlarmStatus(nextStatus);
+      return nextStatus;
+    } catch (error) {
+      console.warn('Failed to request native alarm permissions:', error);
+      setNativeAlarmStatus((prev) => ({ ...prev, loading: false }));
+      return null;
+    }
   }
 
   function loadCachedState() {
@@ -695,7 +748,20 @@ export function AppProvider({ children }) {
       const nextAlarms = shouldPreserveCached ? cached : mapped;
 
       applyAlarmSnapshot(nextAlarms);
-      if (syncPermissions) void checkAndRequestAlarmPermissions();
+      if (syncPermissions) {
+        checkAndRequestAlarmPermissions()
+          .then((status) => {
+            if (status && isNative) {
+              setNativeAlarmStatus({
+                ...INITIAL_NATIVE_ALARM_STATUS,
+                ...status,
+                isNative: true,
+                loading: false,
+              });
+            }
+          })
+          .catch(() => {});
+      }
 
       if (checkPendingAlarm) {
         const pendingAlarmId = await getPendingAlarm();
@@ -771,7 +837,6 @@ export function AppProvider({ children }) {
   async function loadUserData(userId) {
     if (loadingData.current) return;
     loadingData.current = true;
-    setLoading(true);
 
     const cachedUser = getCachedUser();
     const cachedAlarms = getCachedAlarms();
@@ -795,6 +860,8 @@ export function AppProvider({ children }) {
     if (canBootFromCache) {
       setOfflineAccess(true);
       setLoading(false);
+    } else {
+      setLoading(true);
     }
 
     if (!navigator.onLine) {
@@ -1012,6 +1079,23 @@ export function AppProvider({ children }) {
       subscription?.unsubscribe();
     };
   }, [applyUserSnapshot, applyWakeStatsSnapshot, queueProfileSync, refreshWakeStats]);
+
+  useEffect(() => {
+    if (!isNative) return;
+
+    const refresh = () => {
+      void refreshNativeAlarmStatus();
+    };
+
+    refresh();
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, []);
 
   useEffect(() => {
     CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
@@ -1689,6 +1773,7 @@ export function AppProvider({ children }) {
         loading,
         offlineAccess,
         cloudReachable,
+        nativeAlarmStatus,
         canContinueOffline,
         xpProgress,
         XP_PER_LEVEL,
@@ -1699,6 +1784,8 @@ export function AppProvider({ children }) {
         showAuthDirectly,
         setShowAuthDirectly,
         enterOfflineMode,
+        refreshNativeAlarmStatus,
+        requestNativeAlarmPermissions,
         completeOnboarding,
         addAlarm,
         toggleAlarm,
