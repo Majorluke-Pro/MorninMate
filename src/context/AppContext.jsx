@@ -524,9 +524,9 @@ export function AppProvider({ children }) {
     return canUseOffline;
   }
 
-  function clearLocalState() {
+  function clearLocalState({ preservePendingOps = false } = {}) {
     setCachedAlarms([]);
-    clearPendingOps();
+    if (!preservePendingOps) clearPendingOps();
     clearPendingProfileSync();
     clearPendingWakeSessions();
     clearCachedUser();
@@ -559,6 +559,36 @@ export function AppProvider({ children }) {
     setCachedAlarms(nextAlarms);
     setAlarms(nextAlarms);
     void syncAllAlarms(nextAlarms);
+  }
+
+  function alarmFromPendingAdd(op, fallbackUserId) {
+    if (op.type !== 'add' || !op.payload?.id || !op.payload?.time) return null;
+    if (op.payload.userId && fallbackUserId && op.payload.userId !== fallbackUserId) return null;
+
+    const pulse = op.payload.pulse ?? {};
+    return {
+      id: op.payload.id,
+      label: op.payload.label || 'Alarm',
+      time: op.payload.time,
+      sound: pulse.sound || 'gentle_chime',
+      pulse,
+      active: op.payload.active ?? true,
+      days: normalizeAlarmDays(op.payload.days),
+    };
+  }
+
+  function mergePendingAddAlarms(baseAlarms, userId) {
+    const next = [...baseAlarms];
+    const seen = new Set(next.map((alarm) => String(alarm.id)));
+
+    for (const op of getPendingOps()) {
+      const alarm = alarmFromPendingAdd(op, userId);
+      if (!alarm || seen.has(String(alarm.id))) continue;
+      seen.add(String(alarm.id));
+      next.push(alarm);
+    }
+
+    return next;
   }
 
   async function flushPendingAlarmOps(userId) {
@@ -738,14 +768,14 @@ export function AppProvider({ children }) {
 
       setCloudReachable(true);
 
-      const cached = getCachedAlarms();
+      const cached = mergePendingAddAlarms(getCachedAlarms(), userId);
       const mapped = (data ?? []).map(rowToAlarm);
       const shouldPreserveCached =
         preserveCachedWhilePending &&
         !pendingOpsFlushed &&
         getPendingOps().length > 0 &&
         cached.length > 0;
-      const nextAlarms = shouldPreserveCached ? cached : mapped;
+      const nextAlarms = shouldPreserveCached ? cached : mergePendingAddAlarms(mapped, userId);
 
       applyAlarmSnapshot(nextAlarms);
       if (syncPermissions) {
@@ -834,12 +864,12 @@ export function AppProvider({ children }) {
     }
   }, [applyWakeStatsSnapshot]);
 
-  async function loadUserData(userId) {
-    if (loadingData.current) return;
+  async function loadUserData(userId, { force = false } = {}) {
+    if (loadingData.current && !force) return;
     loadingData.current = true;
 
     const cachedUser = getCachedUser();
-    const cachedAlarms = getCachedAlarms();
+    const cachedAlarms = mergePendingAddAlarms(getCachedAlarms(), userId);
     const cachedStats = getCachedWakeStats();
     const canBootFromCache =
       hasLocalAccess(cachedUser, cachedAlarms) ||
@@ -936,7 +966,7 @@ export function AppProvider({ children }) {
         }
       }
 
-      await loadUserData(userId);
+      await loadUserData(userId, { force: true });
     } finally {
       loadingData.current = false;
       setLoading(false);
@@ -1043,7 +1073,11 @@ export function AppProvider({ children }) {
           });
           setOfflineAccess(true);
           setCloudReachable(true);
-          setLoading(true);
+          const _cu = getCachedUser();
+          const _ca = getCachedAlarms();
+          const _cs = getCachedWakeStats();
+          const _hasCache = hasLocalAccess(_cu, _ca) || (_cs.success ?? 0) > 0 || (_cs.failed ?? 0) > 0;
+          if (!_hasCache) setLoading(true);
 
           if (event === 'SIGNED_IN' && (sessionStorage.getItem('mm_pending_onboarding') || getPendingProfileSync())) {
             void handlePostAuth(nextSession);
@@ -1356,13 +1390,14 @@ export function AppProvider({ children }) {
     void scheduleAlarm(localAlarm);
     setOfflineAccess(true);
 
+    const pendingOp = addPendingOp({ type: 'add', payload });
+
     if (!sessionRef.current?.user?.id || !navigator.onLine) {
-      addPendingOp({ type: 'add', payload });
       return;
     }
 
     try {
-      const { error } = await supabase.from('alarms').insert({
+      const { error } = await supabase.from('alarms').upsert({
         id: localId,
         user_id: payload.userId,
         label: payload.label,
@@ -1374,10 +1409,10 @@ export function AppProvider({ children }) {
 
       if (error) throw error;
 
+      replacePendingOps(getPendingOps().filter((entry) => entry.id !== pendingOp.id));
       setCloudReachable(true);
     } catch {
       setCloudReachable(false);
-      addPendingOp({ type: 'add', payload });
     }
   }
 
@@ -1737,16 +1772,19 @@ export function AppProvider({ children }) {
 
   async function signOut() {
     const userId = sessionRef.current?.user?.id;
+    let alarmOpsFlushed = true;
 
     if (userId && navigator.onLine) {
       try {
-        await flushPendingAlarmOps(userId);
+        alarmOpsFlushed = await flushPendingAlarmOps(userId);
         await flushPendingProfile(userId);
         await flushPendingWakeSessions(userId);
-      } catch {}
+      } catch {
+        alarmOpsFlushed = false;
+      }
     }
 
-    clearLocalState();
+    clearLocalState({ preservePendingOps: !alarmOpsFlushed });
 
     if (userId) {
       try {
