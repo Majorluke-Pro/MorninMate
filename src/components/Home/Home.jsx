@@ -36,6 +36,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { isNative, openNativeCreateAlarm } from '../../lib/nativeAlarms';
 
 const PULSE_COLORS = { gentle: '#06D6A0', moderate: '#FFD166', intense: '#EF476F' };
 const PULSE_LABELS = { gentle: 'Gentle', moderate: 'Moderate', intense: 'Intense' };
@@ -114,16 +115,29 @@ export default function Home() {
   const [alarmOverlayOpen, setAlarmOverlayOpen] = useState(false);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (!isNative) return;
+    function handleNavTab(e) { setTab(e.detail?.tab ?? 0); }
+    document.addEventListener('navTabChanged', handleNavTab);
+    return () => document.removeEventListener('navTabChanged', handleNavTab);
+  }, []);
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ flex: 1, overflowY: 'auto', pb: 9 }}>
-        {tab === 0 && <AlarmsTab onNavigate={navigate} onOverlayChange={setAlarmOverlayOpen} />}
-        {tab === 1 && <StatsTab />}
-        {tab === 2 && <ProfileTab />}
+        <div style={{ display: tab === 0 ? 'block' : 'none' }}>
+          <AlarmsTab onNavigate={navigate} onOverlayChange={setAlarmOverlayOpen} />
+        </div>
+        <div style={{ display: tab === 1 ? 'block' : 'none' }}>
+          <StatsTab />
+        </div>
+        <div style={{ display: tab === 2 ? 'block' : 'none' }}>
+          <ProfileTab />
+        </div>
       </Box>
 
-      {/* Custom bottom nav with sliding pill */}
-      {!alarmOverlayOpen && (
+      {/* Web nav — hidden on native (native Compose nav is used instead) */}
+      {!isNative && !alarmOverlayOpen && (
       <Box sx={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 100,
         bgcolor: 'rgba(10,10,22,0.93)',
@@ -132,7 +146,6 @@ export default function Home() {
         display: 'flex',
         pb: 'max(env(safe-area-inset-bottom), 4px)',
       }}>
-        {/* Animated pill indicator */}
         <Box sx={{
           position: 'absolute',
           bottom: 10,
@@ -143,7 +156,6 @@ export default function Home() {
           transition: 'left 0.38s cubic-bezier(0.34, 1.56, 0.64, 1)',
           pointerEvents: 'none',
         }} />
-
         {NAV_ITEMS.map((item, i) => (
           <Box
             key={i}
@@ -181,10 +193,33 @@ export default function Home() {
 // ─── Alarms Tab ───────────────────────────────────────────────────────────────
 
 function AlarmsTab({ onNavigate, onOverlayChange }) {
-  const { user, alarms, toggleAlarm, deleteAlarm, editAlarm, xpProgress, XP_PER_LEVEL, triggerAlarm } = useApp();
+  const {
+    user,
+    alarms,
+    toggleAlarm,
+    addAlarm,
+    deleteAlarm,
+    editAlarm,
+    xpProgress,
+    XP_PER_LEVEL,
+    triggerAlarm,
+    nativeAlarmStatus,
+    requestNativeAlarmPermissions,
+    refreshNativeAlarmStatus,
+  } = useApp();
   const [editTarget, setEditTarget]     = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [now, setNow]                   = useState(new Date());
+
+  async function handleCreateAlarm() {
+    if (isNative) {
+      const alarm = await openNativeCreateAlarm({ defaultTime: user?.wakeTime });
+      if (alarm?.time) await addAlarm(alarm);
+      return;
+    }
+
+    onNavigate('/create-alarm');
+  }
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -567,6 +602,12 @@ function AlarmsTab({ onNavigate, onOverlayChange }) {
 
       {/* ── Alarm list ── */}
       <Box sx={{ px: 2, pt: 2.5, pb: 16 }}>
+        <AndroidReadinessCard
+          status={nativeAlarmStatus}
+          onFix={requestNativeAlarmPermissions}
+          onRefresh={refreshNativeAlarmStatus}
+        />
+
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="subtitle1" fontWeight={700} sx={{ letterSpacing: '-0.2px' }}>
             Your Alarms
@@ -583,7 +624,7 @@ function AlarmsTab({ onNavigate, onOverlayChange }) {
         </Box>
 
         {sortedAlarms.length === 0 ? (
-          <EmptyState onAdd={() => onNavigate('/create-alarm')} />
+          <EmptyState onAdd={handleCreateAlarm} />
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {sortedAlarms.map((alarm, idx) => (
@@ -618,7 +659,7 @@ function AlarmsTab({ onNavigate, onOverlayChange }) {
           }} />
           <Fab
             color="primary"
-            onClick={() => onNavigate('/create-alarm')}
+            onClick={handleCreateAlarm}
             sx={{ boxShadow: '0 8px 28px rgba(255,107,53,0.5)', '&:active': { transform: 'scale(0.94)' } }}
           >
             <AddIcon />
@@ -651,6 +692,108 @@ function AlarmsTab({ onNavigate, onOverlayChange }) {
 }
 
 // ─── Alarm Card ───────────────────────────────────────────────────────────────
+
+function AndroidReadinessCard({ status, onFix, onRefresh }) {
+  if (!status?.isNative) return null;
+
+  const checks = [
+    { key: 'exactAlarm', label: 'Exact alarms', detail: 'Required for precise wake-up time' },
+    { key: 'postNotifications', label: 'Notifications', detail: 'Required for lock-screen alerts' },
+    { key: 'fullScreenIntent', label: 'Full-screen launch', detail: 'Needed when the phone is locked' },
+    { key: 'batteryOptimization', label: 'Battery unrestricted', detail: 'Prevents missed alarms in sleep mode' },
+  ];
+  const missing = checks.filter((check) => !status[check.key]);
+  const ready = missing.length === 0;
+
+  return (
+    <Card sx={{
+      mb: 2,
+      p: 1.6,
+      borderRadius: 3,
+      bgcolor: ready ? 'rgba(6,214,160,0.06)' : 'rgba(255,107,53,0.07)',
+      border: ready ? '1px solid rgba(6,214,160,0.16)' : '1px solid rgba(255,107,53,0.18)',
+      boxShadow: 'none',
+    }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.2 }}>
+        <Box sx={{
+          width: 36,
+          height: 36,
+          borderRadius: 2,
+          bgcolor: ready ? 'rgba(6,214,160,0.12)' : 'rgba(255,107,53,0.13)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          {ready ? (
+            <CheckCircleOutlineIcon sx={{ color: '#06D6A0', fontSize: '1.2rem' }} />
+          ) : (
+            <WarningAmberIcon sx={{ color: '#FF9A6D', fontSize: '1.2rem' }} />
+          )}
+        </Box>
+
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 800, color: '#FFF5DF', fontSize: '0.94rem' }}>
+            {ready ? 'Android alarm setup ready' : 'Finish Android alarm setup'}
+          </Typography>
+          <Typography sx={{ mt: 0.25, color: 'rgba(255,255,255,0.58)', fontSize: '0.74rem', lineHeight: 1.45 }}>
+            {ready
+              ? 'This phone is configured for reliable alarm delivery.'
+              : `${missing.length} setting${missing.length === 1 ? '' : 's'} still need attention before alarms can be trusted.`}
+          </Typography>
+
+          {!ready && (
+            <Box sx={{ mt: 1.2, display: 'flex', flexDirection: 'column', gap: 0.6 }}>
+              {checks.map((check) => {
+                const ok = Boolean(status[check.key]);
+                return (
+                  <Box key={check.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                    {ok ? (
+                      <CheckCircleOutlineIcon sx={{ color: '#06D6A0', fontSize: '0.95rem' }} />
+                    ) : (
+                      <WarningAmberIcon sx={{ color: '#FF9A6D', fontSize: '0.95rem' }} />
+                    )}
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.82)', fontSize: '0.72rem', fontWeight: 700 }}>
+                        {check.label}
+                      </Typography>
+                      <Typography sx={{ color: 'rgba(255,255,255,0.44)', fontSize: '0.62rem' }}>
+                        {check.detail}
+                      </Typography>
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+          )}
+
+          <Box sx={{ display: 'flex', gap: 1, mt: 1.3 }}>
+            {!ready && (
+              <Button
+                variant="contained"
+                size="small"
+                onClick={onFix}
+                disabled={status.loading}
+                sx={{ borderRadius: 2, px: 1.4, py: 0.55, fontSize: '0.72rem' }}
+              >
+                Open Settings
+              </Button>
+            )}
+            <Button
+              variant="text"
+              size="small"
+              onClick={onRefresh}
+              disabled={status.loading}
+              sx={{ color: 'rgba(255,255,255,0.62)', fontSize: '0.72rem' }}
+            >
+              Refresh
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+    </Card>
+  );
+}
 
 function AlarmCard({ alarm, isNext, now, onToggle, onDelete, onEdit, onTest }) {
   const [menuAnchor, setMenuAnchor] = useState(null);
