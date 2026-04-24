@@ -2,7 +2,6 @@ package com.morninmate.app
 
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
-import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
@@ -71,6 +70,10 @@ fun interface NavTabListener {
 
 fun setupNativeBottomNav(activity: ComponentActivity, listener: NavTabListener) {
     val root = activity.window.decorView.findViewById<FrameLayout>(android.R.id.content)
+
+    // Remove any previously attached nav view (e.g., after Activity recreation)
+    nativeBottomNavView?.let { root.removeView(it) }
+
     val selectedTab = mutableStateOf(0)
 
     fun selectTab(index: Int) {
@@ -86,12 +89,6 @@ fun setupNativeBottomNav(activity: ComponentActivity, listener: NavTabListener) 
         translationZ = 48f
         visibility = View.GONE
         setBackgroundColor(0xFF0D0D1A.toInt())
-        setOnTouchListener { view, event ->
-            if (event.action != MotionEvent.ACTION_UP || view.width <= 0) return@setOnTouchListener true
-            val index = ((event.x / view.width) * NAV_TABS.size).toInt().coerceIn(0, NAV_TABS.lastIndex)
-            selectTab(index)
-            true
-        }
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             BottomNavBar(
