@@ -254,7 +254,14 @@ function AlarmsTab({ onNavigate, onOverlayChange }) {
   const xpInLevel = user.xp % XP_PER_LEVEL;
 
   const sortedAlarms = useMemo(() => (
-    [...alarms].sort((a, b) => a.time.localeCompare(b.time))
+    [...alarms].sort((a, b) => {
+      const aNext = getNextFire(a);
+      const bNext = getNextFire(b);
+      if (aNext && bNext) return aNext - bNext;
+      if (aNext) return -1;
+      if (bNext) return 1;
+      return a.time.localeCompare(b.time);
+    })
   ), [alarms]);
 
   const nextAlarm    = sortedAlarms.find(a => a.active && getNextFire(a));
@@ -668,7 +675,7 @@ function AlarmsTab({ onNavigate, onOverlayChange }) {
         <Box sx={{
           position: 'fixed',
           right: 'max(16px, calc(env(safe-area-inset-right) + 16px))',
-          bottom: 'calc(env(safe-area-inset-bottom) + 88px)',
+          bottom: 'calc(env(safe-area-inset-bottom) + 110px)',
           zIndex: 140,
         }}>
           <Box sx={{
