@@ -36,7 +36,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { isNative, openNativeCreateAlarm } from '../../lib/nativeAlarms';
+import { isNative, openNativeCreateAlarm, setNativeBottomNavVisible } from '../../lib/nativeAlarms';
 
 const PULSE_COLORS = { gentle: '#06D6A0', moderate: '#FFD166', intense: '#EF476F' };
 const PULSE_LABELS = { gentle: 'Gentle', moderate: 'Moderate', intense: 'Intense' };
@@ -117,14 +117,34 @@ export default function Home() {
 
   useEffect(() => {
     if (!isNative) return;
-    function handleNavTab(e) { setTab(e.detail?.tab ?? 0); }
+    void setNativeBottomNavVisible(true);
+    function handleNavTab(e) {
+      let detail = e.detail;
+      if (typeof detail === 'string') {
+        try {
+          detail = JSON.parse(detail);
+        } catch {
+          detail = {};
+        }
+      }
+      const nextTab = detail?.tab ?? 0;
+      setTab(nextTab);
+    }
     document.addEventListener('navTabChanged', handleNavTab);
-    return () => document.removeEventListener('navTabChanged', handleNavTab);
+    return () => {
+      document.removeEventListener('navTabChanged', handleNavTab);
+      void setNativeBottomNavVisible(false);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!isNative) return;
+    void setNativeBottomNavVisible(!alarmOverlayOpen);
+  }, [alarmOverlayOpen]);
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ flex: 1, overflowY: 'auto', pb: 9 }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', pb: isNative ? 13 : 9 }}>
         <div style={{ display: tab === 0 ? 'block' : 'none' }}>
           <AlarmsTab onNavigate={navigate} onOverlayChange={setAlarmOverlayOpen} />
         </div>
@@ -214,7 +234,7 @@ function AlarmsTab({ onNavigate, onOverlayChange }) {
   async function handleCreateAlarm() {
     if (isNative) {
       const alarm = await openNativeCreateAlarm({ defaultTime: user?.wakeTime });
-      if (alarm?.time) await addAlarm(alarm);
+      if (alarm?.time) void addAlarm(alarm);
       return;
     }
 

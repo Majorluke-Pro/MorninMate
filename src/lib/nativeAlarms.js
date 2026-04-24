@@ -146,7 +146,7 @@ export async function getAlarmPermissionStatus() {
       batteryOptimization: true,
     };
   }
-  return AlarmPlugin.checkAlarmPermissions();
+  return AlarmPlugin.checkAlarmPermissions().then(r => ({ isNative: true, ...r }));
 }
 
 export async function requestAlarmPermissions() {

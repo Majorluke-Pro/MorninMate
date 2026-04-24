@@ -42,7 +42,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -88,7 +87,6 @@ fun setupNativeBottomNav(activity: ComponentActivity, listener: NavTabListener) 
         elevation = 48f
         translationZ = 48f
         visibility = View.GONE
-        setBackgroundColor(0xFF0D0D1A.toInt())
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             BottomNavBar(
@@ -119,8 +117,6 @@ fun BottomNavBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
 ) {
-    val view = LocalView.current
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -171,7 +167,6 @@ fun BottomNavBar(
                                     interactionSource = remember { MutableInteractionSource() },
                                 ) {
                                     if (selectedTab == index) return@clickable
-                                    view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                     onTabSelected(index)
                                 },
                             horizontalAlignment = Alignment.CenterHorizontally,
