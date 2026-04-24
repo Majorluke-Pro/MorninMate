@@ -45,6 +45,12 @@
         </activity>
 
         <!-- Alarm receiver — fires when AlarmManager triggers -->
+        <activity
+            android:name=".CreateAlarmActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/AppTheme.NoActionBar" />
+
         <receiver android:name=".AlarmReceiver" android:exported="false" />
 
         <!-- Boot receiver — reschedules alarms after phone reboot -->

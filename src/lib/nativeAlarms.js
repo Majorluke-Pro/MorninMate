@@ -99,18 +99,60 @@ export async function openRingtonePicker() {
   }
 }
 
-export async function checkAndRequestAlarmPermissions() {
+export async function openNativeCreateAlarm(options = {}) {
+  if (!isNative) return null;
+  try {
+    const result = await AlarmPlugin.openNativeCreateAlarm({
+      defaultTime: options.defaultTime,
+    });
+    return result?.time ? result : null;
+  } catch (e) {
+    console.warn('openNativeCreateAlarm failed:', e);
+    return null;
+  }
+}
+
+export async function setNativeBottomNavVisible(visible) {
   if (!isNative) return;
   try {
-    const result = await AlarmPlugin.checkAlarmPermissions();
+    await AlarmPlugin.setNativeBottomNavVisible({ visible: Boolean(visible) });
+  } catch {}
+}
+
+export async function checkAndRequestAlarmPermissions() {
+  if (!isNative) return null;
+  try {
+    const result = await getAlarmPermissionStatus();
     const needsRequest =
+      !result.exactAlarm ||
       !result.postNotifications ||
       !result.fullScreenIntent ||
       !result.batteryOptimization;
-    if (needsRequest) await AlarmPlugin.requestAlarmPermissions();
+    if (needsRequest) await requestAlarmPermissions();
+    return getAlarmPermissionStatus();
   } catch (e) {
     console.warn('checkAndRequestAlarmPermissions failed:', e);
+    return null;
   }
+}
+
+export async function getAlarmPermissionStatus() {
+  if (!isNative) {
+    return {
+      isNative: false,
+      exactAlarm: true,
+      postNotifications: typeof Notification === 'undefined' || Notification.permission === 'granted',
+      fullScreenIntent: true,
+      batteryOptimization: true,
+    };
+  }
+  return AlarmPlugin.checkAlarmPermissions();
+}
+
+export async function requestAlarmPermissions() {
+  if (!isNative) return null;
+  await AlarmPlugin.requestAlarmPermissions();
+  return getAlarmPermissionStatus();
 }
 
 export async function vibrateAlarm() {

@@ -47,6 +47,13 @@ public class AlarmPlugin extends Plugin {
         return getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
+    @PluginMethod
+    public void setNativeBottomNavVisible(PluginCall call) {
+        boolean visible = call.getBoolean("visible", false);
+        NativeBottomNavKt.setNativeBottomNavVisible(visible);
+        call.resolve();
+    }
+
     private void cancelNagAlarm(String alarmId) {
         if (alarmId == null) {
             return;
@@ -279,6 +286,16 @@ public class AlarmPlugin extends Plugin {
         startActivityForResult(call, intent, "handleRingtonePickerResult");
     }
 
+    @PluginMethod
+    public void openNativeCreateAlarm(PluginCall call) {
+        Intent intent = new Intent(getActivity(), CreateAlarmActivity.class);
+        String defaultTime = call.getString("defaultTime");
+        if (defaultTime != null) {
+            intent.putExtra("defaultTime", defaultTime);
+        }
+        startActivityForResult(call, intent, "handleNativeCreateAlarmResult");
+    }
+
     @ActivityCallback
     private void handleRingtonePickerResult(PluginCall call, ActivityResult result) {
         if (call == null) return;
@@ -302,8 +319,35 @@ public class AlarmPlugin extends Plugin {
         call.resolve(payload);
     }
 
+    @ActivityCallback
+    private void handleNativeCreateAlarmResult(PluginCall call, ActivityResult result) {
+        if (call == null) return;
+        if (result.getResultCode() != android.app.Activity.RESULT_OK || result.getData() == null) {
+            call.resolve();
+            return;
+        }
+
+        String alarmJson = result.getData().getStringExtra("alarm");
+        if (alarmJson == null || alarmJson.isEmpty()) {
+            call.resolve();
+            return;
+        }
+
+        try {
+            JSObject payload = JSObject.fromJSONObject(new JSONObject(alarmJson));
+            call.resolve(payload);
+        } catch (JSONException e) {
+            call.reject("Invalid native alarm payload");
+        }
+    }
+
     @PluginMethod
     public void checkAlarmPermissions(PluginCall call) {
+        boolean exactAlarm = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            exactAlarm = getAlarmManager().canScheduleExactAlarms();
+        }
+
         boolean postNotifications =
             NotificationManagerCompat.from(getContext()).areNotificationsEnabled();
 
@@ -319,6 +363,7 @@ public class AlarmPlugin extends Plugin {
             pm.isIgnoringBatteryOptimizations(getContext().getPackageName());
 
         JSObject result = new JSObject();
+        result.put("exactAlarm", exactAlarm);
         result.put("postNotifications",   postNotifications);
         result.put("fullScreenIntent",    fullScreenIntent);
         result.put("batteryOptimization", batteryOptimization);
@@ -327,6 +372,13 @@ public class AlarmPlugin extends Plugin {
 
     @PluginMethod
     public void requestAlarmPermissions(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !getAlarmManager().canScheduleExactAlarms()) {
+            Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+            intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+        }
+
         // POST_NOTIFICATIONS — runtime request (API 33+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // API 33
             if (!NotificationManagerCompat.from(getContext()).areNotificationsEnabled()) {

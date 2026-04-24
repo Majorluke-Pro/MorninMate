@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#FF6B35</color>
+    <color name="colorPrimaryDark">#0D0D1A</color>
+    <color name="colorAccent">#FFD166</color>
+    <color name="mm_surface">#0D0D1A</color>
+    <color name="mm_surface_elevated">#141A2B</color>
+</resources>
