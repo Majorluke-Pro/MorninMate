@@ -60,7 +60,9 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -72,7 +74,7 @@ private val AlarmBg = Color(0xFF0D0D1A)
 private val AlarmPanel = Color(0xFF141A2B)
 private val AlarmDawn = Color(0xFFFF6B35)
 private val AlarmSunrise = Color(0xFFFFD166)
-private val AlarmMint = Color(0xFF06D6A0)
+private val AlarmMint = Color(0xFFFFBE78)
 private val AlarmText = Color(0xFFFFF5DF)
 private val AlarmMuted = Color(0x99FFFFFF)
 private val AlarmBorder = Color(0x16FFFFFF)
@@ -318,88 +320,53 @@ private fun AlarmHeader(data: NativeAlarmsData) {
     val now = Calendar.getInstance()
     val nextAlarm = data.alarms.firstOrNull { it.active }
     val title = nextAlarm?.let { formatTime(it.time) } ?: "No alarm set"
-    val subtitle = nextAlarm?.label?.takeIf { it.isNotBlank() }
-        ?: data.wakeGoal.takeIf { it.isNotBlank() }
-        ?: "No goal set"
-    val displayName = data.userName.takeIf { it.isNotBlank() } ?: "Mate"
+    val countdown = nextAlarm?.let { nextAlarmCountdown(it, now) }
+    val remainingText = countdown?.remainingLabel ?: "No active alarm"
+    val progress = countdown?.progress ?: 0f
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 20.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Surface(
+        Text(
+            "MorninMate",
+            color = AlarmDawn,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Cursive,
+            textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            color = AlarmPanel,
-            border = BorderStroke(1.dp, AlarmBorder),
+        )
+        Spacer(Modifier.height(4.dp))
+        Text("Next alarm", color = AlarmSunrise, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom,
         ) {
             Column(
-                modifier = Modifier
-                    .background(Brush.verticalGradient(listOf(Color(0xFF20283A), AlarmPanel)))
-                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.weight(1f),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(displayName, color = AlarmText, fontSize = 26.sp, fontWeight = FontWeight.Black, maxLines = 1)
-                        Text("${greeting(now.get(Calendar.HOUR_OF_DAY))} - next alarm coming up", color = AlarmSunrise, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = AlarmDawn.copy(alpha = 0.14f),
-                        border = BorderStroke(1.dp, AlarmDawn.copy(alpha = 0.28f)),
-                    ) {
-                        Text(
-                            "Next alarm",
-                            color = AlarmDawn,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(18.dp))
-                Text("Coming up", color = AlarmMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
-                Text(title, color = AlarmText, fontSize = 34.sp, fontWeight = FontWeight.Black, lineHeight = 36.sp)
-                Spacer(Modifier.height(4.dp))
-                Text(subtitle, color = AlarmMuted, fontSize = 13.sp, maxLines = 1)
-                Spacer(Modifier.height(14.dp))
-                LinearProgressIndicator(
-                    progress = { data.xpProgress },
-                    modifier = Modifier.fillMaxWidth().height(6.dp),
-                    color = AlarmDawn,
-                    trackColor = Color.White.copy(alpha = 0.08f),
-                )
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "${data.xp % data.xpPerLevel}/${data.xpPerLevel} XP",
-                        color = AlarmMuted,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                    Text(
-                        "${data.alarms.count { it.active }} active",
-                        color = AlarmMint,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
+                Text(title, color = AlarmText, fontSize = 30.sp, fontWeight = FontWeight.Black, lineHeight = 32.sp)
+                Text(remainingText, color = AlarmMuted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             }
+            Text(
+                "${data.alarms.count { it.active }} active",
+                color = AlarmMint,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+            )
         }
+        Spacer(Modifier.height(10.dp))
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth().height(5.dp),
+            color = AlarmDawn,
+            trackColor = Color.White.copy(alpha = 0.08f),
+        )
     }
 }
 
@@ -619,14 +586,6 @@ private fun formatTime(time: String): String {
     return "${if (hour == 0) 12 else hour}:${m.toString().padStart(2, '0')} $period"
 }
 
-private fun greeting(hour: Int): String = when {
-    hour < 5 -> "G'night"
-    hour < 12 -> "G'day"
-    hour < 17 -> "Arvo"
-    hour < 21 -> "G'evening"
-    else -> "G'night"
-}
-
 private fun colorForIntensity(intensity: String): Color = when (intensity) {
     "gentle" -> AlarmMint
     "moderate" -> AlarmSunrise
@@ -642,3 +601,102 @@ private fun labelForIntensity(intensity: String): String = when (intensity) {
     "hardcore" -> "Hardcore"
     else -> "Alarm"
 }
+
+private data class AlarmCountdown(
+    val remainingLabel: String,
+    val progress: Float,
+)
+
+private fun nextAlarmCountdown(alarm: NativeAlarmItem, now: Calendar): AlarmCountdown {
+    val nextTrigger = nextAlarmTrigger(alarm, now)
+    val previousTrigger = previousAlarmTrigger(alarm, nextTrigger)
+    val remainingMillis = (nextTrigger.timeInMillis - now.timeInMillis).coerceAtLeast(0L)
+    val totalWindow = (nextTrigger.timeInMillis - previousTrigger.timeInMillis).coerceAtLeast(1L)
+    val elapsedWindow = (now.timeInMillis - previousTrigger.timeInMillis).coerceIn(0L, totalWindow)
+    return AlarmCountdown(
+        remainingLabel = formatRemainingTime(remainingMillis),
+        progress = (elapsedWindow.toFloat() / totalWindow.toFloat()).coerceIn(0f, 1f),
+    )
+}
+
+private fun nextAlarmTrigger(alarm: NativeAlarmItem, now: Calendar): Calendar {
+    val (hour, minute) = parseAlarmTime(alarm.time)
+    val currentDay = now.get(Calendar.DAY_OF_WEEK) - 1
+    val allowedDays = alarm.days.toSet()
+
+    if (allowedDays.isEmpty()) {
+        return (now.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            if (timeInMillis <= now.timeInMillis) add(Calendar.DAY_OF_YEAR, 1)
+        }
+    }
+
+    for (offset in 0..7) {
+        val dayIndex = (currentDay + offset) % 7
+        if (!allowedDays.contains(dayIndex)) continue
+        val candidate = (now.clone() as Calendar).apply {
+            add(Calendar.DAY_OF_YEAR, offset)
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        if (candidate.timeInMillis > now.timeInMillis) return candidate
+    }
+
+    return (now.clone() as Calendar).apply {
+        add(Calendar.DAY_OF_YEAR, 1)
+        set(Calendar.HOUR_OF_DAY, hour)
+        set(Calendar.MINUTE, minute)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }
+}
+
+private fun previousAlarmTrigger(alarm: NativeAlarmItem, nextTrigger: Calendar): Calendar {
+    val (hour, minute) = parseAlarmTime(alarm.time)
+    val allowedDays = alarm.days.toSet()
+
+    if (allowedDays.isEmpty()) {
+        return (nextTrigger.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -1) }
+    }
+
+    val nextDay = nextTrigger.get(Calendar.DAY_OF_WEEK) - 1
+    for (offset in 1..7) {
+        val dayIndex = (nextDay - offset).floorMod(7)
+        if (!allowedDays.contains(dayIndex)) continue
+        return (nextTrigger.clone() as Calendar).apply {
+            add(Calendar.DAY_OF_YEAR, -offset)
+            set(Calendar.HOUR_OF_DAY, hour)
+            set(Calendar.MINUTE, minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+    }
+
+    return (nextTrigger.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, -1) }
+}
+
+private fun parseAlarmTime(time: String): Pair<Int, Int> {
+    val parts = time.split(":")
+    val hour = parts.getOrNull(0)?.toIntOrNull() ?: 7
+    val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+    return hour to minute
+}
+
+private fun formatRemainingTime(remainingMillis: Long): String {
+    val totalMinutes = (remainingMillis / 60000L).coerceAtLeast(0L)
+    val days = totalMinutes / (24 * 60)
+    val hours = (totalMinutes % (24 * 60)) / 60
+    val minutes = totalMinutes % 60
+    return when {
+        days > 0 -> "${days}d ${hours}h remaining"
+        hours > 0 -> "${hours}h ${minutes}m remaining"
+        else -> "${minutes}m remaining"
+    }
+}
+
+private fun Int.floorMod(other: Int): Int = ((this % other) + other) % other

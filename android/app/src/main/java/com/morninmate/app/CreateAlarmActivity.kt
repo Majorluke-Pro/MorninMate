@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,18 +30,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -58,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -171,9 +174,12 @@ private fun NativeCreateAlarmScreen(
     var intensity     by remember { mutableStateOf(alarm?.optJSONObject("pulse")?.optString("intensity")?.takeIf { requiredGamesByIntensity.containsKey(it) } ?: "gentle") }
     var selectedGames by remember { mutableStateOf(initialGames(alarm, intensity)) }
 
-    var showHardcoreWarning by remember { mutableStateOf(false) }
-    var showSoundPicker     by remember { mutableStateOf(false) }
-    var wakeExpanded        by remember { mutableStateOf(false) }
+    var showHardcoreWarning  by remember { mutableStateOf(false) }
+    var showSoundPicker      by remember { mutableStateOf(false) }
+    var moreSettingsExpanded by remember { mutableStateOf(false) }
+    var repeatExpanded       by remember { mutableStateOf(repeat == "custom") }
+    var wakeSettingsExpanded by remember { mutableStateOf(false) }
+    var gamesExpanded        by remember { mutableStateOf(false) }
 
     val isEditing = alarm != null
 
@@ -204,7 +210,7 @@ private fun NativeCreateAlarmScreen(
             )
         }
     }
-
+    val selectedIntensity = remember(intensity) { intensities.firstOrNull { it.id == intensity } ?: intensities.first() }
     // ── Dialogs ───────────────────────────────────────────────────────────────
     if (showHardcoreWarning) {
         AlertDialog(
@@ -343,16 +349,15 @@ private fun NativeCreateAlarmScreen(
         LazyColumn(
             modifier        = Modifier.fillMaxSize().padding(inner),
             contentPadding  = PaddingValues(horizontal = 16.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
 
             // ── Time & Label ─────────────────────────────────────────────────
             item(key = "time") {
-                SectionLabel("Schedule")
+                SectionLabel("Alarm")
                 GroupCard {
-                    // Time row
                     SettingsRow(
-                        label    = "Wake-up time",
+                        label    = "Time",
                         value    = formatTime12(hour, minute),
                         valueColor = Dawn,
                         isLast   = false,
@@ -363,14 +368,13 @@ private fun NativeCreateAlarmScreen(
                             Icon(Icons.Default.Edit, null, tint = TextMuted, modifier = Modifier.size(15.dp))
                         },
                     )
-                    // Label row (inline text field styled as a row)
                     LabelRow(value = label, onValueChange = { label = it.take(40) })
                 }
             }
 
             // ── Sound ────────────────────────────────────────────────────────
             item(key = "sound") {
-                SectionLabel("Alarm Sound")
+                SectionLabel("Sound")
                 GroupCard {
                     SettingsRow(
                         label    = "Sound",
@@ -383,45 +387,51 @@ private fun NativeCreateAlarmScreen(
 
             // ── Repeat ───────────────────────────────────────────────────────
             item(key = "repeat") {
-                SectionLabel("Repeat")
+                SectionLabel("More Settings")
                 GroupCard {
-                    repeatModes.forEachIndexed { i, (id, displayLabel) ->
-                        val isSelected = repeat == id
-                        SettingsRow(
-                            label    = displayLabel,
-                            value    = if (isSelected && id == "custom" && days.isNotEmpty())
-                                "${days.size} day${if (days.size == 1) "" else "s"}" else "",
-                            isLast   = i == repeatModes.lastIndex && !(repeat == "custom"),
-                            onClick  = {
-                                repeat = id
-                                days   = daysForRepeat(id, emptySet()).toSet()
-                            },
-                            trailing = {
-                                if (isSelected) {
-                                    Icon(Icons.Default.Check, null, tint = Dawn, modifier = Modifier.size(17.dp))
-                                }
-                            },
-                        )
-                    }
-                    if (repeat == "custom") {
-                        // Day picker row
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                        ) {
-                            DayPicker(selectedDays = days, onToggle = { day ->
-                                days = if (days.contains(day)) days - day else days + day
-                            })
-                        }
-                        if (days.isEmpty()) {
-                            Text(
-                                "Pick at least one day",
-                                modifier   = Modifier.padding(start = 16.dp, bottom = 10.dp),
-                                color      = Sunrise,
-                                fontSize   = 12.sp,
-                                fontWeight = FontWeight.Bold,
+                    ExpandableHeader(
+                        label = "Repeat",
+                        badge = repeatSummary(repeat, days),
+                        expanded = repeatExpanded,
+                        isLast = !repeatExpanded && !wakeSettingsExpanded,
+                        onToggle = {
+                            moreSettingsExpanded = true
+                            repeatExpanded = !repeatExpanded
+                        },
+                    )
+                    if (repeatExpanded) {
+                        repeatModes.forEachIndexed { i, (id, displayLabel) ->
+                            val isSelected = repeat == id
+                            SettingsRow(
+                                label = displayLabel,
+                                value = if (isSelected) repeatSummary(id, daysForRepeat(id, days).toSet()) else "",
+                                isLast = i == repeatModes.lastIndex && repeat != "custom",
+                                onClick = {
+                                    repeat = id
+                                    days = daysForRepeat(id, emptySet()).toSet()
+                                },
+                                trailing = {
+                                    if (isSelected) {
+                                        Icon(Icons.Default.Check, null, tint = Dawn, modifier = Modifier.size(17.dp))
+                                    } else {
+                                        Spacer(Modifier.size(18.dp))
+                                    }
+                                },
                             )
+                        }
+                        if (repeat == "custom") {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                            ) {
+                                DayPicker(selectedDays = days, onToggle = { day ->
+                                    days = if (days.contains(day)) days - day else days + day
+                                })
+                            }
+                            if (days.isEmpty()) {
+                                InlineFootnote("Pick at least one day")
+                            }
                         }
                     }
                 }
@@ -429,38 +439,48 @@ private fun NativeCreateAlarmScreen(
 
             // ── Wake Check ───────────────────────────────────────────────────
             item(key = "wake") {
-                SectionLabel("Wake Check")
+                SectionLabel("Wake Intensity")
                 GroupCard {
-                    // Intensity rows
-                    intensities.forEachIndexed { i, option ->
-                        val isSelected = intensity == option.id
-                        val isLastIntensity = i == intensities.lastIndex
-                        SettingsRow(
-                            label      = option.label,
-                            sublabel   = option.desc,
-                            value      = "+${option.xp} XP",
-                            valueColor = option.color,
-                            isLast     = isLastIntensity && !wakeExpanded,
-                            onClick    = {
-                                if (option.id == "hardcore") showHardcoreWarning = true
-                                else { intensity = option.id; selectedGames = emptySet() }
-                            },
-                            trailing = {
-                                if (isSelected) Icon(Icons.Default.Check, null, tint = option.color, modifier = Modifier.size(17.dp))
-                            },
-                        )
+                    ExpandableHeader(
+                        label = "Wake Intensity",
+                        badge = selectedIntensity.label,
+                        expanded = wakeSettingsExpanded,
+                        isLast = !wakeSettingsExpanded,
+                        onToggle = { wakeSettingsExpanded = !wakeSettingsExpanded },
+                    )
+                    if (wakeSettingsExpanded) {
+                        intensities.forEachIndexed { index, option ->
+                            val isSelected = intensity == option.id
+                            SettingsRow(
+                                label      = option.label,
+                                sublabel   = option.desc,
+                                isLast     = index == intensities.lastIndex,
+                                onClick    = {
+                                    if (option.id == "hardcore") showHardcoreWarning = true
+                                    else { intensity = option.id; selectedGames = emptySet() }
+                                },
+                                trailing = {
+                                    if (isSelected) Icon(Icons.Default.Check, null, tint = option.color, modifier = Modifier.size(17.dp))
+                                    else Spacer(Modifier.size(18.dp))
+                                },
+                            )
+                        }
                     }
+                }
+            }
 
-                    // Expandable games section
-                    if (intensity != "hardcore") {
-                        ExpandableHeader(
-                            label    = "Wake-up Games",
-                            badge    = "${selectedGames.size}/$requiredGameCount",
-                            expanded = wakeExpanded,
-                            isLast   = !wakeExpanded,
-                            onToggle = { wakeExpanded = !wakeExpanded },
-                        )
-                        if (wakeExpanded) {
+            item(key = "games") {
+                SectionLabel("Games")
+                GroupCard {
+                    ExpandableHeader(
+                        label = "Games",
+                        badge = if (intensity != "hardcore") "${selectedGames.size}/$requiredGameCount selected" else "3/3 locked",
+                        expanded = gamesExpanded,
+                        isLast = !gamesExpanded,
+                        onToggle = { gamesExpanded = !gamesExpanded },
+                    )
+                    if (gamesExpanded) {
+                        if (intensity != "hardcore") {
                             games.forEachIndexed { i, game ->
                                 val isSelected = selectedGames.contains(game.id)
                                 SettingsRow(
@@ -474,20 +494,11 @@ private fun NativeCreateAlarmScreen(
                                     },
                                     trailing = {
                                         if (isSelected) Icon(Icons.Default.Check, null, tint = Dawn, modifier = Modifier.size(17.dp))
+                                        else Spacer(Modifier.size(18.dp))
                                     },
                                 )
                             }
-                        }
-                    } else {
-                        // Hardcore: all games locked
-                        ExpandableHeader(
-                            label    = "Wake-up Games",
-                            badge    = "3/3 locked",
-                            expanded = wakeExpanded,
-                            isLast   = !wakeExpanded,
-                            onToggle = { wakeExpanded = !wakeExpanded },
-                        )
-                        if (wakeExpanded) {
+                        } else {
                             games.forEachIndexed { i, game ->
                                 SettingsRow(
                                     label    = game.label,
@@ -501,15 +512,9 @@ private fun NativeCreateAlarmScreen(
                             }
                         }
                     }
-                }
-                if (!gamesComplete && intensity != "hardcore") {
-                    Text(
-                        "Choose $requiredGameCount game${if (requiredGameCount > 1) "s" else ""} to finish setup",
-                        modifier   = Modifier.padding(start = 16.dp, top = 6.dp),
-                        color      = Sunrise,
-                        fontSize   = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    if (!gamesComplete && intensity != "hardcore") {
+                        InlineFootnote("Choose $requiredGameCount game${if (requiredGameCount > 1) "s" else ""} to finish setup")
+                    }
                 }
             }
 
@@ -528,7 +533,7 @@ private fun TopBar(title: String, onClose: () -> Unit, onSave: () -> Unit, canSa
         border   = BorderStroke(1.dp, Divider),
     ) {
         Row(
-            modifier            = Modifier.fillMaxWidth().statusBarsPadding().height(56.dp).padding(horizontal = 4.dp),
+            modifier            = Modifier.fillMaxWidth().statusBarsPadding().height(56.dp).padding(horizontal = 6.dp),
             verticalAlignment   = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onClose) {
@@ -571,7 +576,7 @@ private fun SectionLabel(text: String) {
 private fun GroupCard(content: @Composable () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape    = RoundedCornerShape(14.dp),
+        shape    = RoundedCornerShape(20.dp),
         color    = Panel,
         border   = BorderStroke(1.dp, Divider),
     ) {
@@ -592,13 +597,13 @@ private fun SettingsRow(
 ) {
     Column {
         Row(
-            modifier            = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 13.dp),
+            modifier            = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 18.dp, vertical = 15.dp),
             verticalAlignment   = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(label, color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                if (sublabel != null) Text(sublabel, color = TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(label, color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                if (sublabel != null) Text(sublabel, color = TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
             }
             if (value.isNotEmpty()) {
                 Text(value, color = valueColor, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
@@ -606,7 +611,7 @@ private fun SettingsRow(
             if (trailing != null) trailing()
             else Icon(Icons.Default.ChevronRight, null, tint = TextMuted.copy(alpha = 0.4f), modifier = Modifier.size(18.dp))
         }
-        if (!isLast) Box(Modifier.fillMaxWidth().height(1.dp).padding(start = 16.dp).background(Divider))
+        if (!isLast) RowDivider()
     }
 }
 
@@ -614,22 +619,21 @@ private fun SettingsRow(
 @Composable
 private fun ExpandableHeader(label: String, badge: String, expanded: Boolean, isLast: Boolean, onToggle: () -> Unit) {
     Column {
-        Box(Modifier.fillMaxWidth().height(1.dp).padding(start = 16.dp).background(Divider))
         Row(
-            modifier            = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 16.dp, vertical = 13.dp),
+            modifier            = Modifier.fillMaxWidth().clickable(onClick = onToggle).padding(horizontal = 18.dp, vertical = 15.dp),
             verticalAlignment   = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(label, color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+            Text(label, color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             Text(badge, color = TextMuted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             Icon(
-                if (expanded) Icons.Default.ChevronRight else Icons.Default.ChevronRight,
+                Icons.Default.ChevronRight,
                 null,
                 tint     = TextMuted.copy(alpha = 0.5f),
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(18.dp).rotate(if (expanded) 90f else 0f),
             )
         }
-        if (!isLast && !expanded) Box(Modifier.fillMaxWidth().height(1.dp).padding(start = 16.dp).background(Divider))
+        if (!isLast) RowDivider()
     }
 }
 
@@ -637,23 +641,23 @@ private fun ExpandableHeader(label: String, badge: String, expanded: Boolean, is
 @Composable
 private fun LabelRow(value: String, onValueChange: (String) -> Unit) {
     Column {
-        Box(Modifier.fillMaxWidth().height(1.dp).padding(start = 16.dp).background(Divider))
+        RowDivider()
         Row(
-            modifier          = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp),
+            modifier          = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 15.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Label", color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text("Label", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             BasicTextField(
                 value         = value,
                 onValueChange = onValueChange,
                 singleLine    = true,
-                textStyle     = TextStyle(color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Normal),
+                textStyle     = TextStyle(color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Normal),
                 cursorBrush   = Brush.verticalGradient(listOf(Dawn, Dawn)),
                 modifier      = Modifier.weight(1f),
                 decorationBox = { inner ->
                     Box(contentAlignment = Alignment.CenterEnd) {
-                        if (value.isBlank()) Text("Optional", color = TextMuted, fontSize = 15.sp)
+                        if (value.isBlank()) Text("Optional", color = TextMuted, fontSize = 16.sp)
                         inner()
                     }
                 },
@@ -666,17 +670,20 @@ private fun LabelRow(value: String, onValueChange: (String) -> Unit) {
 /** Day-of-week pill row */
 @Composable
 private fun DayPicker(selectedDays: Set<Int>, onToggle: (Int) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        dayLabels.forEachIndexed { index, lbl ->
-            val selected = selectedDays.contains(index)
-            Box(
-                modifier            = Modifier.weight(1f).clip(CircleShape)
-                    .background(if (selected) Dawn else PanelSoft)
-                    .clickable { onToggle(index) }
-                    .padding(vertical = 9.dp),
-                contentAlignment    = Alignment.Center,
-            ) {
-                Text(lbl.take(1), color = if (selected) Color.White else TextMuted, fontWeight = FontWeight.Black, fontSize = 12.sp)
+    BoxWithConstraints {
+        val gap = if (maxWidth < 360.dp) 4.dp else 6.dp
+        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+            dayLabels.forEachIndexed { index, lbl ->
+                val selected = selectedDays.contains(index)
+                Box(
+                    modifier            = Modifier.weight(1f).clip(CircleShape)
+                        .background(if (selected) Dawn else PanelSoft)
+                        .clickable { onToggle(index) }
+                        .padding(vertical = 9.dp),
+                    contentAlignment    = Alignment.Center,
+                ) {
+                    Text(lbl.take(1), color = if (selected) Color.White else TextMuted, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                }
             }
         }
     }
@@ -701,8 +708,28 @@ private fun SoundPickerRow(option: SoundOption, selected: Boolean, isLast: Boole
             }
             if (selected) Icon(Icons.Default.Check, null, tint = Dawn, modifier = Modifier.size(17.dp))
         }
-        if (!isLast) Box(Modifier.fillMaxWidth().height(1.dp).padding(start = 14.dp).background(Divider))
+        if (!isLast) RowDivider(start = 14.dp)
     }
+}
+
+@Composable
+private fun RowDivider(start: androidx.compose.ui.unit.Dp = 18.dp) {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = start),
+        thickness = 1.dp,
+        color = Divider,
+    )
+}
+
+@Composable
+private fun InlineFootnote(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier.padding(start = 18.dp, end = 18.dp, bottom = 14.dp),
+        color = Sunrise,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+    )
 }
 
 // ── Pure helpers ──────────────────────────────────────────────────────────────
