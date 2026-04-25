@@ -321,10 +321,7 @@ private fun AlarmHeader(data: NativeAlarmsData) {
     val subtitle = nextAlarm?.label?.takeIf { it.isNotBlank() }
         ?: data.wakeGoal.takeIf { it.isNotBlank() }
         ?: "No goal set"
-    val hour = now.get(Calendar.HOUR)
-    val displayHour = if (hour == 0) 12 else hour
-    val minute = now.get(Calendar.MINUTE)
-    val amPm = if (now.get(Calendar.AM_PM) == Calendar.AM) "AM" else "PM"
+    val displayName = data.userName.takeIf { it.isNotBlank() } ?: "Mate"
 
     Column(
         modifier = Modifier
@@ -347,15 +344,30 @@ private fun AlarmHeader(data: NativeAlarmsData) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Alarms", color = AlarmText, fontSize = 28.sp, fontWeight = FontWeight.Black)
-                        Text("${greeting(now.get(Calendar.HOUR_OF_DAY))}, ${data.userName}", color = AlarmSunrise, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(displayName, color = AlarmText, fontSize = 26.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                        Text("${greeting(now.get(Calendar.HOUR_OF_DAY))} - next alarm coming up", color = AlarmSunrise, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
-                    Text("%02d:%02d %s".format(displayHour, minute, amPm), color = AlarmMuted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = AlarmDawn.copy(alpha = 0.14f),
+                        border = BorderStroke(1.dp, AlarmDawn.copy(alpha = 0.28f)),
+                    ) {
+                        Text(
+                            "Next alarm",
+                            color = AlarmDawn,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(18.dp))
-                Text("Next up", color = AlarmMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text("Coming up", color = AlarmMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text(title, color = AlarmText, fontSize = 34.sp, fontWeight = FontWeight.Black, lineHeight = 36.sp)
                 Spacer(Modifier.height(4.dp))
