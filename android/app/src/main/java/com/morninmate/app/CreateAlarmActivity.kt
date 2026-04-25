@@ -1,6 +1,7 @@
 package com.morninmate.app
 
 import android.app.Activity
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.media.RingtoneManager
 import android.os.Build
@@ -28,7 +29,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,27 +51,22 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.view.WindowCompat
-import kotlinx.coroutines.flow.distinctUntilChanged
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Calendar
@@ -86,9 +81,6 @@ private val Panel = Color(0xFF171E2B)
 private val PanelSoft = Color(0xFF20283A)
 private val TextPrimary = Color(0xFFFFF5DF)
 private val TextMuted = Color(0xFFA7ADC0)
-private val WheelRowHeight = 46.dp
-private const val WheelVisibleRows = 5
-private const val WheelCycles = 200
 
 @Immutable
 private data class SoundOption(val id: String, val label: String, val desc: String, val color: Color)
@@ -587,9 +579,14 @@ private fun TimeCard(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
     val hour12 = hour % 12
     val displayHour = if (hour12 == 0) 12 else hour12
     val contextLabel = timeContextLabel(hour)
+    val context = LocalContext.current
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                TimePickerDialog(context, { _, h, m -> onPicked(h, m) }, hour, minute, false).show()
+            },
         shape = RoundedCornerShape(30.dp),
         colors = CardDefaults.cardColors(containerColor = Panel),
     ) {
@@ -614,8 +611,6 @@ private fun TimeCard(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(contextLabel, color = Dawn, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(18.dp))
-                TimeWheelPicker(hour = hour, minute = minute, onPicked = onPicked)
             }
             Box(
                 modifier = Modifier
@@ -633,182 +628,6 @@ private fun TimeCard(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
             }
         }
     }
-}
-
-@Composable
-private fun TimeWheelPicker(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
-    val period = if (hour >= 12) "PM" else "AM"
-    val hour12 = hour % 12
-    val displayHour = if (hour12 == 0) 12 else hour12
-    val hours = remember { (1..12).toList() }
-    val minutes = remember { (0..59).toList() }
-    val periods = remember { listOf("AM", "PM") }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        WheelColumn(
-            values = hours,
-            selectedValue = displayHour,
-            label = "Hour",
-            display = { it.toString() },
-            onSelected = { pickedHour ->
-                onPicked(to24Hour(pickedHour, period), minute)
-            },
-            modifier = Modifier.weight(1f),
-        )
-        WheelColumn(
-            values = minutes,
-            selectedValue = minute,
-            label = "Minute",
-            display = { "%02d".format(it) },
-            onSelected = { pickedMinute -> onPicked(hour, pickedMinute) },
-            modifier = Modifier.weight(1f),
-        )
-        WheelColumn(
-            values = periods,
-            selectedValue = period,
-            label = "",
-            display = { it },
-            onSelected = { pickedPeriod ->
-                onPicked(to24Hour(displayHour, pickedPeriod), minute)
-            },
-            modifier = Modifier.weight(0.82f),
-        )
-    }
-}
-
-@Composable
-private fun <T> WheelColumn(
-    values: List<T>,
-    selectedValue: T,
-    label: String,
-    display: (T) -> String,
-    onSelected: (T) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val valueCount = values.size.coerceAtLeast(1)
-    val selectedIndex = values.indexOf(selectedValue).coerceAtLeast(0)
-    val initialIndex = remember(valueCount) { (valueCount * WheelCycles / 2) + selectedIndex }
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
-    val rowHeightPx = with(LocalDensity.current) { WheelRowHeight.toPx() }
-    val virtualCount = valueCount * WheelCycles
-    val centeredIndex by remember {
-        derivedStateOf {
-            (listState.firstVisibleItemIndex +
-                if (listState.firstVisibleItemScrollOffset > rowHeightPx / 2f) 1 else 0)
-                .coerceIn(0, virtualCount - 1)
-        }
-    }
-    val centeredValueIndex by remember {
-        derivedStateOf { wheelIndex(centeredIndex, valueCount) }
-    }
-
-    LaunchedEffect(selectedIndex) {
-        if (!listState.isScrollInProgress && selectedIndex != centeredValueIndex) {
-            listState.scrollToItem(nearestWheelIndex(centeredIndex, selectedIndex, valueCount))
-        }
-    }
-
-    // Snap to nearest item and commit the value only when the user lifts their finger.
-    // Previously onSelected fired on every scroll frame, causing the parent to recompose
-    // at 60 fps and making all three columns visibly laggy.
-    LaunchedEffect(listState, values) {
-        snapshotFlow { listState.isScrollInProgress }
-            .distinctUntilChanged()
-            .collect { scrolling ->
-                if (!scrolling) {
-                    listState.animateScrollToItem(centeredIndex)
-                    onSelected(values[centeredValueIndex])
-                }
-            }
-    }
-
-    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        if (label.isNotBlank()) {
-            Text(label, color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(6.dp))
-        } else {
-            Spacer(Modifier.height(25.dp))
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(WheelRowHeight * WheelVisibleRows),
-            contentAlignment = Alignment.Center,
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(WheelRowHeight),
-                shape = RoundedCornerShape(14.dp),
-                color = Dawn.copy(alpha = 0.12f),
-                border = BorderStroke(1.dp, Dawn.copy(alpha = 0.38f)),
-            ) {}
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(vertical = WheelRowHeight * 2),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                items(virtualCount) { index ->
-                    val valueIndex = wheelIndex(index, valueCount)
-                    val value = values[valueIndex]
-                    val selected = index == centeredIndex
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(WheelRowHeight)
-                            .clickable { onSelected(value) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = display(value),
-                            color = if (selected) TextPrimary else TextMuted.copy(alpha = 0.58f),
-                            fontSize = if (selected) 24.sp else 18.sp,
-                            fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
-                }
-            }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .height(WheelRowHeight * 2)
-                    .background(Brush.verticalGradient(listOf(Panel, Panel.copy(alpha = 0f)))),
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(WheelRowHeight * 2)
-                    .background(Brush.verticalGradient(listOf(Panel.copy(alpha = 0f), Panel))),
-            )
-        }
-    }
-}
-
-private fun to24Hour(hour12: Int, period: String): Int =
-    when {
-        period == "AM" && hour12 == 12 -> 0
-        period == "AM" -> hour12
-        hour12 == 12 -> 12
-        else -> hour12 + 12
-    }
-
-private fun wheelIndex(index: Int, valueCount: Int): Int =
-    ((index % valueCount) + valueCount) % valueCount
-
-private fun nearestWheelIndex(currentIndex: Int, selectedIndex: Int, valueCount: Int): Int {
-    val currentValueIndex = wheelIndex(currentIndex, valueCount)
-    val forward = (selectedIndex - currentValueIndex + valueCount) % valueCount
-    val backward = forward - valueCount
-    val delta = if (kotlin.math.abs(backward) < forward) backward else forward
-    return currentIndex + delta
 }
 
 @Composable
