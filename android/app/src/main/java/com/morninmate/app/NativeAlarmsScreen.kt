@@ -35,7 +35,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -54,10 +53,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -72,13 +69,13 @@ import org.json.JSONObject
 import java.util.Calendar
 
 private val AlarmBg = Color(0xFF0D0D1A)
-private val AlarmPanel = Color(0xF2141424)
+private val AlarmPanel = Color(0xFF141A2B)
 private val AlarmDawn = Color(0xFFFF6B35)
 private val AlarmSunrise = Color(0xFFFFD166)
 private val AlarmMint = Color(0xFF06D6A0)
 private val AlarmText = Color(0xFFFFF5DF)
 private val AlarmMuted = Color(0x99FFFFFF)
-private val AlarmBorder = Color(0x12FFFFFF)
+private val AlarmBorder = Color(0x16FFFFFF)
 
 data class NativeAlarmItem(
     val id: String,
@@ -224,7 +221,7 @@ private fun NativeAlarmsScreen(data: NativeAlarmsData) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(AlarmBg),
+            .background(Brush.verticalGradient(listOf(Color(0xFF171B2A), AlarmBg))),
     ) {
         LazyColumn(
             modifier = Modifier
@@ -283,7 +280,7 @@ private fun NativeAlarmsScreen(data: NativeAlarmsData) {
     if (actionAlarm != null) {
         AlertDialog(
             onDismissRequest = { actionTarget = null },
-            containerColor = Color(0xFF210808),
+            containerColor = AlarmPanel,
             title = { Text(actionAlarm.label.ifBlank { formatTime(actionAlarm.time) }, color = AlarmText, fontWeight = FontWeight.Black) },
             text = { Text("Choose what to do with this alarm.", color = AlarmMuted, lineHeight = 20.sp) },
             confirmButton = {
@@ -323,91 +320,72 @@ private fun AlarmHeader(data: NativeAlarmsData) {
     val title = nextAlarm?.let { formatTime(it.time) } ?: "No alarm set"
     val subtitle = nextAlarm?.label?.takeIf { it.isNotBlank() }
         ?: data.wakeGoal.takeIf { it.isNotBlank() }
-        ?: if (nextAlarm != null) "Tomorrow focus" else "Build tomorrow tonight"
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF16082E), Color(0xFF14142A), AlarmBg),
-                ),
-            )
-            .drawBehind {
-                drawCircle(Color(0x24FF6B35), radius = 175.dp.toPx(), center = Offset(size.width + 30.dp.toPx(), -38.dp.toPx()))
-                drawCircle(Color(0x12FFD166), radius = 105.dp.toPx(), center = Offset(-20.dp.toPx(), size.height - 30.dp.toPx()))
-            }
-            .padding(horizontal = 20.dp, vertical = 22.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(Icons.Default.WbSunny, contentDescription = null, tint = AlarmDawn, modifier = Modifier.size(14.dp))
-                Text("MORNINMATE", color = AlarmDawn, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
-            }
-            ClockPill(now)
-        }
-
-        Spacer(Modifier.height(18.dp))
-
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = Color(0xC70F0F1C),
-            border = BorderStroke(1.dp, Color(0x12FFFFFF)),
-            shadowElevation = 8.dp,
-        ) {
-            Column(Modifier.padding(14.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Box(Modifier.size(7.dp).background(Color(0xFFFF9A6D), CircleShape))
-                            Text("${greeting(now.get(Calendar.HOUR_OF_DAY))}, ${data.userName}", color = AlarmMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(Modifier.height(4.dp))
-                        Text(title, color = AlarmText, fontSize = 31.sp, fontWeight = FontWeight.Black, lineHeight = 32.sp)
-                        Text(subtitle, color = AlarmMuted, fontSize = 12.sp, maxLines = 1)
-                    }
-                    if (nextAlarm != null) {
-                        Surface(shape = RoundedCornerShape(16.dp), color = Color.White.copy(alpha = 0.045f), border = BorderStroke(1.dp, Color(0x12FFFFFF))) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                                Text("NEXT", color = AlarmMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
-                                Text("Tomorrow", color = Color(0xFFFFB07B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                LinearProgressIndicator(
-                    progress = { data.xpProgress },
-                    modifier = Modifier.fillMaxWidth().height(6.dp),
-                    color = AlarmDawn,
-                    trackColor = Color.White.copy(alpha = 0.07f),
-                )
-                Spacer(Modifier.height(6.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("XP Progress", color = Color.White.copy(alpha = 0.48f), fontSize = 9.sp, fontWeight = FontWeight.Black)
-                    Text("${data.xp % data.xpPerLevel}/${data.xpPerLevel}", color = Color.White.copy(alpha = 0.62f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ClockPill(now: Calendar) {
+        ?: "No goal set"
     val hour = now.get(Calendar.HOUR)
     val displayHour = if (hour == 0) 12 else hour
     val minute = now.get(Calendar.MINUTE)
     val amPm = if (now.get(Calendar.AM_PM) == Calendar.AM) "AM" else "PM"
-    Surface(shape = RoundedCornerShape(20.dp), color = Color(0xF2141424), border = BorderStroke(1.dp, Color(0x18FFFFFF))) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-            Box(Modifier.size(8.dp).background(AlarmSunrise, CircleShape))
-            Column {
-                Text("%02d:%02d".format(displayHour, minute), color = AlarmText, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                Text(amPm, color = Color.White.copy(alpha = 0.42f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 20.dp),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = AlarmPanel,
+            border = BorderStroke(1.dp, AlarmBorder),
+        ) {
+            Column(
+                modifier = Modifier
+                    .background(Brush.verticalGradient(listOf(Color(0xFF20283A), AlarmPanel)))
+                    .padding(18.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Alarms", color = AlarmText, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                        Text("${greeting(now.get(Calendar.HOUR_OF_DAY))}, ${data.userName}", color = AlarmSunrise, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Text("%02d:%02d %s".format(displayHour, minute, amPm), color = AlarmMuted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                }
+
+                Spacer(Modifier.height(18.dp))
+                Text("Next up", color = AlarmMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(title, color = AlarmText, fontSize = 34.sp, fontWeight = FontWeight.Black, lineHeight = 36.sp)
+                Spacer(Modifier.height(4.dp))
+                Text(subtitle, color = AlarmMuted, fontSize = 13.sp, maxLines = 1)
+                Spacer(Modifier.height(14.dp))
+                LinearProgressIndicator(
+                    progress = { data.xpProgress },
+                    modifier = Modifier.fillMaxWidth().height(6.dp),
+                    color = AlarmDawn,
+                    trackColor = Color.White.copy(alpha = 0.08f),
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "${data.xp % data.xpPerLevel}/${data.xpPerLevel} XP",
+                        color = AlarmMuted,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        "${data.alarms.count { it.active }} active",
+                        color = AlarmMint,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
         }
     }
@@ -417,32 +395,30 @@ private fun ClockPill(now: Calendar) {
 private fun AlarmListHeader(data: NativeAlarmsData) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp)) {
         if (data.exactAlarmReady) {
-            Text("✓  Alarm setup ready", color = AlarmMint.copy(alpha = 0.75f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("Alarm setup ready", color = AlarmSunrise, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         } else {
             ReadinessCard()
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Your Alarms", color = AlarmText, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Surface(shape = RoundedCornerShape(12.dp), color = AlarmDawn.copy(alpha = 0.10f), border = BorderStroke(1.dp, AlarmDawn.copy(alpha = 0.18f))) {
-                Text("${data.alarms.count { it.active }} active", color = AlarmDawn, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
-            }
+            Text("${data.alarms.count { it.active }} active", color = AlarmMuted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
         }
     }
 }
 
 @Composable
 private fun ReadinessCard() {
-    Surface(shape = RoundedCornerShape(20.dp), color = AlarmDawn.copy(alpha = 0.07f), border = BorderStroke(1.dp, AlarmDawn.copy(alpha = 0.18f))) {
+    Surface(shape = RoundedCornerShape(16.dp), color = AlarmPanel, border = BorderStroke(1.dp, AlarmBorder)) {
         Row(modifier = Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFFF9A6D), modifier = Modifier.size(30.dp))
+            Icon(Icons.Default.Warning, contentDescription = null, tint = AlarmDawn, modifier = Modifier.size(30.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text("Finish Android alarm setup", color = AlarmText, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                Text("Finish Android alarm setup", color = AlarmText, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 Text("Exact alarm permission still needs attention before alarms can be trusted.", color = AlarmMuted, fontSize = 12.sp)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { emitAlarmAction("settings") }, colors = ButtonDefaults.buttonColors(containerColor = AlarmDawn), shape = RoundedCornerShape(14.dp)) {
-                        Text("Open Settings", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Button(onClick = { emitAlarmAction("settings") }, colors = ButtonDefaults.buttonColors(containerColor = AlarmDawn), shape = RoundedCornerShape(10.dp)) {
+                        Text("Open Settings", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                     }
                     TextButton(onClick = { emitAlarmAction("refresh") }) {
                         Text("Refresh", color = AlarmMuted, fontSize = 11.sp)
@@ -455,15 +431,15 @@ private fun ReadinessCard() {
 
 @Composable
 private fun EmptyNativeState() {
-    Surface(shape = RoundedCornerShape(24.dp), color = AlarmPanel, border = BorderStroke(1.dp, AlarmBorder)) {
+    Surface(shape = RoundedCornerShape(18.dp), color = AlarmPanel, border = BorderStroke(1.dp, AlarmBorder)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(28.dp)) {
             Icon(Icons.Default.Alarm, contentDescription = null, tint = AlarmDawn, modifier = Modifier.size(42.dp))
             Spacer(Modifier.height(10.dp))
-            Text("No alarms yet", color = AlarmText, fontWeight = FontWeight.Black, fontSize = 18.sp)
+            Text("No alarms yet", color = AlarmText, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             Text("Set your next wake-up to start building momentum.", color = AlarmMuted, fontSize = 12.sp)
             Spacer(Modifier.height(14.dp))
-            Button(onClick = { openNativeAlarmEditor("create") }, colors = ButtonDefaults.buttonColors(containerColor = AlarmDawn), shape = RoundedCornerShape(16.dp)) {
-                Text("Create alarm", fontWeight = FontWeight.Black)
+            Button(onClick = { openNativeAlarmEditor("create") }, colors = ButtonDefaults.buttonColors(containerColor = AlarmDawn), shape = RoundedCornerShape(10.dp)) {
+                Text("Create alarm", color = Color.White, fontWeight = FontWeight.Medium)
             }
         }
     }
@@ -476,7 +452,6 @@ private fun AlarmCardNative(
     isNext: Boolean,
     onLongPress: (NativeAlarmItem) -> Unit,
 ) {
-    val pulseColor = colorForIntensity(alarm.intensity)
     var active by remember(alarm.id) { mutableStateOf(alarm.active) }
     var togglePending by remember(alarm.id) { mutableStateOf(false) }
 
@@ -486,56 +461,74 @@ private fun AlarmCardNative(
     }
 
     Box(modifier = Modifier.fillMaxWidth()) {
-        Surface(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .combinedClickable(
                     onClick = { openNativeAlarmEditor("edit", alarm.id, alarmJson = alarm.rawJson) },
                     onLongClick = { onLongPress(alarm) },
                 ),
-            shape = RoundedCornerShape(18.dp),
-            color = if (active) AlarmPanel else Color(0xB010101A),
-            border = BorderStroke(1.dp, if (active) pulseColor.copy(alpha = 0.20f) else Color(0x0DFFFFFF)),
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
-                        if (isNext) {
-                            Surface(shape = RoundedCornerShape(8.dp), color = AlarmDawn.copy(alpha = 0.15f), border = BorderStroke(1.dp, AlarmDawn.copy(alpha = 0.30f))) {
-                                Text("NEXT", color = AlarmDawn, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp))
+            Row(
+                modifier = Modifier.padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 8.dp)
+                        .size(width = 4.dp, height = 62.dp)
+                        .background(if (isNext) AlarmDawn else AlarmBorder, RoundedCornerShape(999.dp)),
+                )
+                Spacer(Modifier.size(14.dp))
+                Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.weight(1f)) {
+                            if (isNext) {
+                                Text("NEXT", color = AlarmDawn, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Text(alarm.label.ifBlank { "Alarm" }, color = AlarmMuted, fontSize = 12.sp, maxLines = 1)
+                        }
+                        SmoothAlarmToggle(
+                            checked = active,
+                            pending = togglePending,
+                            onCheckedChange = { checked ->
+                                if (togglePending) return@SmoothAlarmToggle
+                                active = checked
+                                togglePending = true
+                                emitAlarmActiveChange(alarm.id, checked)
+                            },
+                        )
+                    }
+                    Text(formatTime(alarm.time), color = AlarmText.copy(alpha = if (active) 1f else 0.52f), fontSize = 38.sp, fontWeight = FontWeight.Bold, lineHeight = 40.sp)
+                    if (alarm.days.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf("S", "M", "T", "W", "T", "F", "S").forEachIndexed { index, label ->
+                                val on = alarm.days.contains(index)
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .background(if (on) AlarmDawn.copy(alpha = 0.18f) else Color.Transparent, CircleShape),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(label, color = if (on) AlarmSunrise else AlarmMuted.copy(alpha = 0.6f), fontSize = 9.sp, fontWeight = FontWeight.Medium)
+                                }
                             }
                         }
-                        Text(alarm.label.ifBlank { "Alarm" }, color = AlarmMuted, fontSize = 12.sp, maxLines = 1)
                     }
-                    SmoothAlarmToggle(
-                        checked = active,
-                        pending = togglePending,
-                        onCheckedChange = { checked ->
-                            if (togglePending) return@SmoothAlarmToggle
-                            active = checked
-                            togglePending = true
-                            emitAlarmActiveChange(alarm.id, checked)
-                        },
-                    )
-                }
-                Text(formatTime(alarm.time), color = AlarmText.copy(alpha = if (active) 1f else 0.65f), fontSize = 43.sp, fontWeight = FontWeight.Black, lineHeight = 45.sp)
-                if (alarm.days.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("S", "M", "T", "W", "T", "F", "S").forEachIndexed { index, label ->
-                            val on = alarm.days.contains(index)
-                            Box(modifier = Modifier.size(25.dp).background(if (on) pulseColor.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.04f), CircleShape), contentAlignment = Alignment.Center) {
-                                Text(label, color = if (on) pulseColor else Color.White.copy(alpha = 0.18f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Chip(labelForIntensity(alarm.intensity), colorForIntensity(alarm.intensity))
+                        Chip("${alarm.games} game${if (alarm.games == 1) "" else "s"}", AlarmMuted)
                     }
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Chip(labelForIntensity(alarm.intensity), pulseColor)
-                    Chip("${alarm.games} game${if (alarm.games == 1) "" else "s"}", Color.White.copy(alpha = 0.34f))
                 }
             }
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(if (isNext) AlarmDawn.copy(alpha = 0.24f) else AlarmBorder)
+            )
         }
     }
 }
@@ -554,7 +547,7 @@ private fun SmoothAlarmToggle(
         label = "alarmToggleTrack",
     )
     val thumbColor by animateColorAsState(
-        targetValue = if (checked) Color.White else Color.White.copy(alpha = 0.76f),
+        targetValue = if (checked) Color.White else AlarmText.copy(alpha = 0.82f),
         animationSpec = animation,
         label = "alarmToggleThumb",
     )
@@ -600,8 +593,8 @@ private fun SmoothAlarmToggle(
 
 @Composable
 private fun Chip(text: String, color: Color) {
-    Surface(shape = RoundedCornerShape(12.dp), color = color.copy(alpha = 0.10f), border = BorderStroke(1.dp, color.copy(alpha = 0.18f))) {
-        Text(text, color = color, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp))
+    Surface(shape = RoundedCornerShape(10.dp), color = AlarmPanel, border = BorderStroke(1.dp, AlarmBorder)) {
+        Text(text, color = color, fontSize = 10.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
     }
 }
 
@@ -625,9 +618,9 @@ private fun greeting(hour: Int): String = when {
 private fun colorForIntensity(intensity: String): Color = when (intensity) {
     "gentle" -> AlarmMint
     "moderate" -> AlarmSunrise
-    "intense" -> Color(0xFFEF476F)
-    "hardcore" -> Color(0xFFEF1C1C)
-    else -> AlarmDawn
+    "intense" -> AlarmDawn
+    "hardcore" -> Color(0xFFEF476F)
+    else -> AlarmMuted
 }
 
 private fun labelForIntensity(intensity: String): String = when (intensity) {
