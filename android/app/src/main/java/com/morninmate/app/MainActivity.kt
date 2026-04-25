@@ -50,7 +50,9 @@ class MainActivity : ComponentActivity() {
         setupNativeStatsScreen(this)
         setupNativeAlarmsScreen(this)
         setupNativeProfileScreen(this)
+        setupNativeRingingAlarmScreen(this)
         refreshNativeScreens()
+        handleAlarmIntent(intent)
         setNativeBottomNavVisible(true)
         applySelectedTabVisibility()
     }
@@ -70,6 +72,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         applyAlarmWindowFlags(intent)
         refreshNativeScreens()
+        handleAlarmIntent(intent)
     }
 
     fun openNativeAlarmEditor(action: String, alarmId: String, defaultTime: String, alarmJson: String) {
@@ -84,7 +87,10 @@ class MainActivity : ComponentActivity() {
         when (action) {
             "delete" -> id?.let { NativeAlarmStore.delete(this, it) }
             "toggle" -> id?.let { NativeAlarmStore.toggle(this, it) }
-            "test" -> id?.let { NativeAlarmStore.test(this, it) }
+            "test" -> id?.let {
+                NativeAlarmStore.test(this, it)
+                NativeAlarmStore.ringingAlarm(this, it)?.let(::showNativeRingingAlarm)
+            }
             "settings" -> NativeAlarmStore.requestAlarmPermissions(this)
             "logOff" -> NativeAlarmStore.logOff(this)
             "deleteData" -> NativeAlarmStore.deleteData(this)
@@ -93,12 +99,22 @@ class MainActivity : ComponentActivity() {
         refreshNativeScreens()
     }
 
-    fun handleNativeAlarmActiveChange(id: String, active: Boolean) {
-        val changed = NativeAlarmStore.setActive(this, id, active)
+    fun dismissNativeAlarm(id: String?) {
+        NativeAlarmStore.dismissAlarm(this, id)
+        hideNativeRingingAlarm()
         refreshNativeScreens()
-        if (active && !changed) {
-            NativeAlarmStore.requestAlarmPermissions(this)
-        }
+    }
+
+    fun handleNativeAlarmActiveChange(id: String, active: Boolean) {
+        Thread {
+            val changed = NativeAlarmStore.setActive(this, id, active)
+            runOnUiThread {
+                refreshNativeScreens()
+                if (active && !changed) {
+                    NativeAlarmStore.requestAlarmPermissions(this)
+                }
+            }
+        }.start()
     }
 
     override fun onBackPressed() {
@@ -114,6 +130,15 @@ class MainActivity : ComponentActivity() {
         showNativeStats(NativeAlarmStore.stats(this))
         showNativeProfile(NativeAlarmStore.profile(this))
         applySelectedTabVisibility()
+    }
+
+    private fun handleAlarmIntent(intent: Intent?) {
+        val alarmId = intent?.getStringExtra("alarmId")
+            ?: getSharedPreferences("MorninMateAlarms", MODE_PRIVATE).getString("pending_alarm", null)
+        val alarm = NativeAlarmStore.ringingAlarm(this, alarmId)
+        if (alarm != null) {
+            showNativeRingingAlarm(alarm)
+        }
     }
 
     private fun applySelectedTabVisibility() {

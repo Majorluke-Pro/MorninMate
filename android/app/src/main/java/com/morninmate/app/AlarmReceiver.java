@@ -8,6 +8,8 @@ import android.content.Intent;
 import android.os.Build;
 import android.util.Log;
 
+import org.json.JSONObject;
+
 import java.util.Calendar;
 
 public class AlarmReceiver extends BroadcastReceiver {
@@ -23,6 +25,7 @@ public class AlarmReceiver extends BroadcastReceiver {
         int     minute    = intent.getIntExtra("minute", 0);
         boolean repeat    = intent.getBooleanExtra("repeating", false);
         int     targetDay = intent.getIntExtra("targetDay", -1);
+        boolean testMode  = intent.getBooleanExtra("testMode", false);
 
         Log.d("AlarmReceiver", "onReceive fired! alarmId=" + alarmId);
         if (alarmId == null) { Log.e("AlarmReceiver", "alarmId is null — ignoring"); return; }
@@ -44,11 +47,28 @@ public class AlarmReceiver extends BroadcastReceiver {
         }
 
         // Repeating: reschedule for next week. One-shot: remove from prefs.
-        if (repeat && targetDay >= 0) {
+        if (testMode) {
+            Log.d("AlarmReceiver", "Test alarm fired; leaving saved schedule unchanged");
+        } else if (repeat && targetDay >= 0) {
             reschedule(context, alarmId, label, sound, hour, minute, targetDay);
         } else {
+            markOneShotAlarmInactive(context, alarmId);
+        }
+    }
+
+    private void markOneShotAlarmInactive(Context context, String alarmId) {
+        String key = "alarm_" + alarmId;
+        String saved = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(key, null);
+        if (saved == null) return;
+
+        try {
+            JSONObject alarm = new JSONObject(saved);
+            alarm.put("active", false);
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit().remove("alarm_" + alarmId).apply();
+                .edit().putString(key, alarm.toString()).apply();
+        } catch (Exception e) {
+            Log.e("AlarmReceiver", "Failed to mark one-shot alarm inactive", e);
         }
     }
 

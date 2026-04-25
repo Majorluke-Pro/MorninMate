@@ -117,16 +117,24 @@ object NativeAlarmStore {
 
     fun test(context: Context, alarmId: String) {
         val alarm = alarm(context, alarmId) ?: return
-        val intent = Intent(context, AlarmService::class.java)
+        val parts = alarm.optString("time", "07:00").split(":")
+        val hour = parts.getOrNull(0)?.toIntOrNull() ?: 7
+        val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        val intent = Intent(context, AlarmReceiver::class.java)
             .putExtra("alarmId", alarmId)
             .putExtra("label", alarm.optString("label", "Alarm"))
             .putExtra("sound", alarm.optString("sound", DEFAULT_SOUND))
-            .putExtra("previewMs", -1)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
-        }
+            .putExtra("hour", hour)
+            .putExtra("minute", minute)
+            .putExtra("repeating", false)
+            .putExtra("targetDay", -1)
+            .putExtra("testMode", true)
+        context.sendBroadcast(intent)
+    }
+
+    fun ringingAlarm(context: Context, alarmId: String?): NativeAlarmItem? {
+        if (alarmId.isNullOrBlank()) return null
+        return alarm(context, alarmId)?.toNativeAlarmItem()
     }
 
     fun dismissAlarm(context: Context, alarmId: String?) {
@@ -311,7 +319,11 @@ object NativeAlarmStore {
                     }
                 }.getOrNull()
             }
-            .sortedBy { it.optString("time", "99:99") }
+            .sortedWith(
+                compareBy<JSONObject> { if (it.optBoolean("active", true)) 0 else 1 }
+                    .thenBy { alarmNextOccurrence(it) }
+                    .thenBy { it.optString("time", "99:99") },
+            )
 
     private fun alarm(context: Context, alarmId: String): JSONObject? =
         prefs(context).getString("alarm_$alarmId", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
@@ -341,10 +353,32 @@ object NativeAlarmStore {
         return cal.timeInMillis
     }
 
+    private fun alarmNextOccurrence(alarm: JSONObject): Long {
+        val time = alarm.optString("time", "07:00").split(":")
+        val hour = time.getOrNull(0)?.toIntOrNull() ?: 7
+        val minute = time.getOrNull(1)?.toIntOrNull() ?: 0
+        val days = alarm.optJSONArray("days") ?: JSONArray()
+        if (days.length() == 0) {
+            return nextOccurrence(hour, minute, -1)
+        }
+
+        var soonest = Long.MAX_VALUE
+        for (i in 0 until days.length()) {
+            soonest = minOf(soonest, nextOccurrence(hour, minute, days.optInt(i)))
+        }
+        return soonest
+    }
+
     private fun JSONObject.toNativeAlarmItem(): NativeAlarmItem {
         val pulse = optJSONObject("pulse") ?: JSONObject()
         val daysJson = optJSONArray("days") ?: JSONArray()
+        val gamesJson = pulse.optJSONArray("games")
         val days = List(daysJson.length()) { daysJson.optInt(it) }
+        val gameIds = gamesJson?.let {
+            List(it.length()) { index -> it.optString(index) }
+                .filter { game -> game in setOf("math", "memory", "reaction") }
+                .ifEmpty { listOf("math") }
+        } ?: listOf("math")
         return NativeAlarmItem(
             id = optString("id"),
             label = optString("label", "Alarm"),
@@ -352,7 +386,8 @@ object NativeAlarmStore {
             active = optBoolean("active", true),
             days = days,
             intensity = pulse.optString("intensity", "gentle"),
-            games = pulse.optJSONArray("games")?.length() ?: 1,
+            games = gameIds.size,
+            gameIds = gameIds,
             rawJson = toString(),
         )
     }

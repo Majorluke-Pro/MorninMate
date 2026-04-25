@@ -3,9 +3,13 @@ package com.morninmate.app
 import android.view.View
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -26,23 +31,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Surface
@@ -87,6 +84,7 @@ data class NativeAlarmItem(
     val days: List<Int>,
     val intensity: String,
     val games: Int,
+    val gameIds: List<String>,
     val rawJson: String,
 )
 
@@ -175,6 +173,11 @@ fun nativeAlarmsDataFromJson(payload: JSONObject): NativeAlarmsData {
                 days = days,
                 intensity = pulse.optString("intensity", "gentle"),
                 games = pulse.optJSONArray("games")?.length() ?: 1,
+                gameIds = pulse.optJSONArray("games")?.let { gamesJson ->
+                    List(gamesJson.length()) { index -> gamesJson.optString(index) }
+                        .filter { it in setOf("math", "memory", "reaction") }
+                        .ifEmpty { listOf("math") }
+                } ?: listOf("math"),
                 rawJson = item.toString(),
             ),
         )
@@ -212,7 +215,7 @@ private fun emitAlarmActiveChange(id: String, active: Boolean) {
 
 @Composable
 private fun NativeAlarmsScreen(data: NativeAlarmsData) {
-    var deleteTarget by remember { mutableStateOf<NativeAlarmItem?>(null) }
+    var actionTarget by remember { mutableStateOf<NativeAlarmItem?>(null) }
 
     Box(
         modifier = Modifier
@@ -249,7 +252,7 @@ private fun NativeAlarmsScreen(data: NativeAlarmsData) {
                         AlarmCardNative(
                             alarm = alarm,
                             isNext = alarm.id == nextActiveId,
-                            onDelete = { deleteTarget = it },
+                            onLongPress = { actionTarget = it },
                         )
                     }
                 }
@@ -266,33 +269,43 @@ private fun NativeAlarmsScreen(data: NativeAlarmsData) {
                 .semantics { contentDescription = "Add alarm" }
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
-                .padding(end = 18.dp, bottom = 94.dp),
+                .padding(end = 18.dp, bottom = 122.dp),
         ) {
             Icon(Icons.Default.Add, contentDescription = "Add alarm")
         }
     }
 
-    val target = deleteTarget
-    if (target != null) {
+    val actionAlarm = actionTarget
+    if (actionAlarm != null) {
         AlertDialog(
-            onDismissRequest = { deleteTarget = null },
-            containerColor = Color(0xFF171E2B),
-            title = { Text("Delete Alarm?", color = AlarmText, fontWeight = FontWeight.Black) },
-            text = { Text("Remove \"${target.label.ifBlank { formatTime(target.time) }}\"?", color = AlarmMuted) },
+            onDismissRequest = { actionTarget = null },
+            containerColor = Color(0xFF210808),
+            title = { Text(actionAlarm.label.ifBlank { formatTime(actionAlarm.time) }, color = AlarmText, fontWeight = FontWeight.Black) },
+            text = { Text("Choose what to do with this alarm.", color = AlarmMuted, lineHeight = 20.sp) },
             confirmButton = {
                 Button(
                     onClick = {
-                        emitAlarmAction("delete", target.id)
-                        deleteTarget = null
+                        emitAlarmAction("delete", actionAlarm.id)
+                        actionTarget = null
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF476F)),
                 ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
                     Text("Delete", fontWeight = FontWeight.Black)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) {
-                    Text("Cancel", color = AlarmMuted)
+                Button(
+                    onClick = {
+                        emitAlarmAction("test", actionAlarm.id)
+                        actionTarget = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AlarmDawn),
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text("Test", fontWeight = FontWeight.Black)
                 }
             },
         )
@@ -453,14 +466,14 @@ private fun EmptyNativeState() {
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun AlarmCardNative(
     alarm: NativeAlarmItem,
     isNext: Boolean,
-    onDelete: (NativeAlarmItem) -> Unit,
+    onLongPress: (NativeAlarmItem) -> Unit,
 ) {
     val pulseColor = colorForIntensity(alarm.intensity)
     var active by remember(alarm.id) { mutableStateOf(alarm.active) }
-    var menuOpen by remember(alarm.id) { mutableStateOf(false) }
 
     LaunchedEffect(alarm.active) {
         active = alarm.active
@@ -470,7 +483,10 @@ private fun AlarmCardNative(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { openNativeAlarmEditor("edit", alarm.id, alarmJson = alarm.rawJson) },
+                .combinedClickable(
+                    onClick = { openNativeAlarmEditor("edit", alarm.id, alarmJson = alarm.rawJson) },
+                    onLongClick = { onLongPress(alarm) },
+                ),
             shape = RoundedCornerShape(18.dp),
             color = if (active) AlarmPanel else Color(0xB010101A),
             border = BorderStroke(1.dp, if (active) pulseColor.copy(alpha = 0.20f) else Color(0x0DFFFFFF)),
@@ -485,41 +501,13 @@ private fun AlarmCardNative(
                         }
                         Text(alarm.label.ifBlank { "Alarm" }, color = AlarmMuted, fontSize = 12.sp, maxLines = 1)
                     }
-                    Switch(
+                    SmoothAlarmToggle(
                         checked = active,
                         onCheckedChange = { checked ->
                             active = checked
                             emitAlarmActiveChange(alarm.id, checked)
                         },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = AlarmDawn,
-                            uncheckedThumbColor = Color.White.copy(alpha = 0.72f),
-                            uncheckedTrackColor = Color.White.copy(alpha = 0.16f),
-                            uncheckedBorderColor = Color.White.copy(alpha = 0.18f),
-                        ),
                     )
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = Color.White.copy(alpha = 0.40f))
-                        }
-                        AlarmActionsMenu(
-                            expanded = menuOpen,
-                            onDismiss = { menuOpen = false },
-                            onTest = {
-                                menuOpen = false
-                                emitAlarmAction("test", alarm.id)
-                            },
-                            onEdit = {
-                                menuOpen = false
-                                openNativeAlarmEditor("edit", alarm.id, alarmJson = alarm.rawJson)
-                            },
-                            onDelete = {
-                                menuOpen = false
-                                onDelete(alarm)
-                            },
-                        )
-                    }
                 }
                 Text(formatTime(alarm.time), color = AlarmText.copy(alpha = if (active) 1f else 0.65f), fontSize = 43.sp, fontWeight = FontWeight.Black, lineHeight = 45.sp)
                 if (alarm.days.isNotEmpty()) {
@@ -544,35 +532,38 @@ private fun AlarmCardNative(
 }
 
 @Composable
-private fun AlarmActionsMenu(
-    expanded: Boolean,
-    onDismiss: () -> Unit,
-    onTest: () -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
+private fun SmoothAlarmToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
 ) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismiss,
-        containerColor = Color(0xFF1A1A30),
-        tonalElevation = 8.dp,
-        shadowElevation = 12.dp,
+    val trackColor by animateColorAsState(
+        targetValue = if (checked) AlarmDawn else Color.White.copy(alpha = 0.14f),
+        label = "alarmToggleTrack",
+    )
+    val thumbColor by animateColorAsState(
+        targetValue = if (checked) Color.White else Color.White.copy(alpha = 0.76f),
+        label = "alarmToggleThumb",
+    )
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) 24.dp else 2.dp,
+        label = "alarmToggleThumbOffset",
+    )
+
+    Box(
+        modifier = Modifier
+            .size(width = 56.dp, height = 36.dp)
+            .background(trackColor, CircleShape)
+            .clickable { onCheckedChange(!checked) }
+            .semantics {
+                contentDescription = if (checked) "Alarm on" else "Alarm off"
+            },
+        contentAlignment = Alignment.CenterStart,
     ) {
-        DropdownMenuItem(
-            text = { Text("Test alarm", color = AlarmText, fontWeight = FontWeight.Bold) },
-            leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = AlarmDawn) },
-            onClick = onTest,
-        )
-        DropdownMenuItem(
-            text = { Text("Edit", color = AlarmText, fontWeight = FontWeight.Bold) },
-            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = AlarmSunrise) },
-            onClick = onEdit,
-        )
-        HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-        DropdownMenuItem(
-            text = { Text("Delete", color = Color(0xFFEF476F), fontWeight = FontWeight.Bold) },
-            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFEF476F)) },
-            onClick = onDelete,
+        Box(
+            modifier = Modifier
+                .offset(x = thumbOffset)
+                .size(30.dp)
+                .background(thumbColor, CircleShape),
         )
     }
 }

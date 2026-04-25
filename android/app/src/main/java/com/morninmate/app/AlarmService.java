@@ -87,6 +87,7 @@ public class AlarmService extends Service {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setContentIntent(contentPi)
+            .setFullScreenIntent(contentPi, !previewOnly)
             .build();
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
