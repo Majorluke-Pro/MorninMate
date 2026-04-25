@@ -62,13 +62,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.view.WindowCompat
-import dev.darkokoa.datetimewheelpicker.core.WheelPickerDefaults
-import kotlinx.datetime.LocalTime
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Calendar
@@ -581,7 +578,6 @@ private fun TimeCard(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
     val hour12 = hour % 12
     val displayHour = if (hour12 == 0) 12 else hour12
     val contextLabel = timeContextLabel(hour)
-    val selectedTime = LocalTime(hour.coerceIn(0, 23), minute.coerceIn(0, 59))
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -610,21 +606,7 @@ private fun TimeCard(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 Text(contextLabel, color = Dawn, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(18.dp))
-                WheelTimePicker(
-                    startTime = selectedTime,
-                    timeFormatter = timeFormatter(timeFormat = TimeFormat.AM_PM),
-                    size = DpSize(220.dp, 136.dp),
-                    rowCount = 3,
-                    textStyle = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Black),
-                    textColor = TextPrimary,
-                    selectorProperties = WheelPickerDefaults.selectorProperties(
-                        color = Dawn.copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, Dawn.copy(alpha = 0.42f)),
-                        shape = RoundedCornerShape(14.dp),
-                    ),
-                ) { snappedTime ->
-                    onPicked(snappedTime.hour, snappedTime.minute)
-                }
+                TimeStepper(hour = hour, minute = minute, onPicked = onPicked)
             }
             Box(
                 modifier = Modifier
@@ -639,6 +621,78 @@ private fun TimeCard(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
                     tint = Dawn,
                     modifier = Modifier.size(16.dp),
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimeStepper(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        TimeStepColumn(
+            label = "Hour",
+            value = "%02d".format(hour),
+            onIncrease = { onPicked((hour + 1) % 24, minute) },
+            onDecrease = { onPicked((hour + 23) % 24, minute) },
+            modifier = Modifier.weight(1f),
+        )
+        TimeStepColumn(
+            label = "Minute",
+            value = "%02d".format(minute),
+            onIncrease = { onPicked(hour, (minute + 1) % 60) },
+            onDecrease = { onPicked(hour, (minute + 59) % 60) },
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun TimeStepColumn(
+    label: String,
+    value: String,
+    onIncrease: () -> Unit,
+    onDecrease: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = PanelSoft,
+        border = BorderStroke(1.dp, Dawn.copy(alpha = 0.24f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(label, color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onIncrease,
+                modifier = Modifier.fillMaxWidth(),
+                border = BorderStroke(1.dp, Dawn.copy(alpha = 0.42f)),
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(vertical = 2.dp),
+            ) {
+                Text("+", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            }
+            Text(
+                value,
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = TextPrimary,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+            )
+            OutlinedButton(
+                onClick = onDecrease,
+                modifier = Modifier.fillMaxWidth(),
+                border = BorderStroke(1.dp, Dawn.copy(alpha = 0.42f)),
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(vertical = 2.dp),
+            ) {
+                Text("-", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
             }
         }
     }

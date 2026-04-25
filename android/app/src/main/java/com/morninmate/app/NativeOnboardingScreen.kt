@@ -73,10 +73,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.sp
-import dev.darkokoa.datetimewheelpicker.core.WheelPickerDefaults
-import kotlinx.datetime.LocalTime
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.util.Calendar
 
@@ -380,10 +377,8 @@ private fun StepHeader(icon: ImageVector, eyebrow: String, title: String, subtit
 @Composable
 private fun WakeTimeStep(value: String, onChange: (String) -> Unit) {
     val parts = value.split(":")
-    val selectedTime = LocalTime(
-        parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 7,
-        parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0,
-    )
+    val hour = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 7
+    val minute = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0
 
     StepHeader(Icons.Default.Alarm, "Step 1", "When do you wake up?", "Let's start with your target alarm time")
     Surface(
@@ -404,20 +399,76 @@ private fun WakeTimeStep(value: String, onChange: (String) -> Unit) {
                 Text(formatTime(value), color = ObText, fontSize = 32.sp, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.height(14.dp))
-            WheelTimePicker(
-                startTime = selectedTime,
-                timeFormatter = timeFormatter(timeFormat = TimeFormat.AM_PM),
-                size = DpSize(210.dp, 132.dp),
-                rowCount = 3,
-                textStyle = TextStyle(fontSize = 21.sp, fontWeight = FontWeight.Black),
-                textColor = ObText,
-                selectorProperties = WheelPickerDefaults.selectorProperties(
-                    color = ObDawn.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, ObDawn.copy(alpha = 0.42f)),
-                    shape = RoundedCornerShape(14.dp),
-                ),
-            ) { snappedTime ->
-                onChange("%02d:%02d".format(snappedTime.hour, snappedTime.minute))
+            OnboardingTimeStepper(hour = hour, minute = minute, onChange = onChange)
+        }
+    }
+}
+
+@Composable
+private fun OnboardingTimeStepper(hour: Int, minute: Int, onChange: (String) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        OnboardingTimeStepColumn(
+            label = "Hour",
+            value = "%02d".format(hour),
+            onIncrease = { onChange("%02d:%02d".format((hour + 1) % 24, minute)) },
+            onDecrease = { onChange("%02d:%02d".format((hour + 23) % 24, minute)) },
+            modifier = Modifier.weight(1f),
+        )
+        OnboardingTimeStepColumn(
+            label = "Minute",
+            value = "%02d".format(minute),
+            onIncrease = { onChange("%02d:%02d".format(hour, (minute + 1) % 60)) },
+            onDecrease = { onChange("%02d:%02d".format(hour, (minute + 59) % 60)) },
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun OnboardingTimeStepColumn(
+    label: String,
+    value: String,
+    onIncrease: () -> Unit,
+    onDecrease: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = ObCard,
+        border = BorderStroke(1.dp, ObDawn.copy(alpha = 0.32f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(label, color = ObMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onIncrease,
+                modifier = Modifier.fillMaxWidth().height(38.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = ObDawn.copy(alpha = 0.42f)),
+            ) {
+                Text("+", color = ObText, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            }
+            Text(
+                value,
+                modifier = Modifier.padding(vertical = 8.dp),
+                color = ObText,
+                fontSize = 23.sp,
+                fontWeight = FontWeight.Black,
+            )
+            Button(
+                onClick = onDecrease,
+                modifier = Modifier.fillMaxWidth().height(38.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF273244)),
+            ) {
+                Text("-", color = ObText, fontSize = 18.sp, fontWeight = FontWeight.Black)
             }
         }
     }
