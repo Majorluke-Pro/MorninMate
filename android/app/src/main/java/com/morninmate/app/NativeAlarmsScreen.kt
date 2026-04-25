@@ -57,6 +57,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -195,6 +197,11 @@ fun nativeAlarmsDataFromJson(payload: JSONObject): NativeAlarmsData {
     )
 }
 
+private fun openNativeAlarmEditor(action: String, alarmId: String? = null, defaultTime: String? = null, alarmJson: String? = null) {
+    val activity = nativeAlarmsActivity as? MainActivity ?: return
+    activity.openNativeAlarmEditor(action, alarmId ?: "", defaultTime ?: "", alarmJson ?: "")
+}
+
 private fun emitAlarmAction(action: String, id: String? = null) {
     val json = JSONObject().put("action", action)
     if (id != null) json.put("id", id)
@@ -245,11 +252,13 @@ private fun NativeAlarmsScreen(data: NativeAlarmsData) {
         }
 
         FloatingActionButton(
-            onClick = { emitAlarmAction("create") },
+            onClick = { openNativeAlarmEditor("create", defaultTime = data.defaultWakeTime) },
             containerColor = AlarmDawn,
             contentColor = Color.White,
             shape = CircleShape,
             modifier = Modifier
+                .zIndex(6f)
+                .semantics { contentDescription = "Add alarm" }
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
                 .padding(end = 18.dp, bottom = 94.dp),
@@ -448,7 +457,7 @@ private fun EmptyNativeState() {
             Text("No alarms yet", color = AlarmText, fontWeight = FontWeight.Black, fontSize = 18.sp)
             Text("Set your next wake-up to start building momentum.", color = AlarmMuted, fontSize = 12.sp)
             Spacer(Modifier.height(14.dp))
-            Button(onClick = { emitAlarmAction("create") }, colors = ButtonDefaults.buttonColors(containerColor = AlarmDawn), shape = RoundedCornerShape(16.dp)) {
+            Button(onClick = { openNativeAlarmEditor("create") }, colors = ButtonDefaults.buttonColors(containerColor = AlarmDawn), shape = RoundedCornerShape(16.dp)) {
                 Text("Create alarm", fontWeight = FontWeight.Black)
             }
         }
@@ -523,7 +532,7 @@ private fun AlarmCardNative(
                 },
                 onEdit = {
                     onMenuClose()
-                    emitAlarmAction("edit", alarm.id)
+                    openNativeAlarmEditor("edit", alarm.id, alarmJson = alarm.rawJson)
                 },
                 onDelete = {
                     onMenuClose()

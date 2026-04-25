@@ -423,7 +423,7 @@ function AlarmsTab({ active = true, onNavigate, onOverlayChange }) {
   }, []);
 
   useEffect(() => {
-    if (!isNative || !active || nativeEditorOpen) return undefined;
+    if (!isNative) return undefined;
 
     function handleNativeAlarmEditorResult(e) {
       let detail = e.detail;
@@ -446,6 +446,18 @@ function AlarmsTab({ active = true, onNavigate, onOverlayChange }) {
       }
       void addAlarm(alarm);
     }
+
+    document.addEventListener('nativeAlarmEditorResult', handleNativeAlarmEditorResult);
+    return () => {
+      document.removeEventListener('nativeAlarmEditorResult', handleNativeAlarmEditorResult);
+    };
+  }, [
+    addAlarm,
+    editAlarm,
+  ]);
+
+  useEffect(() => {
+    if (!isNative || !active || nativeEditorOpen) return undefined;
 
     async function handleNativeAlarmAction(e) {
       let detail = e.detail;
@@ -478,17 +490,13 @@ function AlarmsTab({ active = true, onNavigate, onOverlayChange }) {
       }
     }
 
-    document.addEventListener('nativeAlarmEditorResult', handleNativeAlarmEditorResult);
     document.addEventListener('nativeAlarmAction', handleNativeAlarmAction);
     return () => {
-      document.removeEventListener('nativeAlarmEditorResult', handleNativeAlarmEditorResult);
       document.removeEventListener('nativeAlarmAction', handleNativeAlarmAction);
     };
   }, [
-    addAlarm,
     alarms,
     deleteAlarm,
-    editAlarm,
     active,
     nativeEditorOpen,
     refreshNativeAlarmStatus,
