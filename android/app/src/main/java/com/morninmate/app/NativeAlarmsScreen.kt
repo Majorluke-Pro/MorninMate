@@ -18,11 +18,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Alarm
@@ -35,7 +34,10 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -45,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -134,11 +137,6 @@ fun showNativeAlarms(data: NativeAlarmsData) {
     if (alarmsState.value != data) {
         alarmsState.value = data
     }
-    nativeAlarmsView?.post {
-        if (nativeAlarmsView?.visibility != View.VISIBLE) {
-            nativeAlarmsView?.visibility = View.VISIBLE
-        }
-    }
 }
 
 fun hideNativeAlarms() {
@@ -203,52 +201,59 @@ private fun openNativeAlarmEditor(action: String, alarmId: String? = null, defau
 }
 
 private fun emitAlarmAction(action: String, id: String? = null) {
-    val json = JSONObject().put("action", action)
-    if (id != null) json.put("id", id)
-    val script = "document.dispatchEvent(new CustomEvent('nativeAlarmAction',{detail:${json}}));"
     val activity = nativeAlarmsActivity as? MainActivity ?: return
-    activity.bridge.webView.post {
-        activity.bridge.webView.evaluateJavascript(script, null)
-    }
+    activity.handleNativeAlarmAction(action, id)
+}
+
+private fun emitAlarmActiveChange(id: String, active: Boolean) {
+    val activity = nativeAlarmsActivity as? MainActivity ?: return
+    activity.handleNativeAlarmActiveChange(id, active)
 }
 
 @Composable
 private fun NativeAlarmsScreen(data: NativeAlarmsData) {
     var deleteTarget by remember { mutableStateOf<NativeAlarmItem?>(null) }
-    var openActionMenuId by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(AlarmBg),
     ) {
-        if (openActionMenuId != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(
-                        indication = null,
-                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                    ) { openActionMenuId = null }
-                    .zIndex(1f),
-            )
-        }
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(2f)
-                .verticalScroll(rememberScrollState())
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(bottom = 104.dp),
         ) {
-            AlarmHeader(data)
-            AlarmList(
-                data,
-                openActionMenuId = openActionMenuId,
-                onActionMenuChange = { openActionMenuId = it },
-                onDelete = { deleteTarget = it },
-            )
+            item(key = "header") {
+                AlarmHeader(data)
+            }
+            item(key = "list-header") {
+                AlarmListHeader(data)
+            }
+            if (data.alarms.isEmpty()) {
+                item(key = "empty") {
+                    Box(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        EmptyNativeState()
+                    }
+                }
+            } else {
+                val nextActiveId = data.alarms.firstOrNull { it.active }?.id
+                items(
+                    items = data.alarms,
+                    key = { it.id },
+                ) { alarm ->
+                    Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                        AlarmCardNative(
+                            alarm = alarm,
+                            isNext = alarm.id == nextActiveId,
+                            onDelete = { deleteTarget = it },
+                        )
+                    }
+                }
+            }
         }
 
         FloatingActionButton(
@@ -392,12 +397,7 @@ private fun ClockPill(now: Calendar) {
 }
 
 @Composable
-private fun AlarmList(
-    data: NativeAlarmsData,
-    openActionMenuId: String?,
-    onActionMenuChange: (String?) -> Unit,
-    onDelete: (NativeAlarmItem) -> Unit,
-) {
+private fun AlarmListHeader(data: NativeAlarmsData) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp)) {
         if (data.exactAlarmReady) {
             Text("✓  Alarm setup ready", color = AlarmMint.copy(alpha = 0.75f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -410,18 +410,6 @@ private fun AlarmList(
             Surface(shape = RoundedCornerShape(12.dp), color = AlarmDawn.copy(alpha = 0.10f), border = BorderStroke(1.dp, AlarmDawn.copy(alpha = 0.18f))) {
                 Text("${data.alarms.count { it.active }} active", color = AlarmDawn, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
             }
-        }
-        Spacer(Modifier.height(12.dp))
-        if (data.alarms.isEmpty()) EmptyNativeState() else data.alarms.forEachIndexed { index, alarm ->
-            AlarmCardNative(
-                alarm = alarm,
-                isNext = index == 0 && alarm.active,
-                menuOpen = openActionMenuId == alarm.id,
-                onMenuOpen = { onActionMenuChange(alarm.id) },
-                onMenuClose = { onActionMenuChange(null) },
-                onDelete = onDelete,
-            )
-            Spacer(Modifier.height(12.dp))
         }
     }
 }
@@ -468,18 +456,24 @@ private fun EmptyNativeState() {
 private fun AlarmCardNative(
     alarm: NativeAlarmItem,
     isNext: Boolean,
-    menuOpen: Boolean,
-    onMenuOpen: () -> Unit,
-    onMenuClose: () -> Unit,
     onDelete: (NativeAlarmItem) -> Unit,
 ) {
     val pulseColor = colorForIntensity(alarm.intensity)
-    Box(modifier = Modifier.fillMaxWidth().zIndex(if (menuOpen) 3f else 0f)) {
+    var active by remember(alarm.id) { mutableStateOf(alarm.active) }
+    var menuOpen by remember(alarm.id) { mutableStateOf(false) }
+
+    LaunchedEffect(alarm.active) {
+        active = alarm.active
+    }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
         Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            color = if (alarm.active) AlarmPanel else Color(0xB010101A),
-            border = BorderStroke(1.dp, if (alarm.active) pulseColor.copy(alpha = 0.20f) else Color(0x0DFFFFFF)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { openNativeAlarmEditor("edit", alarm.id, alarmJson = alarm.rawJson) },
+            shape = RoundedCornerShape(18.dp),
+            color = if (active) AlarmPanel else Color(0xB010101A),
+            border = BorderStroke(1.dp, if (active) pulseColor.copy(alpha = 0.20f) else Color(0x0DFFFFFF)),
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -492,15 +486,42 @@ private fun AlarmCardNative(
                         Text(alarm.label.ifBlank { "Alarm" }, color = AlarmMuted, fontSize = 12.sp, maxLines = 1)
                     }
                     Switch(
-                        checked = alarm.active,
-                        onCheckedChange = { emitAlarmAction("toggle", alarm.id) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = AlarmDawn),
+                        checked = active,
+                        onCheckedChange = { checked ->
+                            active = checked
+                            emitAlarmActiveChange(alarm.id, checked)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = AlarmDawn,
+                            uncheckedThumbColor = Color.White.copy(alpha = 0.72f),
+                            uncheckedTrackColor = Color.White.copy(alpha = 0.16f),
+                            uncheckedBorderColor = Color.White.copy(alpha = 0.18f),
+                        ),
                     )
-                    IconButton(onClick = { if (menuOpen) onMenuClose() else onMenuOpen() }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = Color.White.copy(alpha = 0.40f))
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = Color.White.copy(alpha = 0.40f))
+                        }
+                        AlarmActionsMenu(
+                            expanded = menuOpen,
+                            onDismiss = { menuOpen = false },
+                            onTest = {
+                                menuOpen = false
+                                emitAlarmAction("test", alarm.id)
+                            },
+                            onEdit = {
+                                menuOpen = false
+                                openNativeAlarmEditor("edit", alarm.id, alarmJson = alarm.rawJson)
+                            },
+                            onDelete = {
+                                menuOpen = false
+                                onDelete(alarm)
+                            },
+                        )
                     }
                 }
-                Text(formatTime(alarm.time), color = AlarmText.copy(alpha = if (alarm.active) 1f else 0.65f), fontSize = 43.sp, fontWeight = FontWeight.Black, lineHeight = 45.sp)
+                Text(formatTime(alarm.time), color = AlarmText.copy(alpha = if (active) 1f else 0.65f), fontSize = 43.sp, fontWeight = FontWeight.Black, lineHeight = 45.sp)
                 if (alarm.days.isNotEmpty()) {
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -519,93 +540,40 @@ private fun AlarmCardNative(
                 }
             }
         }
-
-        if (menuOpen) {
-            AlarmActionPopup(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 48.dp, end = 8.dp)
-                    .zIndex(4f),
-                onTest = {
-                    onMenuClose()
-                    emitAlarmAction("test", alarm.id)
-                },
-                onEdit = {
-                    onMenuClose()
-                    openNativeAlarmEditor("edit", alarm.id, alarmJson = alarm.rawJson)
-                },
-                onDelete = {
-                    onMenuClose()
-                    onDelete(alarm)
-                },
-            )
-        }
     }
 }
 
 @Composable
-private fun AlarmActionPopup(modifier: Modifier = Modifier, onTest: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
-    Surface(
-        modifier = modifier.width(184.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = Color(0xF21A1A30),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.11f)),
-        tonalElevation = 14.dp,
-        shadowElevation = 18.dp,
-    ) {
-        Column(
-            modifier = Modifier
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color(0xFF24243E), Color(0xFF161627)),
-                    ),
-                )
-                .padding(7.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            MenuAction("Test alarm", Icons.Default.PlayArrow, AlarmDawn, onTest)
-            MenuAction("Edit", Icons.Default.Edit, AlarmSunrise, onEdit)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .padding(horizontal = 8.dp)
-                    .background(Color.White.copy(alpha = 0.08f)),
-            )
-            MenuAction("Delete", Icons.Default.Delete, Color(0xFFEF476F), onDelete)
-        }
-    }
-}
-
-@Composable
-private fun MenuAction(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    tint: Color,
-    onClick: () -> Unit,
+private fun AlarmActionsMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onTest: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
 ) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
-        color = Color.Transparent,
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF1A1A30),
+        tonalElevation = 8.dp,
+        shadowElevation = 12.dp,
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .background(tint.copy(alpha = 0.14f), RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
-            }
-            Text(label, color = if (tint == Color(0xFFEF476F)) tint else AlarmText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        }
+        DropdownMenuItem(
+            text = { Text("Test alarm", color = AlarmText, fontWeight = FontWeight.Bold) },
+            leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = AlarmDawn) },
+            onClick = onTest,
+        )
+        DropdownMenuItem(
+            text = { Text("Edit", color = AlarmText, fontWeight = FontWeight.Bold) },
+            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, tint = AlarmSunrise) },
+            onClick = onEdit,
+        )
+        HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+        DropdownMenuItem(
+            text = { Text("Delete", color = Color(0xFFEF476F), fontWeight = FontWeight.Bold) },
+            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color(0xFFEF476F)) },
+            onClick = onDelete,
+        )
     }
 }
 

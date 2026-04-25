@@ -100,7 +100,9 @@ fun setupNativeBottomNav(activity: ComponentActivity, listener: NavTabListener) 
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.WRAP_CONTENT,
             Gravity.BOTTOM,
-        )
+        ).apply {
+            bottomMargin = (10 * activity.resources.displayMetrics.density).toInt()
+        }
     root.addView(composeView, params)
     nativeBottomNavView = composeView
     composeView.bringToFront()
@@ -137,7 +139,7 @@ fun BottomNavBar(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 16.dp),
             shape = RoundedCornerShape(28.dp),
             color = NavPanel,
             border = BorderStroke(1.dp, Color(0x16FFFFFF)),
@@ -146,12 +148,12 @@ fun BottomNavBar(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(66.dp),
+                    .height(74.dp),
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(66.dp),
+                        .height(74.dp),
                 ) {
                     NAV_TABS.forEachIndexed { index, tab ->
                         val selected = selectedTab == index
@@ -164,7 +166,7 @@ fun BottomNavBar(
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(66.dp)
+                                .height(74.dp)
                                 .clickable(
                                     indication = null,
                                     interactionSource = remember { MutableInteractionSource() },

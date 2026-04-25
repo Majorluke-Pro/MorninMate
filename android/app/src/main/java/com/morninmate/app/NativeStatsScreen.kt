@@ -107,11 +107,6 @@ fun showNativeStats(data: StatsData) {
     if (statsState.value != data) {
         statsState.value = data
     }
-    nativeStatsView?.post {
-        if (nativeStatsView?.visibility != View.VISIBLE) {
-            nativeStatsView?.visibility = View.VISIBLE
-        }
-    }
 }
 
 fun hideNativeStats() {

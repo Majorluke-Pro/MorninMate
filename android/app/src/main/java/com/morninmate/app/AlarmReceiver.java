@@ -27,7 +27,7 @@ public class AlarmReceiver extends BroadcastReceiver {
         Log.d("AlarmReceiver", "onReceive fired! alarmId=" + alarmId);
         if (alarmId == null) { Log.e("AlarmReceiver", "alarmId is null — ignoring"); return; }
 
-        // Persist alarm ID so JS can read it on cold start
+        // Persist alarm ID so the native launch screen can react on cold start.
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putString("pending_alarm", alarmId).apply();
 
