@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence } from './lib/motion-lite';
 import { AppProvider, useApp } from './context/AppContext';
 import AuthScreen from './components/Auth/AuthScreenModern';
 import OnboardingFlow from './components/Onboarding/OnboardingFlow';
@@ -49,11 +50,13 @@ function AppRoutes() {
 
   if (canUseApp) {
     return (
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/create-alarm" element={<CreateAlarm />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <AnimatePresence mode="wait" initial={false}>
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<Home />} />
+          <Route path="/create-alarm" element={<CreateAlarm />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AnimatePresence>
     );
   }
 

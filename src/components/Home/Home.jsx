@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { AVATAR_OPTIONS } from '../../lib/avatars';
 import {
   Box, Typography, Card, IconButton, Switch, LinearProgress,
@@ -24,6 +24,7 @@ import StyleIcon from '@mui/icons-material/Style';
 import BoltIcon from '@mui/icons-material/Bolt';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AlarmIcon from '@mui/icons-material/Alarm';
@@ -36,7 +37,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { isNative, openNativeCreateAlarm, setNativeBottomNavVisible } from '../../lib/nativeAlarms';
+import { isNative, openNativeCreateAlarm, openRingtonePicker, previewSound as previewNativeSound, setNativeBottomNavVisible, showNativeStats, hideNativeStats, showNativeAlarms, hideNativeAlarms } from '../../lib/nativeAlarms';
+import { ALARM_SOUNDS, previewAlarmSound } from '../../lib/sounds';
 
 const PULSE_COLORS = { gentle: '#06D6A0', moderate: '#FFD166', intense: '#EF476F' };
 const PULSE_LABELS = { gentle: 'Gentle', moderate: 'Moderate', intense: 'Intense' };
@@ -113,10 +115,13 @@ function buildTestAlarm(alarm) {
 export default function Home() {
   const [tab, setTab] = useState(0);
   const [alarmOverlayOpen, setAlarmOverlayOpen] = useState(false);
+  const nativeStatsPayloadRef = useRef('');
+  const nativeBottomNavVisibleRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!isNative) return;
+    nativeBottomNavVisibleRef.current = true;
     void setNativeBottomNavVisible(true);
     function handleNavTab(e) {
       let detail = e.detail;
@@ -139,14 +144,58 @@ export default function Home() {
 
   useEffect(() => {
     if (!isNative) return;
-    void setNativeBottomNavVisible(!alarmOverlayOpen);
+    const visible = !alarmOverlayOpen;
+    if (nativeBottomNavVisibleRef.current === visible) return;
+    nativeBottomNavVisibleRef.current = visible;
+    void setNativeBottomNavVisible(visible);
   }, [alarmOverlayOpen]);
+
+  const { user, alarms, XP_PER_LEVEL, wakeStats } = useApp();
+  const nativeStatsPayload = useMemo(() => {
+    if (!isNative || tab !== 1) return null;
+    return {
+      level:             user?.level ?? 1,
+      xp:                user?.xp ?? 0,
+      xpPerLevel:        XP_PER_LEVEL ?? 100,
+      streak:            user?.streak ?? 0,
+      demerits:          user?.demerits ?? 0,
+      alarmsCount:       alarms?.length ?? 0,
+      activeAlarmsCount: alarms?.filter(a => a.active).length ?? 0,
+      successCount:      wakeStats?.success ?? 0,
+      failedCount:       wakeStats?.failed ?? 0,
+    };
+  }, [
+    tab,
+    user?.level,
+    user?.xp,
+    user?.streak,
+    user?.demerits,
+    alarms,
+    wakeStats?.success,
+    wakeStats?.failed,
+    XP_PER_LEVEL,
+  ]);
+
+  useEffect(() => {
+    if (!isNative) return;
+    if (tab !== 1 || !nativeStatsPayload) {
+      if (nativeStatsPayloadRef.current === 'hidden') return;
+      nativeStatsPayloadRef.current = 'hidden';
+      void hideNativeStats();
+      return;
+    }
+
+    const serialized = JSON.stringify(nativeStatsPayload);
+    if (nativeStatsPayloadRef.current === serialized) return;
+    nativeStatsPayloadRef.current = serialized;
+    void showNativeStats(nativeStatsPayload);
+  }, [tab, nativeStatsPayload]);
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ flex: 1, overflowY: 'auto', pb: isNative ? 13 : 9 }}>
         <div style={{ display: tab === 0 ? 'block' : 'none' }}>
-          <AlarmsTab onNavigate={navigate} onOverlayChange={setAlarmOverlayOpen} />
+          <AlarmsTab active={tab === 0} onNavigate={navigate} onOverlayChange={setAlarmOverlayOpen} />
         </div>
         <div style={{ display: tab === 1 ? 'block' : 'none' }}>
           <StatsTab />
@@ -212,7 +261,7 @@ export default function Home() {
 
 // ─── Alarms Tab ───────────────────────────────────────────────────────────────
 
-function AlarmsTab({ onNavigate, onOverlayChange }) {
+function AlarmsTab({ active = true, onNavigate, onOverlayChange }) {
   const {
     user,
     alarms,
@@ -230,15 +279,39 @@ function AlarmsTab({ onNavigate, onOverlayChange }) {
   const [editTarget, setEditTarget]     = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [now, setNow]                   = useState(new Date());
+  const [nativeEditorOpen, setNativeEditorOpen] = useState(false);
+  const nativePayloadRef                = useRef('');
 
   async function handleCreateAlarm() {
     if (isNative) {
-      const alarm = await openNativeCreateAlarm({ defaultTime: user?.wakeTime });
-      if (alarm?.time) void addAlarm(alarm);
+      setNativeEditorOpen(true);
+      nativePayloadRef.current = '';
+      try {
+        const alarm = await openNativeCreateAlarm({ defaultTime: user?.wakeTime });
+        if (alarm?.time) void addAlarm(alarm);
+      } finally {
+        setNativeEditorOpen(false);
+      }
       return;
     }
 
     onNavigate('/create-alarm');
+  }
+
+  async function handleEditAlarm(alarm) {
+    if (isNative) {
+      setNativeEditorOpen(true);
+      nativePayloadRef.current = '';
+      try {
+        const updates = await openNativeCreateAlarm({ alarm });
+        if (updates?.time) void editAlarm(alarm.id, updates);
+      } finally {
+        setNativeEditorOpen(false);
+      }
+      return;
+    }
+
+    setEditTarget(alarm);
   }
 
   useEffect(() => {
@@ -287,6 +360,145 @@ function AlarmsTab({ onNavigate, onOverlayChange }) {
     : `${gameLabel} · ${user.streak > 0 ? `${user.streak} day streak` : 'Start your streak'}`;
 
   /* eslint-enable no-unused-vars */
+  const nativePayload = useMemo(() => {
+    if (!isNative) return null;
+    return {
+      userName: user.name || 'Mate',
+      defaultWakeTime: user.wakeTime || '07:00',
+      wakeGoal: user.wakeGoal || '',
+      favoriteGame: user.favoriteGame || 'math',
+      streak: user.streak || 0,
+      xp: user.xp || 0,
+      xpPerLevel: XP_PER_LEVEL,
+      xpProgress,
+      demerits: user.demerits || 0,
+      exactAlarmReady: Boolean(nativeAlarmStatus?.exactAlarm),
+      alarms: sortedAlarms,
+    };
+  }, [
+    nativeAlarmStatus?.exactAlarm,
+    sortedAlarms,
+    user.name,
+    user.wakeTime,
+    user.wakeGoal,
+    user.favoriteGame,
+    user.streak,
+    user.xp,
+    user.demerits,
+    XP_PER_LEVEL,
+    xpProgress,
+  ]);
+
+  useEffect(() => {
+    if (!isNative || !active || !nativePayload) {
+      if (isNative) {
+        nativePayloadRef.current = '';
+        void hideNativeAlarms();
+      }
+      return undefined;
+    }
+
+    let cancelled = false;
+    const serialized = JSON.stringify(nativePayload);
+
+    async function syncNative() {
+      if (nativePayloadRef.current === serialized) return;
+      nativePayloadRef.current = serialized;
+      await showNativeAlarms(nativePayload);
+    }
+
+    void syncNative();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [active, nativePayload]);
+
+  useEffect(() => {
+    if (!isNative) return undefined;
+    return () => {
+      nativePayloadRef.current = '';
+      void hideNativeAlarms();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isNative || !active || nativeEditorOpen) return undefined;
+
+    function handleNativeAlarmEditorResult(e) {
+      let detail = e.detail;
+      if (typeof detail === 'string') {
+        try {
+          detail = JSON.parse(detail);
+        } catch {
+          detail = {};
+        }
+      }
+
+      const action = detail?.action;
+      const id = detail?.id;
+      const alarm = detail?.alarm;
+      if (!alarm?.time) return;
+
+      if (action === 'edit' && id) {
+        void editAlarm(id, alarm);
+        return;
+      }
+      void addAlarm(alarm);
+    }
+
+    async function handleNativeAlarmAction(e) {
+      let detail = e.detail;
+      if (typeof detail === 'string') {
+        try {
+          detail = JSON.parse(detail);
+        } catch {
+          detail = {};
+        }
+      }
+
+      const action = detail?.action;
+      const id = detail?.id;
+      const alarm = id ? alarms.find(entry => String(entry.id) === String(id)) : null;
+
+      if (action === 'create') {
+        await handleCreateAlarm();
+      } else if (action === 'edit' && alarm) {
+        await handleEditAlarm(alarm);
+      } else if (action === 'toggle' && alarm) {
+        toggleAlarm(alarm.id);
+      } else if (action === 'delete' && alarm) {
+        deleteAlarm(alarm.id);
+      } else if (action === 'test' && alarm) {
+        triggerAlarm(buildTestAlarm(alarm));
+      } else if (action === 'settings') {
+        requestNativeAlarmPermissions?.();
+      } else if (action === 'refresh') {
+        refreshNativeAlarmStatus?.();
+      }
+    }
+
+    document.addEventListener('nativeAlarmEditorResult', handleNativeAlarmEditorResult);
+    document.addEventListener('nativeAlarmAction', handleNativeAlarmAction);
+    return () => {
+      document.removeEventListener('nativeAlarmEditorResult', handleNativeAlarmEditorResult);
+      document.removeEventListener('nativeAlarmAction', handleNativeAlarmAction);
+    };
+  }, [
+    addAlarm,
+    alarms,
+    deleteAlarm,
+    editAlarm,
+    active,
+    nativeEditorOpen,
+    refreshNativeAlarmStatus,
+    requestNativeAlarmPermissions,
+    toggleAlarm,
+    triggerAlarm,
+  ]);
+
+  if (isNative && active) return null;
+
   return (
     <>
       {/* ── Header ── */}
@@ -662,7 +874,7 @@ function AlarmsTab({ onNavigate, onOverlayChange }) {
                 now={now}
                 onToggle={() => toggleAlarm(alarm.id)}
                 onDelete={()  => setDeleteTarget(alarm)}
-                onEdit={()    => setEditTarget(alarm)}
+                onEdit={()    => handleEditAlarm(alarm)}
                 onTest={()    => triggerAlarm(buildTestAlarm(alarm))}
               />
             ))}
@@ -730,82 +942,79 @@ function AndroidReadinessCard({ status, onFix, onRefresh }) {
     { key: 'batteryOptimization', label: 'Battery unrestricted', detail: 'Prevents missed alarms in sleep mode' },
   ];
   const missing = checks.filter((check) => !status[check.key]);
-  const ready = missing.length === 0;
+  const ready = Boolean(status.exactAlarm);
+
+  // When ready, show only a tiny inline indicator — no big card
+  if (ready) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 1.5, opacity: 0.55 }}>
+        <CheckCircleOutlineIcon sx={{ color: '#06D6A0', fontSize: '0.85rem' }} />
+        <Typography sx={{ color: '#06D6A0', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.04em' }}>
+          Alarm setup ready
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Card sx={{
       mb: 2,
       p: 1.6,
       borderRadius: 3,
-      bgcolor: ready ? 'rgba(6,214,160,0.06)' : 'rgba(255,107,53,0.07)',
-      border: ready ? '1px solid rgba(6,214,160,0.16)' : '1px solid rgba(255,107,53,0.18)',
+      bgcolor: 'rgba(255,107,53,0.07)',
+      border: '1px solid rgba(255,107,53,0.18)',
       boxShadow: 'none',
     }}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.2 }}>
         <Box sx={{
-          width: 36,
-          height: 36,
-          borderRadius: 2,
-          bgcolor: ready ? 'rgba(6,214,160,0.12)' : 'rgba(255,107,53,0.13)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
+          width: 36, height: 36, borderRadius: 2,
+          bgcolor: 'rgba(255,107,53,0.13)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-          {ready ? (
-            <CheckCircleOutlineIcon sx={{ color: '#06D6A0', fontSize: '1.2rem' }} />
-          ) : (
-            <WarningAmberIcon sx={{ color: '#FF9A6D', fontSize: '1.2rem' }} />
-          )}
+          <WarningAmberIcon sx={{ color: '#FF9A6D', fontSize: '1.2rem' }} />
         </Box>
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ fontWeight: 800, color: '#FFF5DF', fontSize: '0.94rem' }}>
-            {ready ? 'Android alarm setup ready' : 'Finish Android alarm setup'}
+            Finish Android alarm setup
           </Typography>
           <Typography sx={{ mt: 0.25, color: 'rgba(255,255,255,0.58)', fontSize: '0.74rem', lineHeight: 1.45 }}>
-            {ready
-              ? 'This phone is configured for reliable alarm delivery.'
-              : `${missing.length} setting${missing.length === 1 ? '' : 's'} still need attention before alarms can be trusted.`}
+            {`${missing.length} setting${missing.length === 1 ? '' : 's'} still need attention before alarms can be trusted.`}
           </Typography>
 
-          {!ready && (
-            <Box sx={{ mt: 1.2, display: 'flex', flexDirection: 'column', gap: 0.6 }}>
-              {checks.map((check) => {
-                const ok = Boolean(status[check.key]);
-                return (
-                  <Box key={check.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                    {ok ? (
-                      <CheckCircleOutlineIcon sx={{ color: '#06D6A0', fontSize: '0.95rem' }} />
-                    ) : (
-                      <WarningAmberIcon sx={{ color: '#FF9A6D', fontSize: '0.95rem' }} />
-                    )}
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.82)', fontSize: '0.72rem', fontWeight: 700 }}>
-                        {check.label}
-                      </Typography>
-                      <Typography sx={{ color: 'rgba(255,255,255,0.44)', fontSize: '0.62rem' }}>
-                        {check.detail}
-                      </Typography>
-                    </Box>
+          <Box sx={{ mt: 1.2, display: 'flex', flexDirection: 'column', gap: 0.6 }}>
+            {checks.map((check) => {
+              const ok = Boolean(status[check.key]);
+              return (
+                <Box key={check.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                  {ok ? (
+                    <CheckCircleOutlineIcon sx={{ color: '#06D6A0', fontSize: '0.95rem' }} />
+                  ) : (
+                    <WarningAmberIcon sx={{ color: '#FF9A6D', fontSize: '0.95rem' }} />
+                  )}
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.82)', fontSize: '0.72rem', fontWeight: 700 }}>
+                      {check.label}
+                    </Typography>
+                    <Typography sx={{ color: 'rgba(255,255,255,0.44)', fontSize: '0.62rem' }}>
+                      {check.detail}
+                    </Typography>
                   </Box>
-                );
-              })}
-            </Box>
-          )}
+                </Box>
+              );
+            })}
+          </Box>
 
           <Box sx={{ display: 'flex', gap: 1, mt: 1.3 }}>
-            {!ready && (
-              <Button
-                variant="contained"
-                size="small"
-                onClick={onFix}
-                disabled={status.loading}
-                sx={{ borderRadius: 2, px: 1.4, py: 0.55, fontSize: '0.72rem' }}
-              >
-                Open Settings
-              </Button>
-            )}
+            <Button
+              variant="contained"
+              size="small"
+              onClick={onFix}
+              disabled={status.loading}
+              sx={{ borderRadius: 2, px: 1.4, py: 0.55, fontSize: '0.72rem' }}
+            >
+              Open Settings
+            </Button>
             <Button
               variant="text"
               size="small"
@@ -1006,6 +1215,9 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
   const [label, setLabel] = useState(alarm.label || '');
   const [time,  setTime]  = useState(alarm.time  || '07:00');
   const [days,  setDays]  = useState(alarm.days  || []);
+  const [sound, setSound] = useState(alarm.sound || alarm.pulse?.sound || 'gentle_chime');
+  const [deviceSoundName, setDeviceSoundName] = useState('');
+  const [soundPickerOpen, setSoundPickerOpen] = useState(false);
   const [isCompactViewport, setIsCompactViewport] = useState(false);
 
   useEffect(() => {
@@ -1021,6 +1233,26 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
 
   function toggleDay(i) {
     setDays(prev => prev.includes(i) ? prev.filter(d => d !== i) : [...prev, i]);
+  }
+
+  const selectedSoundLabel = sound?.startsWith('content://')
+    ? deviceSoundName || 'Device sound'
+    : ALARM_SOUNDS.find(s => s.id === sound)?.label || 'Required';
+
+  async function handlePreviewSound() {
+    if (isNative) {
+      await previewNativeSound(sound, 3000);
+      return;
+    }
+    previewAlarmSound(sound);
+  }
+
+  async function handlePickDeviceSound() {
+    if (!isNative) return;
+    const picked = await openRingtonePicker();
+    if (!picked?.uri) return;
+    setDeviceSoundName(picked.name || 'Device sound');
+    setSound(picked.uri);
   }
 
   return (
@@ -1070,6 +1302,28 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
         </Box>
 
         <Box>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 0.75, display: 'block' }}>Sound</Typography>
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={() => setSoundPickerOpen(true)}
+            startIcon={<NotificationsActiveIcon />}
+            sx={{
+              justifyContent: 'space-between',
+              borderRadius: 2.5,
+              py: 1.2,
+              color: '#FFF5DF',
+              borderColor: 'rgba(255,209,102,0.28)',
+              bgcolor: 'rgba(255,209,102,0.08)',
+              '&:hover': { borderColor: 'rgba(255,209,102,0.42)', bgcolor: 'rgba(255,209,102,0.12)' },
+            }}
+          >
+            <span>Alarm Sounds</span>
+            <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.78rem' }}>{selectedSoundLabel}</span>
+          </Button>
+        </Box>
+
+        <Box>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>Repeat on</Typography>
           <Box sx={{ display: 'flex', gap: 0.75 }}>
             {DAY_LABELS.map((d, i) => (
@@ -1106,8 +1360,101 @@ function EditAlarmDialog({ alarm, onClose, onSave }) {
         pb: isCompactViewport ? 'max(env(safe-area-inset-bottom), 16px)' : undefined,
       }}>
         <Button onClick={onClose} sx={{ color: 'text.secondary', flex: 1 }}>Cancel</Button>
-        <Button variant="contained" onClick={() => onSave({ label, time, days })} sx={{ flex: 1 }}>Save</Button>
+        <Button
+          variant="contained"
+          onClick={() => onSave({
+            label,
+            time,
+            days,
+            sound,
+            pulse: { ...(alarm.pulse || {}), sound },
+          })}
+          sx={{ flex: 1 }}
+        >
+          Save
+        </Button>
       </DialogActions>
+
+      <Dialog
+        open={soundPickerOpen}
+        onClose={() => setSoundPickerOpen(false)}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            bgcolor: '#151A28',
+            backgroundImage: 'linear-gradient(180deg, #1E2636 0%, #121827 100%)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            boxShadow: '0 24px 70px rgba(0,0,0,0.62)',
+          },
+        }}
+      >
+        <DialogTitle sx={{ pb: 0.75 }}>
+          <Box sx={{ width: 42, height: 4, borderRadius: 99, bgcolor: 'rgba(255,255,255,0.16)', mx: 'auto', mb: 1.6 }} />
+          <Typography fontWeight={900} sx={{ color: '#FFF5DF' }}>Alarm Sounds</Typography>
+          <Typography sx={{ color: '#FFD166', fontSize: '0.76rem', fontWeight: 800 }}>{selectedSoundLabel}</Typography>
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 0.75, pt: '8px !important' }}>
+          {ALARM_SOUNDS.map(option => {
+            const selected = sound === option.id;
+            return (
+              <Button
+                key={option.id}
+                onClick={() => setSound(option.id)}
+                variant="outlined"
+                sx={{
+                  justifyContent: 'space-between',
+                  borderRadius: 2.4,
+                  py: 1.05,
+                  px: 1.25,
+                  color: selected ? '#FFD166' : '#FFF5DF',
+                  borderColor: selected ? 'rgba(255,209,102,0.6)' : 'rgba(255,255,255,0.1)',
+                  bgcolor: selected ? 'rgba(255,209,102,0.12)' : 'rgba(255,255,255,0.045)',
+                  textTransform: 'none',
+                  boxShadow: selected ? '0 8px 22px rgba(255,209,102,0.10)' : 'none',
+                }}
+              >
+                <span style={{ textAlign: 'left' }}>
+                  <span style={{ display: 'block', fontWeight: 850 }}>{option.label}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.45)', fontSize: '0.72rem' }}>{option.desc}</span>
+                </span>
+                {selected && <span style={{ color: '#FFD166', fontWeight: 900 }}>✓</span>}
+              </Button>
+            );
+          })}
+          <Button
+            variant="outlined"
+            onClick={handlePickDeviceSound}
+            disabled={!isNative}
+            startIcon={<NotificationsActiveIcon />}
+            sx={{
+              borderRadius: 2.4,
+              py: 1.1,
+              mt: 0.5,
+              color: '#FFF5DF',
+              borderColor: 'rgba(255,209,102,0.28)',
+              bgcolor: 'rgba(255,209,102,0.07)',
+              textTransform: 'none',
+              fontWeight: 800,
+            }}
+          >
+            Choose from device
+          </Button>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={handlePreviewSound}
+            startIcon={<PlayArrowIcon />}
+            sx={{ color: '#FF6B35', flex: 1, borderRadius: 2.4, fontWeight: 900, textTransform: 'none' }}
+          >
+            Preview
+          </Button>
+          <Button variant="contained" onClick={() => setSoundPickerOpen(false)} sx={{ flex: 1, borderRadius: 2.4, fontWeight: 900, textTransform: 'none' }}>
+            Done
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

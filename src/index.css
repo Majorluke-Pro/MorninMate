@@ -48,19 +48,34 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  width: 100%;
+  min-height: 100%;
+  background: #0D0D1A;
+  overscroll-behavior: none;
+}
+
 body {
+  width: 100%;
+  min-height: 100dvh;
   background-color: #0D0D1A;
   color: #F8F9FA;
   font-family: 'Ubuntu', 'Helvetica', 'Arial', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
+  overflow-x: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 #root {
+  width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  min-height: 100vh;
+  min-height: 100dvh;
+  background: #0D0D1A;
 }
 
 /* Prevent input zoom on iOS/Android WebView */

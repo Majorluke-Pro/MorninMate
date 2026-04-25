@@ -104,6 +104,7 @@ export async function openNativeCreateAlarm(options = {}) {
   try {
     const result = await AlarmPlugin.openNativeCreateAlarm({
       defaultTime: options.defaultTime,
+      alarm: options.alarm ? JSON.stringify(options.alarm) : undefined,
     });
     return result?.time ? result : null;
   } catch (e) {
@@ -194,4 +195,41 @@ export async function disableHardcoreLock() {
   try {
     await AlarmPlugin.disableHardcoreLock();
   } catch {}
+}
+
+export async function showNativeStats(data) {
+  if (!isNative) return;
+  try {
+    await AlarmPlugin.showNativeStats(data);
+  } catch {}
+}
+
+export async function hideNativeStats() {
+  if (!isNative) return;
+  try {
+    await AlarmPlugin.hideNativeStats();
+  } catch {}
+}
+
+export async function showNativeAlarms(data) {
+  if (!isNative) return false;
+  try {
+    await AlarmPlugin.showNativeAlarms({
+      ...data,
+      alarms: JSON.stringify(data?.alarms || []),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function hideNativeAlarms() {
+  if (!isNative) return false;
+  try {
+    await AlarmPlugin.hideNativeAlarms();
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -26,12 +26,20 @@ import WbCloudyIcon             from '@mui/icons-material/WbCloudy';
 import Brightness4Icon          from '@mui/icons-material/Brightness4';
 import HotelIcon                from '@mui/icons-material/Hotel';
 import { useNavigate } from 'react-router-dom';
+import { motion } from '../../lib/motion-lite';
 import { useApp } from '../../context/AppContext';
 import { ALARM_SOUNDS, previewAlarmSound } from '../../lib/sounds';
 import { isNative, openRingtonePicker, previewSound as previewNativeSound } from '../../lib/nativeAlarms';
 import TimePicker from '../common/TimePicker';
 
 // ─── Static data ──────────────────────────────────────────────────────────────
+
+const PAGE_TRANSITION = {
+  initial:    { opacity: 0, x: 24 },
+  animate:    { opacity: 1, x: 0 },
+  exit:       { opacity: 0, x: -12 },
+  transition: { duration: 0.28, ease: [0.32, 0.72, 0, 1] },
+};
 
 const INTENSITY = [
   { value: 'gentle',   Icon: SpaIcon,                   label: 'Gentle',   desc: '1 game · Easy mode',         xp: 20,  color: '#06D6A0' },
@@ -88,15 +96,16 @@ export default function CreateAlarm() {
 
   const [hardcoreWarningOpen, setHardcoreWarningOpen] = useState(false);
   const [showScrollCue, setShowScrollCue] = useState(true);
-  const [repeatMode, setRepeatMode] = useState('');
+  const [repeatMode, setRepeatMode] = useState('once');
   const [deviceSoundName, setDeviceSoundName] = useState('');
+  const [soundPickerOpen, setSoundPickerOpen] = useState(false);
 
   const [form, setForm] = useState({
     label: '',
     time: user?.wakeTime || '07:00',
     days: [],
     sound: 'gentle_chime',
-    pulse: { intensity: '', games: [] },
+    pulse: { intensity: 'gentle', games: ['math'] },
   });
 
   // ── Time helpers ──────────────────────────────────────────────────────────
@@ -240,6 +249,13 @@ export default function CreateAlarm() {
   }, []);
 
   return (
+    <motion.div
+      initial={PAGE_TRANSITION.initial}
+      animate={PAGE_TRANSITION.animate}
+      exit={PAGE_TRANSITION.exit}
+      transition={PAGE_TRANSITION.transition}
+      style={{ minHeight: '100dvh', willChange: 'transform, opacity' }}
+    >
     <div style={{ minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
       <Background />
 
@@ -315,131 +331,44 @@ export default function CreateAlarm() {
               {selectedSoundLabel}
             </span>
           </div>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(5, 1fr)',
-              gap: '0.375rem',
-            }}
-          >
-            {ALARM_SOUNDS.map(sound => {
-              const meta     = SOUND_META[sound.id];
-              const selected = form.sound === sound.id;
-              return (
-                <div
-                  key={sound.id}
-                  onClick={() => setForm(f => ({ ...f, sound: sound.id }))}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1875rem',
-                    cursor: 'pointer', userSelect: 'none',
-                  }}
-                >
-                  {/* Icon circle */}
-                  <div
-                    style={{
-                      width: 52, height: 52, borderRadius: '50%',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      position: 'relative',
-                      border: selected
-                        ? `2px solid ${meta.color}`
-                        : '2px solid rgba(255,255,255,0.08)',
-                      background: selected ? `${meta.color}18` : 'rgba(255,255,255,0.04)',
-                      boxShadow: selected ? `0 0 14px ${meta.color}44` : 'none',
-                      transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-                      transform: selected ? 'scale(1.1)' : 'scale(1)',
-                    }}
-                  >
-                    <meta.Icon style={{ fontSize: '1.4rem', color: selected ? meta.color : 'rgba(255,255,255,0.3)' }} />
-                    {/* Preview play button — shown on selected */}
-                    {selected && (
-                      <div
-                        onClick={e => { e.stopPropagation(); handlePreviewSound(sound.id); }}
-                        style={{
-                          position: 'absolute', bottom: -4, right: -4,
-                          width: 20, height: 20, borderRadius: '50%',
-                          background: meta.color,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          boxShadow: `0 2px 8px ${meta.color}66`,
-                          transition: 'transform 0.15s',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <PlayArrowIcon style={{ fontSize: '0.75rem', color: '#fff' }} />
-                      </div>
-                    )}
-                  </div>
-                  {/* Label */}
-                  <span
-                    style={{
-                      fontSize: '0.6rem', fontWeight: selected ? 700 : 500,
-                      color: selected ? meta.color : 'rgba(255,255,255,0.35)',
-                      textAlign: 'center', letterSpacing: 0.2,
-                      transition: 'color 0.2s',
-                    }}
-                  >
-                    {sound.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
           <button
             type="button"
-            onClick={handlePickDeviceSound}
-            disabled={!isNative}
+            onClick={() => setSoundPickerOpen(true)}
             style={{
-              marginTop: '0.75rem',
               width: '100%',
-              borderRadius: '1rem',
-              border: form.sound?.startsWith('content://')
-                ? '1.5px solid rgba(255,209,102,0.45)'
-                : '1.5px solid rgba(255,255,255,0.08)',
-              background: form.sound?.startsWith('content://')
-                ? 'rgba(255,209,102,0.10)'
-                : 'rgba(255,255,255,0.04)',
-              color: '#fff',
-              padding: '0.875rem 1rem',
+              border: '1px solid rgba(255,209,102,0.26)',
+              borderRadius: '1.15rem',
+              background: 'rgba(255,209,102,0.09)',
+              color: '#FFF5DF',
+              padding: '0.95rem 1rem',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '0.75rem',
-              cursor: isNative ? 'pointer' : 'not-allowed',
-              opacity: isNative ? 1 : 0.55,
-              transition: 'border-color 0.2s ease, background-color 0.2s ease',
+              gap: '1rem',
+              fontWeight: 800,
+              cursor: 'pointer',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textAlign: 'left' }}>
-              <div
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: '0.9rem',
-                  background: 'rgba(255,209,102,0.12)',
-                  border: '1px solid rgba(255,209,102,0.24)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <NotificationsActiveIcon style={{ color: '#FFD166' }} />
-              </div>
-              <div>
-                <div style={{ fontSize: '0.92rem', fontWeight: 700 }}>
-                  Choose from device
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.55)' }}>
-                  {form.sound?.startsWith('content://')
-                    ? deviceSoundName || 'Selected from Android ringtone library'
-                    : isNative
-                    ? 'Use any ringtone or alarm sound on this phone'
-                    : 'Available on Android'}
-                </div>
-              </div>
-            </div>
-            <KeyboardArrowDownIcon style={{ color: 'rgba(255,255,255,0.45)', transform: 'rotate(-90deg)' }} />
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <NotificationsActiveIcon style={{ color: '#FFD166' }} />
+              Alarm Sounds
+            </span>
+            <KeyboardArrowDownIcon style={{ color: 'rgba(255,255,255,0.55)', transform: 'rotate(-90deg)' }} />
           </button>
         </Section>
+
+        {soundPickerOpen && (
+          <SoundPickerCard
+            selectedSound={form.sound}
+            selectedSoundLabel={selectedSoundLabel}
+            deviceSoundName={deviceSoundName}
+            onClose={() => setSoundPickerOpen(false)}
+            onSelect={sound => setForm(f => ({ ...f, sound }))}
+            onPreview={() => handlePreviewSound(form.sound)}
+            onPickDevice={handlePickDeviceSound}
+            isNative={isNative}
+          />
+        )}
 
         <Separator />
 
@@ -882,6 +811,7 @@ export default function CreateAlarm() {
         </button>
       </div>
     </div>
+    </motion.div>
   );
 }
 
@@ -916,6 +846,198 @@ function Background() {
 }
 
 // ─── Layout helpers ───────────────────────────────────────────────────────────
+
+function SoundPickerCard({
+  selectedSound,
+  selectedSoundLabel,
+  deviceSoundName,
+  onClose,
+  onSelect,
+  onPreview,
+  onPickDevice,
+  isNative,
+}) {
+  return (
+    <div
+      role="presentation"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 80,
+        background: 'rgba(5,5,14,0.78)',
+        backdropFilter: 'blur(12px)',
+        display: 'flex',
+        alignItems: 'flex-end',
+        padding: '0.85rem',
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: 480,
+          margin: '0 auto',
+          maxHeight: 'min(82vh, 680px)',
+          overflowY: 'auto',
+          borderRadius: '1.35rem',
+          background: 'linear-gradient(180deg, #1E2636 0%, #121827 100%)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          boxShadow: '0 24px 70px rgba(0,0,0,0.62)',
+          padding: '0.95rem',
+        }}
+      >
+        <div style={{ width: 42, height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.16)', margin: '0 auto 0.9rem' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '0.9rem' }}>
+          <div>
+            <div style={{ color: '#FFF5DF', fontSize: '1.08rem', fontWeight: 900 }}>Alarm Sounds</div>
+            <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.76rem' }}>{selectedSoundLabel}</div>
+          </div>
+          <button type="button" onClick={onPreview} style={soundPreviewButtonStyle}>
+            <PlayArrowIcon style={{ fontSize: '1rem' }} /> Preview
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.45rem' }}>
+          {ALARM_SOUNDS.map(sound => {
+            const meta = SOUND_META[sound.id];
+            const selected = selectedSound === sound.id;
+            return (
+              <button
+                type="button"
+                key={sound.id}
+                onClick={() => onSelect(sound.id)}
+                style={{
+                  borderRadius: '0.95rem',
+                  border: selected ? `1.5px solid ${meta.color}` : '1px solid rgba(255,255,255,0.08)',
+                  background: selected ? `linear-gradient(135deg, ${meta.color}22, rgba(255,255,255,0.035))` : 'rgba(255,255,255,0.045)',
+                  color: '#FFF5DF',
+                  padding: '0.72rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.72rem',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  boxShadow: selected ? `0 8px 22px ${meta.color}18` : 'none',
+                }}
+              >
+                <span
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '50%',
+                    background: selected ? `${meta.color}22` : 'rgba(255,255,255,0.06)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <meta.Icon style={{ fontSize: '1.15rem', color: selected ? meta.color : 'rgba(255,255,255,0.45)' }} />
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 850 }}>{sound.label}</span>
+                  <span style={{ display: 'block', fontSize: '0.68rem', color: 'rgba(255,255,255,0.48)' }}>{sound.desc}</span>
+                </span>
+                {selected && (
+                  <span style={{ marginLeft: 'auto', width: 20, height: 20, borderRadius: '50%', background: meta.color, color: '#fff', display: 'grid', placeItems: 'center', fontSize: '0.75rem', fontWeight: 900 }}>
+                    ✓
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={onPickDevice}
+          disabled={!isNative}
+          style={{
+            marginTop: '0.75rem',
+            width: '100%',
+            borderRadius: '1rem',
+            border: selectedSound?.startsWith('content://')
+              ? '1.5px solid rgba(255,209,102,0.45)'
+              : '1.5px solid rgba(255,255,255,0.08)',
+            background: selectedSound?.startsWith('content://')
+              ? 'rgba(255,209,102,0.10)'
+              : 'rgba(255,255,255,0.04)',
+            color: '#fff',
+            padding: '0.875rem 1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+            cursor: isNative ? 'pointer' : 'not-allowed',
+            opacity: isNative ? 1 : 0.55,
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textAlign: 'left' }}>
+            <span style={deviceSoundIconStyle}>
+              <NotificationsActiveIcon style={{ color: '#FFD166' }} />
+            </span>
+            <span>
+              <span style={{ display: 'block', fontSize: '0.92rem', fontWeight: 800 }}>Choose from device</span>
+              <span style={{ display: 'block', fontSize: '0.75rem', color: 'rgba(255,255,255,0.55)' }}>
+                {selectedSound?.startsWith('content://')
+                  ? deviceSoundName || 'Selected from Android ringtone library'
+                  : isNative
+                  ? 'Use any ringtone or alarm sound on this phone'
+                  : 'Available on Android'}
+              </span>
+            </span>
+          </span>
+          <KeyboardArrowDownIcon style={{ color: 'rgba(255,255,255,0.45)', transform: 'rotate(-90deg)' }} />
+        </button>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.65rem', marginTop: '0.75rem' }}>
+          <button type="button" onClick={onClose} style={soundDoneButtonStyle}>
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const soundPreviewButtonStyle = {
+  border: '1px solid rgba(255,107,53,0.4)',
+  borderRadius: '999px',
+  background: 'rgba(255,107,53,0.12)',
+  color: '#FF6B35',
+  padding: '0.5rem 0.78rem',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '0.35rem',
+  fontWeight: 800,
+  flexShrink: 0,
+};
+
+const deviceSoundIconStyle = {
+  width: 42,
+  height: 42,
+  borderRadius: '0.9rem',
+  background: 'rgba(255,209,102,0.12)',
+  border: '1px solid rgba(255,209,102,0.24)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+};
+
+const soundDoneButtonStyle = {
+  marginTop: '0.75rem',
+  width: '100%',
+  border: 0,
+  borderRadius: '1rem',
+  background: '#FF6B35',
+  color: '#fff',
+  padding: '0.9rem',
+  fontWeight: 900,
+};
 
 function Section({ children, delay = 0 }) {
   return (

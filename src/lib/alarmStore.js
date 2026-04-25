@@ -77,8 +77,10 @@ export function getPendingOps() {
 
 export function addPendingOp(op) {
   const ops = getPendingOps();
-  ops.push({ id: crypto.randomUUID(), ...op });
+  const pendingOp = { id: crypto.randomUUID(), ...op };
+  ops.push(pendingOp);
   writeJson(OPS_KEY, ops);
+  return pendingOp;
 }
 
 export function replacePendingOps(ops) {

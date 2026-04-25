@@ -1117,18 +1117,14 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!isNative) return;
 
-    const refresh = () => {
-      void refreshNativeAlarmStatus();
-    };
+    void refreshNativeAlarmStatus();
 
-    refresh();
-    window.addEventListener('focus', refresh);
-    document.addEventListener('visibilitychange', refresh);
+    let handle;
+    CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) void refreshNativeAlarmStatus();
+    }).then((h) => { handle = h; });
 
-    return () => {
-      window.removeEventListener('focus', refresh);
-      document.removeEventListener('visibilitychange', refresh);
-    };
+    return () => { handle?.remove(); };
   }, []);
 
   useEffect(() => {
@@ -1451,6 +1447,10 @@ export function AppProvider({ children }) {
     setCachedAlarms(next);
     setAlarms(next);
     void cancelAlarmNotifications(id);
+
+    // Clear any pending add/toggle/edit ops for this alarm so they can't
+    // resurrect it when flushed on next login
+    replacePendingOps(getPendingOps().filter((op) => op.payload?.id !== id));
 
     if (!sessionRef.current?.user?.id || !navigator.onLine) {
       addPendingOp({ type: 'delete', payload: { id } });
