@@ -22,13 +22,44 @@ object NativeAlarmStore {
     private const val DEFAULT_SOUND = "gentle_chime"
     private var savedAlarmVolume = -1
 
+    fun isOnboardingComplete(context: Context): Boolean {
+        val saved = prefs(context)
+        return saved.getBoolean("onboarding_complete", false) ||
+            saved.all.keys.any { it.startsWith("alarm_") } ||
+            saved.contains("userName")
+    }
+
+    fun completeOnboarding(
+        context: Context,
+        userName: String,
+        defaultWakeTime: String,
+        favoriteGame: String,
+        morningRating: Int,
+        wakeGoal: String,
+        age: String,
+        country: String,
+        profileIcon: String,
+    ) {
+        prefs(context).edit()
+            .putBoolean("onboarding_complete", true)
+            .putString("userName", userName.ifBlank { "Mate" })
+            .putString("defaultWakeTime", defaultWakeTime.ifBlank { "07:00" })
+            .putString("favoriteGame", favoriteGame.ifBlank { "math" })
+            .putInt("morningRating", morningRating.coerceIn(1, 5))
+            .putString("wakeGoal", wakeGoal)
+            .putString("age", age)
+            .putString("country", country)
+            .putString("profileIcon", profileIcon.ifBlank { "bolt" })
+            .apply()
+    }
+
     fun data(context: Context): NativeAlarmsData {
         val alarms = alarms(context)
         return NativeAlarmsData(
-            userName = "Mate",
-            defaultWakeTime = "07:00",
-            wakeGoal = "",
-            favoriteGame = "math",
+            userName = prefs(context).getString("userName", "Mate") ?: "Mate",
+            defaultWakeTime = prefs(context).getString("defaultWakeTime", "07:00") ?: "07:00",
+            wakeGoal = prefs(context).getString("wakeGoal", "") ?: "",
+            favoriteGame = prefs(context).getString("favoriteGame", "math") ?: "math",
             streak = prefs(context).getInt("streak", 0),
             xp = prefs(context).getInt("xp", 0),
             xpPerLevel = 100,
@@ -59,7 +90,7 @@ object NativeAlarmStore {
         val alarms = alarms(context)
         val xp = prefs(context).getInt("xp", 0)
         return ProfileData(
-            userName = "Mate",
+            userName = prefs(context).getString("userName", "Mate") ?: "Mate",
             level = (xp / 100) + 1,
             xp = xp,
             xpPerLevel = 100,
@@ -153,12 +184,26 @@ object NativeAlarmStore {
     }
 
     fun deleteData(context: Context) {
+        val saved = prefs(context)
+        val keepOnboarded = saved.getBoolean("onboarding_complete", false) || saved.contains("userName")
+        val accountName = saved.getString("userName", null)
+        val profileIcon = saved.getString("profileIcon", null)
+
         alarms(context).forEach { alarm ->
             val id = alarm.optString("id")
             if (id.isNotBlank()) cancelScheduled(context, id)
         }
         context.stopService(Intent(context, AlarmService::class.java))
-        prefs(context).edit().clear().apply()
+        saved.edit().clear().apply()
+        if (keepOnboarded) {
+            saved.edit()
+                .putBoolean("onboarding_complete", true)
+                .apply {
+                    accountName?.let { putString("userName", it) }
+                    profileIcon?.let { putString("profileIcon", it) }
+                }
+                .apply()
+        }
         disableHardcoreLock(context)
     }
 
@@ -320,8 +365,7 @@ object NativeAlarmStore {
                 }.getOrNull()
             }
             .sortedWith(
-                compareBy<JSONObject> { if (it.optBoolean("active", true)) 0 else 1 }
-                    .thenBy { alarmNextOccurrence(it) }
+                compareBy<JSONObject> { alarmNextOccurrence(it) }
                     .thenBy { it.optString("time", "99:99") },
             )
 

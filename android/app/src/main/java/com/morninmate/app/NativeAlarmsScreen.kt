@@ -4,12 +4,15 @@ import android.view.View
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -52,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -474,9 +478,11 @@ private fun AlarmCardNative(
 ) {
     val pulseColor = colorForIntensity(alarm.intensity)
     var active by remember(alarm.id) { mutableStateOf(alarm.active) }
+    var togglePending by remember(alarm.id) { mutableStateOf(false) }
 
     LaunchedEffect(alarm.active) {
         active = alarm.active
+        togglePending = false
     }
 
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -503,8 +509,11 @@ private fun AlarmCardNative(
                     }
                     SmoothAlarmToggle(
                         checked = active,
+                        pending = togglePending,
                         onCheckedChange = { checked ->
+                            if (togglePending) return@SmoothAlarmToggle
                             active = checked
+                            togglePending = true
                             emitAlarmActiveChange(alarm.id, checked)
                         },
                     )
@@ -534,26 +543,42 @@ private fun AlarmCardNative(
 @Composable
 private fun SmoothAlarmToggle(
     checked: Boolean,
+    pending: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
+    val animation = tween<Color>(durationMillis = 120)
+    val dpAnimation = tween<androidx.compose.ui.unit.Dp>(durationMillis = 120)
     val trackColor by animateColorAsState(
         targetValue = if (checked) AlarmDawn else Color.White.copy(alpha = 0.14f),
+        animationSpec = animation,
         label = "alarmToggleTrack",
     )
     val thumbColor by animateColorAsState(
         targetValue = if (checked) Color.White else Color.White.copy(alpha = 0.76f),
+        animationSpec = animation,
         label = "alarmToggleThumb",
     )
     val thumbOffset by animateDpAsState(
         targetValue = if (checked) 24.dp else 2.dp,
+        animationSpec = dpAnimation,
         label = "alarmToggleThumbOffset",
     )
+    val thumbScale by animateFloatAsState(
+        targetValue = if (pending) 0.92f else 1f,
+        animationSpec = tween(durationMillis = 90),
+        label = "alarmToggleThumbScale",
+    )
+    val interactionSource = remember { MutableInteractionSource() }
 
     Box(
         modifier = Modifier
             .size(width = 56.dp, height = 36.dp)
             .background(trackColor, CircleShape)
-            .clickable { onCheckedChange(!checked) }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                enabled = !pending,
+            ) { onCheckedChange(!checked) }
             .semantics {
                 contentDescription = if (checked) "Alarm on" else "Alarm off"
             },
@@ -563,6 +588,11 @@ private fun SmoothAlarmToggle(
             modifier = Modifier
                 .offset(x = thumbOffset)
                 .size(30.dp)
+                .graphicsLayer {
+                    scaleX = thumbScale
+                    scaleY = thumbScale
+                    alpha = if (pending) 0.92f else 1f
+                }
                 .background(thumbColor, CircleShape),
         )
     }

@@ -51,10 +51,9 @@ class MainActivity : ComponentActivity() {
         setupNativeAlarmsScreen(this)
         setupNativeProfileScreen(this)
         setupNativeRingingAlarmScreen(this)
-        refreshNativeScreens()
+        setupNativeOnboardingScreen(this)
+        applyOnboardingState()
         handleAlarmIntent(intent)
-        setNativeBottomNavVisible(true)
-        applySelectedTabVisibility()
     }
 
     override fun onStart() {
@@ -93,10 +92,40 @@ class MainActivity : ComponentActivity() {
             }
             "settings" -> NativeAlarmStore.requestAlarmPermissions(this)
             "logOff" -> NativeAlarmStore.logOff(this)
-            "deleteData" -> NativeAlarmStore.deleteData(this)
+            "deleteData" -> {
+                NativeAlarmStore.deleteData(this)
+                selectedTab = 0
+                applyOnboardingState()
+                return
+            }
             "refresh" -> Unit
         }
         refreshNativeScreens()
+    }
+
+    fun completeNativeOnboarding(
+        userName: String,
+        defaultWakeTime: String,
+        favoriteGame: String,
+        morningRating: Int,
+        wakeGoal: String,
+        age: String,
+        country: String,
+        profileIcon: String,
+    ) {
+        NativeAlarmStore.completeOnboarding(
+            this,
+            userName,
+            defaultWakeTime,
+            favoriteGame,
+            morningRating,
+            wakeGoal,
+            age,
+            country,
+            profileIcon,
+        )
+        selectedTab = 0
+        applyOnboardingState()
     }
 
     fun dismissNativeAlarm(id: String?) {
@@ -126,6 +155,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshNativeScreens() {
+        if (!NativeAlarmStore.isOnboardingComplete(this)) {
+            applyOnboardingState()
+            return
+        }
         showNativeAlarms(NativeAlarmStore.data(this))
         showNativeStats(NativeAlarmStore.stats(this))
         showNativeProfile(NativeAlarmStore.profile(this))
@@ -142,9 +175,32 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applySelectedTabVisibility() {
+        if (!NativeAlarmStore.isOnboardingComplete(this)) {
+            hideMainNativeScreens()
+            return
+        }
         setNativeAlarmsScreenVisible(selectedTab == 0)
         setNativeStatsScreenVisible(selectedTab == 1)
         setNativeProfileScreenVisible(selectedTab == 2)
+    }
+
+    private fun applyOnboardingState() {
+        val onboarded = NativeAlarmStore.isOnboardingComplete(this)
+        setNativeOnboardingVisible(!onboarded)
+        setNativeBottomNavVisible(onboarded)
+        if (onboarded) {
+            refreshNativeScreens()
+        } else {
+            hideMainNativeScreens()
+        }
+    }
+
+    private fun hideMainNativeScreens() {
+        setNativeAlarmsScreenVisible(false)
+        setNativeStatsScreenVisible(false)
+        setNativeProfileScreenVisible(false)
+        hideNativeRingingAlarm()
+        setNativeBottomNavVisible(false)
     }
 
     private fun applyAppShell() {
