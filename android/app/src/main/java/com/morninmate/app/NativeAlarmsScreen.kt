@@ -195,11 +195,6 @@ fun nativeAlarmsDataFromJson(payload: JSONObject): NativeAlarmsData {
     )
 }
 
-private fun openNativeAlarmEditor(action: String, alarmId: String? = null, defaultTime: String? = null, alarmJson: String? = null) {
-    val activity = nativeAlarmsActivity as? MainActivity ?: return
-    activity.openNativeAlarmEditor(action, alarmId ?: "", defaultTime ?: "", alarmJson ?: "")
-}
-
 private fun emitAlarmAction(action: String, id: String? = null) {
     val json = JSONObject().put("action", action)
     if (id != null) json.put("id", id)
@@ -250,7 +245,7 @@ private fun NativeAlarmsScreen(data: NativeAlarmsData) {
         }
 
         FloatingActionButton(
-            onClick = { openNativeAlarmEditor("create", defaultTime = data.defaultWakeTime) },
+            onClick = { emitAlarmAction("create") },
             containerColor = AlarmDawn,
             contentColor = Color.White,
             shape = CircleShape,
@@ -408,7 +403,7 @@ private fun AlarmList(
             }
         }
         Spacer(Modifier.height(12.dp))
-        if (data.alarms.isEmpty()) EmptyNativeState(data.defaultWakeTime) else data.alarms.forEachIndexed { index, alarm ->
+        if (data.alarms.isEmpty()) EmptyNativeState() else data.alarms.forEachIndexed { index, alarm ->
             AlarmCardNative(
                 alarm = alarm,
                 isNext = index == 0 && alarm.active,
@@ -445,7 +440,7 @@ private fun ReadinessCard() {
 }
 
 @Composable
-private fun EmptyNativeState(defaultWakeTime: String) {
+private fun EmptyNativeState() {
     Surface(shape = RoundedCornerShape(24.dp), color = AlarmPanel, border = BorderStroke(1.dp, AlarmBorder)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(28.dp)) {
             Icon(Icons.Default.Alarm, contentDescription = null, tint = AlarmDawn, modifier = Modifier.size(42.dp))
@@ -453,7 +448,7 @@ private fun EmptyNativeState(defaultWakeTime: String) {
             Text("No alarms yet", color = AlarmText, fontWeight = FontWeight.Black, fontSize = 18.sp)
             Text("Set your next wake-up to start building momentum.", color = AlarmMuted, fontSize = 12.sp)
             Spacer(Modifier.height(14.dp))
-            Button(onClick = { openNativeAlarmEditor("create", defaultTime = defaultWakeTime) }, colors = ButtonDefaults.buttonColors(containerColor = AlarmDawn), shape = RoundedCornerShape(16.dp)) {
+            Button(onClick = { emitAlarmAction("create") }, colors = ButtonDefaults.buttonColors(containerColor = AlarmDawn), shape = RoundedCornerShape(16.dp)) {
                 Text("Create alarm", fontWeight = FontWeight.Black)
             }
         }
@@ -528,7 +523,7 @@ private fun AlarmCardNative(
                 },
                 onEdit = {
                     onMenuClose()
-                    openNativeAlarmEditor("edit", alarm.id, alarmJson = alarm.rawJson)
+                    emitAlarmAction("edit", alarm.id)
                 },
                 onDelete = {
                     onMenuClose()
