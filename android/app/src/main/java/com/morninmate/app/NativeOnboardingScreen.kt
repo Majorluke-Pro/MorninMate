@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -64,10 +65,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -88,6 +91,8 @@ private val ObMint = Color(0xFF06D6A0)
 private val ObGold = Color(0xFFFFD166)
 private val ObBlue = Color(0xFF60A5FA)
 private val ObPurple = Color(0xFFA78BFA)
+private val ObWheelRowHeight = 46.dp
+private const val ObWheelVisibleRows = 5
 
 private val stepIds = listOf("welcome", "wakeTime", "morningType", "game", "goal", "name", "age", "country", "avatar", "summary")
 
@@ -399,80 +404,171 @@ private fun WakeTimeStep(value: String, onChange: (String) -> Unit) {
                 Text(formatTime(value), color = ObText, fontSize = 32.sp, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.height(14.dp))
-            OnboardingTimeStepper(hour = hour, minute = minute, onChange = onChange)
+            OnboardingTimeWheel(hour = hour, minute = minute, onChange = onChange)
         }
     }
 }
 
 @Composable
-private fun OnboardingTimeStepper(hour: Int, minute: Int, onChange: (String) -> Unit) {
+private fun OnboardingTimeWheel(hour: Int, minute: Int, onChange: (String) -> Unit) {
+    val period = if (hour >= 12) "PM" else "AM"
+    val hour12 = hour % 12
+    val displayHour = if (hour12 == 0) 12 else hour12
+    val hours = remember { (1..12).toList() }
+    val minutes = remember { (0..59).toList() }
+    val periods = remember { listOf("AM", "PM") }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        OnboardingTimeStepColumn(
+        OnboardingWheelColumn(
+            values = hours,
+            selectedValue = displayHour,
             label = "Hour",
-            value = "%02d".format(hour),
-            onIncrease = { onChange("%02d:%02d".format((hour + 1) % 24, minute)) },
-            onDecrease = { onChange("%02d:%02d".format((hour + 23) % 24, minute)) },
+            display = { it.toString() },
+            onSelected = { pickedHour -> onChange("%02d:%02d".format(toOnboarding24Hour(pickedHour, period), minute)) },
             modifier = Modifier.weight(1f),
         )
-        OnboardingTimeStepColumn(
+        OnboardingWheelColumn(
+            values = minutes,
+            selectedValue = minute,
             label = "Minute",
-            value = "%02d".format(minute),
-            onIncrease = { onChange("%02d:%02d".format(hour, (minute + 1) % 60)) },
-            onDecrease = { onChange("%02d:%02d".format(hour, (minute + 59) % 60)) },
+            display = { "%02d".format(it) },
+            onSelected = { pickedMinute -> onChange("%02d:%02d".format(hour, pickedMinute)) },
             modifier = Modifier.weight(1f),
+        )
+        OnboardingWheelColumn(
+            values = periods,
+            selectedValue = period,
+            label = "",
+            display = { it },
+            onSelected = { pickedPeriod -> onChange("%02d:%02d".format(toOnboarding24Hour(displayHour, pickedPeriod), minute)) },
+            modifier = Modifier.weight(0.82f),
         )
     }
 }
 
 @Composable
-private fun OnboardingTimeStepColumn(
+private fun <T> OnboardingWheelColumn(
+    values: List<T>,
+    selectedValue: T,
     label: String,
-    value: String,
-    onIncrease: () -> Unit,
-    onDecrease: () -> Unit,
+    display: (T) -> String,
+    onSelected: (T) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        color = ObCard,
-        border = BorderStroke(1.dp, ObDawn.copy(alpha = 0.32f)),
-    ) {
-        Column(
-            modifier = Modifier.padding(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+    val selectedIndex = values.indexOf(selectedValue).coerceAtLeast(0)
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
+    val rowHeightPx = with(LocalDensity.current) { ObWheelRowHeight.toPx() }
+    val centeredIndex by remember {
+        androidx.compose.runtime.derivedStateOf {
+            (listState.firstVisibleItemIndex +
+                if (listState.firstVisibleItemScrollOffset > rowHeightPx / 2f) 1 else 0)
+                .coerceIn(0, values.lastIndex)
+        }
+    }
+
+    LaunchedEffect(selectedIndex) {
+        if (!listState.isScrollInProgress && selectedIndex != centeredIndex) {
+            listState.scrollToItem(selectedIndex)
+        }
+    }
+
+    LaunchedEffect(listState, values) {
+        snapshotFlow { centeredIndex }
+            .distinctUntilChanged()
+            .collect { index -> onSelected(values[index]) }
+    }
+
+    LaunchedEffect(listState, values) {
+        snapshotFlow { listState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collect { scrolling ->
+                if (!scrolling) {
+                    listState.animateScrollToItem(centeredIndex)
+                }
+            }
+    }
+
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        if (label.isNotBlank()) {
             Text(label, color = ObMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = onIncrease,
-                modifier = Modifier.fillMaxWidth().height(38.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = ObDawn.copy(alpha = 0.42f)),
+            Spacer(Modifier.height(6.dp))
+        } else {
+            Spacer(Modifier.height(26.dp))
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(ObWheelRowHeight * ObWheelVisibleRows),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(ObWheelRowHeight),
+                shape = RoundedCornerShape(14.dp),
+                color = ObDawn.copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, ObDawn.copy(alpha = 0.38f)),
+            ) {}
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("+", color = ObText, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                items(2) { OnboardingWheelSpacerRow() }
+                itemsIndexed(values) { index, value ->
+                    val selected = index == centeredIndex
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(ObWheelRowHeight)
+                            .clickable { onSelected(value) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = display(value),
+                            color = if (selected) ObText else ObMuted.copy(alpha = 0.58f),
+                            fontSize = if (selected) 24.sp else 18.sp,
+                            fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+                items(2) { OnboardingWheelSpacerRow() }
             }
-            Text(
-                value,
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = ObText,
-                fontSize = 23.sp,
-                fontWeight = FontWeight.Black,
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(ObWheelRowHeight * 2)
+                    .background(Brush.verticalGradient(listOf(ObInput, ObInput.copy(alpha = 0f)))),
             )
-            Button(
-                onClick = onDecrease,
-                modifier = Modifier.fillMaxWidth().height(38.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF273244)),
-            ) {
-                Text("-", color = ObText, fontSize = 18.sp, fontWeight = FontWeight.Black)
-            }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(ObWheelRowHeight * 2)
+                    .background(Brush.verticalGradient(listOf(ObInput.copy(alpha = 0f), ObInput))),
+            )
         }
     }
 }
+
+@Composable
+private fun OnboardingWheelSpacerRow() {
+    Spacer(Modifier.height(ObWheelRowHeight))
+}
+
+private fun toOnboarding24Hour(hour12: Int, period: String): Int =
+    when {
+        period == "AM" && hour12 == 12 -> 0
+        period == "AM" -> hour12
+        hour12 == 12 -> 12
+        else -> hour12 + 12
+    }
 
 @Composable
 private fun MorningTypeStep(selected: Int, onSelect: (Int) -> Unit) {
@@ -524,16 +620,37 @@ private fun BirthYearStep(value: String, onChange: (String) -> Unit) {
     val currentYear = Calendar.getInstance().get(Calendar.YEAR)
     val years = remember(currentYear) { (currentYear downTo currentYear - 100).toList() }
     val selectedYear = value.toIntOrNull()?.coerceIn(currentYear - 100, currentYear) ?: currentYear - 25
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = (years.indexOf(selectedYear) - 2).coerceAtLeast(0))
+    val selectedIndex = years.indexOf(selectedYear).coerceAtLeast(0)
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
+    val rowHeightPx = with(LocalDensity.current) { ObWheelRowHeight.toPx() }
+    val centeredIndex by remember {
+        androidx.compose.runtime.derivedStateOf {
+            (listState.firstVisibleItemIndex +
+                if (listState.firstVisibleItemScrollOffset > rowHeightPx / 2f) 1 else 0)
+                .coerceIn(0, years.lastIndex)
+        }
+    }
+
+    LaunchedEffect(selectedIndex) {
+        if (!listState.isScrollInProgress && selectedIndex != centeredIndex) {
+            listState.scrollToItem(selectedIndex)
+        }
+    }
 
     LaunchedEffect(listState, years) {
-        snapshotFlow {
-            val centeredIndex = listState.firstVisibleItemIndex +
-                if (listState.firstVisibleItemScrollOffset > 27) 3 else 2
-            centeredIndex.coerceIn(0, years.lastIndex)
-        }
+        snapshotFlow { centeredIndex }
             .distinctUntilChanged()
             .collect { index -> onChange(years[index].toString()) }
+    }
+
+    LaunchedEffect(listState, years) {
+        snapshotFlow { listState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collect { scrolling ->
+                if (!scrolling) {
+                    listState.animateScrollToItem(centeredIndex)
+                }
+            }
     }
 
     StepHeader(Icons.Default.Cake, "Step 6", "What year were you born?", "Pick your birth year only")
@@ -553,7 +670,7 @@ private fun BirthYearStep(value: String, onChange: (String) -> Unit) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp)
+                    .height(ObWheelRowHeight)
                     .padding(horizontal = 18.dp),
                 shape = RoundedCornerShape(16.dp),
                 color = ObDawn.copy(alpha = 0.12f),
@@ -563,15 +680,16 @@ private fun BirthYearStep(value: String, onChange: (String) -> Unit) {
                 state = listState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(210.dp),
+                    .height(ObWheelRowHeight * ObWheelVisibleRows),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                items(years) { year ->
-                    val selected = year == selectedYear
+                items(2) { OnboardingWheelSpacerRow() }
+                itemsIndexed(years) { index, year ->
+                    val selected = index == centeredIndex
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp)
+                            .height(ObWheelRowHeight)
                             .clickable { onChange(year.toString()) },
                         contentAlignment = Alignment.Center,
                     ) {
@@ -583,7 +701,22 @@ private fun BirthYearStep(value: String, onChange: (String) -> Unit) {
                         )
                     }
                 }
+                items(2) { OnboardingWheelSpacerRow() }
             }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(ObWheelRowHeight * 2)
+                    .background(Brush.verticalGradient(listOf(ObInput, ObInput.copy(alpha = 0f)))),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(ObWheelRowHeight * 2)
+                    .background(Brush.verticalGradient(listOf(ObInput.copy(alpha = 0f), ObInput))),
+            )
         }
     }
     Spacer(Modifier.height(10.dp))

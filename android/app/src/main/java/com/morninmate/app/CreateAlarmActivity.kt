@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -50,22 +52,27 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.view.WindowCompat
+import kotlinx.coroutines.flow.distinctUntilChanged
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Calendar
@@ -80,6 +87,8 @@ private val Panel = Color(0xFF171E2B)
 private val PanelSoft = Color(0xFF20283A)
 private val TextPrimary = Color(0xFFFFF5DF)
 private val TextMuted = Color(0xFFA7ADC0)
+private val WheelRowHeight = 46.dp
+private const val WheelVisibleRows = 5
 
 @Immutable
 private data class SoundOption(val id: String, val label: String, val desc: String, val color: Color)
@@ -606,7 +615,7 @@ private fun TimeCard(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 Text(contextLabel, color = Dawn, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(18.dp))
-                TimeStepper(hour = hour, minute = minute, onPicked = onPicked)
+                TimeWheelPicker(hour = hour, minute = minute, onPicked = onPicked)
             }
             Box(
                 modifier = Modifier
@@ -627,76 +636,169 @@ private fun TimeCard(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
 }
 
 @Composable
-private fun TimeStepper(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
+private fun TimeWheelPicker(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
+    val period = if (hour >= 12) "PM" else "AM"
+    val hour12 = hour % 12
+    val displayHour = if (hour12 == 0) 12 else hour12
+    val hours = remember { (1..12).toList() }
+    val minutes = remember { (0..59).toList() }
+    val periods = remember { listOf("AM", "PM") }
+
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        TimeStepColumn(
+        WheelColumn(
+            values = hours,
+            selectedValue = displayHour,
             label = "Hour",
-            value = "%02d".format(hour),
-            onIncrease = { onPicked((hour + 1) % 24, minute) },
-            onDecrease = { onPicked((hour + 23) % 24, minute) },
+            display = { it.toString() },
+            onSelected = { pickedHour ->
+                onPicked(to24Hour(pickedHour, period), minute)
+            },
             modifier = Modifier.weight(1f),
         )
-        TimeStepColumn(
+        WheelColumn(
+            values = minutes,
+            selectedValue = minute,
             label = "Minute",
-            value = "%02d".format(minute),
-            onIncrease = { onPicked(hour, (minute + 1) % 60) },
-            onDecrease = { onPicked(hour, (minute + 59) % 60) },
+            display = { "%02d".format(it) },
+            onSelected = { pickedMinute -> onPicked(hour, pickedMinute) },
             modifier = Modifier.weight(1f),
+        )
+        WheelColumn(
+            values = periods,
+            selectedValue = period,
+            label = "",
+            display = { it },
+            onSelected = { pickedPeriod ->
+                onPicked(to24Hour(displayHour, pickedPeriod), minute)
+            },
+            modifier = Modifier.weight(0.82f),
         )
     }
 }
 
 @Composable
-private fun TimeStepColumn(
+private fun <T> WheelColumn(
+    values: List<T>,
+    selectedValue: T,
     label: String,
-    value: String,
-    onIncrease: () -> Unit,
-    onDecrease: () -> Unit,
+    display: (T) -> String,
+    onSelected: (T) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        color = PanelSoft,
-        border = BorderStroke(1.dp, Dawn.copy(alpha = 0.24f)),
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+    val selectedIndex = values.indexOf(selectedValue).coerceAtLeast(0)
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
+    val rowHeightPx = with(LocalDensity.current) { WheelRowHeight.toPx() }
+    val centeredIndex by remember {
+        derivedStateOf {
+            (listState.firstVisibleItemIndex +
+                if (listState.firstVisibleItemScrollOffset > rowHeightPx / 2f) 1 else 0)
+                .coerceIn(0, values.lastIndex)
+        }
+    }
+
+    LaunchedEffect(selectedIndex) {
+        if (!listState.isScrollInProgress && selectedIndex != centeredIndex) {
+            listState.scrollToItem(selectedIndex)
+        }
+    }
+
+    LaunchedEffect(listState, values) {
+        snapshotFlow { centeredIndex }
+            .distinctUntilChanged()
+            .collect { index -> onSelected(values[index]) }
+    }
+
+    LaunchedEffect(listState, values) {
+        snapshotFlow { listState.isScrollInProgress }
+            .distinctUntilChanged()
+            .collect { scrolling ->
+                if (!scrolling) {
+                    listState.animateScrollToItem(centeredIndex)
+                }
+            }
+    }
+
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        if (label.isNotBlank()) {
+            Text(label, color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+        } else {
+            Spacer(Modifier.height(25.dp))
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(WheelRowHeight * WheelVisibleRows),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(label, color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onIncrease,
-                modifier = Modifier.fillMaxWidth(),
-                border = BorderStroke(1.dp, Dawn.copy(alpha = 0.42f)),
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(WheelRowHeight),
                 shape = RoundedCornerShape(14.dp),
-                contentPadding = PaddingValues(vertical = 2.dp),
+                color = Dawn.copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, Dawn.copy(alpha = 0.38f)),
+            ) {}
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("+", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                items(2) { WheelSpacerRow() }
+                itemsIndexed(values) { index, value ->
+                    val selected = index == centeredIndex
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(WheelRowHeight)
+                            .clickable { onSelected(value) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = display(value),
+                            color = if (selected) TextPrimary else TextMuted.copy(alpha = 0.58f),
+                            fontSize = if (selected) 24.sp else 18.sp,
+                            fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+                items(2) { WheelSpacerRow() }
             }
-            Text(
-                value,
-                modifier = Modifier.padding(vertical = 8.dp),
-                color = TextPrimary,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Black,
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(WheelRowHeight * 2)
+                    .background(Brush.verticalGradient(listOf(Panel, Panel.copy(alpha = 0f)))),
             )
-            OutlinedButton(
-                onClick = onDecrease,
-                modifier = Modifier.fillMaxWidth(),
-                border = BorderStroke(1.dp, Dawn.copy(alpha = 0.42f)),
-                shape = RoundedCornerShape(14.dp),
-                contentPadding = PaddingValues(vertical = 2.dp),
-            ) {
-                Text("-", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
-            }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(WheelRowHeight * 2)
+                    .background(Brush.verticalGradient(listOf(Panel.copy(alpha = 0f), Panel))),
+            )
         }
     }
 }
+
+@Composable
+private fun WheelSpacerRow() {
+    Spacer(Modifier.height(WheelRowHeight))
+}
+
+private fun to24Hour(hour12: Int, period: String): Int =
+    when {
+        period == "AM" && hour12 == 12 -> 0
+        period == "AM" -> hour12
+        hour12 == 12 -> 12
+        else -> hour12 + 12
+    }
 
 @Composable
 private fun Section(
