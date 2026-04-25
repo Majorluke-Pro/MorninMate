@@ -94,7 +94,7 @@ class MainActivity : ComponentActivity() {
             "logOff" -> NativeAlarmStore.logOff(this)
             "deleteData" -> {
                 NativeAlarmStore.deleteData(this)
-                selectedTab = 0
+                selectNativeTab(0)
                 applyOnboardingState()
                 return
             }
@@ -124,7 +124,7 @@ class MainActivity : ComponentActivity() {
             country,
             profileIcon,
         )
-        selectedTab = 0
+        selectNativeTab(0)
         applyOnboardingState()
     }
 
@@ -201,6 +201,11 @@ class MainActivity : ComponentActivity() {
         setNativeProfileScreenVisible(false)
         hideNativeRingingAlarm()
         setNativeBottomNavVisible(false)
+    }
+
+    private fun selectNativeTab(tabIndex: Int) {
+        selectedTab = tabIndex
+        setNativeBottomNavSelectedTab(tabIndex)
     }
 
     private fun applyAppShell() {

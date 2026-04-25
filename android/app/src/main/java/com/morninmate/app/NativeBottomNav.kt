@@ -62,6 +62,7 @@ private val NAV_TABS = listOf(
 )
 
 private var nativeBottomNavView: ComposeView? = null
+private val nativeBottomNavSelectedTab = mutableStateOf(0)
 
 fun interface NavTabListener {
     fun onTabSelected(tab: Int)
@@ -73,12 +74,10 @@ fun setupNativeBottomNav(activity: ComponentActivity, listener: NavTabListener) 
     // Remove any previously attached nav view (e.g., after Activity recreation)
     nativeBottomNavView?.let { root.removeView(it) }
 
-    val selectedTab = mutableStateOf(0)
-
     fun selectTab(index: Int) {
-        if (selectedTab.value == index) return
+        if (nativeBottomNavSelectedTab.value == index) return
         activity.window.decorView.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-        selectedTab.value = index
+        nativeBottomNavSelectedTab.value = index
         listener.onTabSelected(index)
     }
 
@@ -90,7 +89,7 @@ fun setupNativeBottomNav(activity: ComponentActivity, listener: NavTabListener) 
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
             BottomNavBar(
-                selectedTab = selectedTab.value,
+                selectedTab = nativeBottomNavSelectedTab.value,
                 onTabSelected = ::selectTab,
             )
         }
@@ -115,6 +114,10 @@ fun setNativeBottomNavVisible(visible: Boolean) {
             nativeBottomNavView?.visibility = nextVisibility
         }
     }
+}
+
+fun setNativeBottomNavSelectedTab(index: Int) {
+    nativeBottomNavSelectedTab.value = index.coerceIn(0, NAV_TABS.lastIndex)
 }
 
 @Composable
