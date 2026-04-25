@@ -1,5 +1,6 @@
 package com.morninmate.app;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
@@ -14,10 +15,15 @@ import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.getcapacitor.BridgeActivity;
 
+import org.json.JSONObject;
+
 public class MainActivity extends BridgeActivity {
 
     public static boolean isHardcoreLocked = false;
     public static boolean isAppVisible = false;
+    private static final int REQUEST_NATIVE_ALARM_EDITOR = 6407;
+    private String pendingAlarmEditorAction = "";
+    private String pendingAlarmEditorId = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,11 +32,34 @@ public class MainActivity extends BridgeActivity {
         applyAppShell();
         applyAlarmWindowFlags(getIntent());
         NativeBottomNavKt.setupNativeBottomNav(this, tabIndex ->
-            getBridge().triggerJSEvent(
-                "navTabChanged",
-                "document",
-                "{\"tab\":" + tabIndex + "}")
+        {
+            WebView webView = getBridge().getWebView();
+            if (tabIndex == 2) {
+                webView.post(() -> {
+                    webView.evaluateJavascript(
+                            "document.dispatchEvent(new CustomEvent('navTabChanged',{detail:{tab:2}}));",
+                            null
+                    );
+                    webView.postDelayed(() -> {
+                        NativeAlarmsScreenKt.setNativeAlarmsScreenVisible(false);
+                        NativeStatsScreenKt.setNativeStatsScreenVisible(false);
+                    }, 80);
+                });
+                return;
+            }
+
+            NativeAlarmsScreenKt.setNativeAlarmsScreenVisible(tabIndex == 0);
+            NativeStatsScreenKt.setNativeStatsScreenVisible(tabIndex == 1);
+            webView.post(() ->
+                    webView.evaluateJavascript(
+                            "document.dispatchEvent(new CustomEvent('navTabChanged',{detail:{tab:" + tabIndex + "}}));",
+                            null
+                    )
+            );
+        }
         );
+        NativeStatsScreenKt.setupNativeStatsScreen(this);
+        NativeAlarmsScreenKt.setupNativeAlarmsScreen(this);
     }
 
     @Override
@@ -60,6 +89,50 @@ public class MainActivity extends BridgeActivity {
                     "{\"alarmId\":\"" + alarmId + "\"}")
             );
         }
+    }
+
+    public void openNativeAlarmEditor(String action, String alarmId, String defaultTime, String alarmJson) {
+        pendingAlarmEditorAction = action != null ? action : "create";
+        pendingAlarmEditorId = alarmId != null ? alarmId : "";
+
+        Intent intent = new Intent(this, CreateAlarmActivity.class);
+        if (defaultTime != null && !defaultTime.isEmpty()) {
+            intent.putExtra("defaultTime", defaultTime);
+        }
+        if (alarmJson != null && !alarmJson.isEmpty()) {
+            intent.putExtra("alarm", alarmJson);
+        }
+        startActivityForResult(intent, REQUEST_NATIVE_ALARM_EDITOR);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_NATIVE_ALARM_EDITOR) return;
+
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            pendingAlarmEditorAction = "";
+            pendingAlarmEditorId = "";
+            return;
+        }
+
+        String alarmJson = data.getStringExtra("alarm");
+        if (alarmJson == null || alarmJson.isEmpty()) {
+            pendingAlarmEditorAction = "";
+            pendingAlarmEditorId = "";
+            return;
+        }
+
+        String detail = "{"
+            + "\"action\":" + JSONObject.quote(pendingAlarmEditorAction) + ","
+            + "\"id\":" + JSONObject.quote(pendingAlarmEditorId) + ","
+            + "\"alarm\":" + alarmJson
+            + "}";
+        String script = "document.dispatchEvent(new CustomEvent('nativeAlarmEditorResult',{detail:" + detail + "}));";
+        getBridge().getWebView().post(() -> getBridge().getWebView().evaluateJavascript(script, null));
+
+        pendingAlarmEditorAction = "";
+        pendingAlarmEditorId = "";
     }
 
     @Override

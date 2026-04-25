@@ -21,11 +21,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -65,6 +67,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.view.WindowCompat
 import org.json.JSONArray
 import org.json.JSONObject
@@ -134,6 +137,7 @@ class CreateAlarmActivity : ComponentActivity() {
         setContent {
             NativeCreateAlarmScreen(
                 defaultTime = intent.getStringExtra("defaultTime"),
+                initialAlarm = intent.getStringExtra("alarm"),
                 onClose = { finish() },
                 onSave = { result ->
                     setResult(Activity.RESULT_OK, Intent().putExtra("alarm", result.toString()))
@@ -148,21 +152,25 @@ class CreateAlarmActivity : ComponentActivity() {
 @Composable
 private fun NativeCreateAlarmScreen(
     defaultTime: String?,
+    initialAlarm: String?,
     onClose: () -> Unit,
     onSave: (JSONObject) -> Unit,
 ) {
     val context = LocalContext.current
-    val defaultCalendar = remember(defaultTime) { calendarFromDefaultTime(defaultTime) }
-    var label by remember { mutableStateOf("") }
+    val alarm = remember(initialAlarm) { parseInitialAlarm(initialAlarm) }
+    val defaultCalendar = remember(defaultTime, alarm) { calendarFromDefaultTime(alarm?.optString("time") ?: defaultTime) }
+    var label by remember { mutableStateOf(alarm?.optString("label")?.takeIf { it.isNotBlank() } ?: "") }
     var hour by remember { mutableStateOf(defaultCalendar.get(Calendar.HOUR_OF_DAY)) }
     var minute by remember { mutableStateOf(defaultCalendar.get(Calendar.MINUTE)) }
-    var sound by remember { mutableStateOf("gentle_chime") }
-    var soundLabel by remember { mutableStateOf("Gentle Chime") }
-    var repeat by remember { mutableStateOf("once") }
-    var days by remember { mutableStateOf(emptySet<Int>()) }
-    var intensity by remember { mutableStateOf("gentle") }
-    var selectedGames by remember { mutableStateOf(setOf("math")) }
+    var sound by remember { mutableStateOf(initialSound(alarm)) }
+    var soundLabel by remember { mutableStateOf(soundLabelFor(initialSound(alarm))) }
+    var repeat by remember { mutableStateOf(repeatFromDays(initialDays(alarm))) }
+    var days by remember { mutableStateOf(initialDays(alarm).toSet()) }
+    var intensity by remember { mutableStateOf(alarm?.optJSONObject("pulse")?.optString("intensity")?.takeIf { requiredGamesByIntensity.containsKey(it) } ?: "gentle") }
+    var selectedGames by remember { mutableStateOf(initialGames(alarm, intensity)) }
     var showHardcoreWarning by remember { mutableStateOf(false) }
+    var showSoundPicker by remember { mutableStateOf(false) }
+    val isEditing = alarm != null
 
     val ringtoneLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -220,6 +228,93 @@ private fun NativeCreateAlarmScreen(
         )
     }
 
+    if (showSoundPicker) {
+        Dialog(onDismissRequest = { showSoundPicker = false }) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(28.dp),
+                color = Panel,
+                border = BorderStroke(1.dp, Color(0x18FFFFFF)),
+                tonalElevation = 12.dp,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color(0xFF20283A), Color(0xFF151A28)),
+                            ),
+                        )
+                        .padding(18.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .width(42.dp)
+                            .height(4.dp)
+                            .background(Color.White.copy(alpha = 0.18f), CircleShape),
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text("Alarm Sounds", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                    Text(soundLabel, color = Sunrise, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(14.dp))
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 360.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        sounds.forEach { option ->
+                            SoundRow(
+                                option = option,
+                                selected = sound == option.id,
+                                onClick = {
+                                    sound = option.id
+                                    soundLabel = option.label
+                                },
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = {
+                            ringtoneLauncher.launch(
+                                Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                                },
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(1.dp, Sunrise.copy(alpha = 0.35f)),
+                        shape = RoundedCornerShape(18.dp),
+                    ) {
+                        Text("Choose from device", color = TextPrimary, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(
+                            onClick = { previewSound(context, sound) },
+                            modifier = Modifier.weight(1f),
+                            border = BorderStroke(1.dp, Dawn.copy(alpha = 0.45f)),
+                            shape = RoundedCornerShape(18.dp),
+                        ) {
+                            Text("Preview", color = Dawn, fontWeight = FontWeight.Black)
+                        }
+                        Button(
+                            onClick = { showSoundPicker = false },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Dawn),
+                        ) {
+                            Text("Done", fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     MaterialTheme {
         Scaffold(
             containerColor = Night,
@@ -227,7 +322,7 @@ private fun NativeCreateAlarmScreen(
                 TopAppBar(
                     modifier = Modifier.statusBarsPadding(),
                     title = {
-                        Text("New alarm", color = TextPrimary, fontWeight = FontWeight.Black)
+                        Text(if (isEditing) "Edit alarm" else "New alarm", color = TextPrimary, fontWeight = FontWeight.Black)
                     },
                     navigationIcon = {
                         IconButton(onClick = onClose) {
@@ -241,6 +336,7 @@ private fun NativeCreateAlarmScreen(
                 SaveBar(
                     canSave = canSave,
                     missing = missing,
+                    saveLabel = if (isEditing) "Save changes" else "Set alarm",
                     onSave = {
                         if (!canSave) return@SaveBar
                         onSave(
@@ -261,7 +357,7 @@ private fun NativeCreateAlarmScreen(
                 )
             },
         ) { innerPadding ->
-            Column(
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
@@ -270,175 +366,166 @@ private fun NativeCreateAlarmScreen(
                         ),
                     )
                     .padding(innerPadding)
-                    .padding(horizontal = 20.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .padding(horizontal = 20.dp),
             ) {
-                TimeCard(hour, minute) { pickedHour, pickedMinute ->
-                    hour = pickedHour
-                    minute = pickedMinute
+                item {
+                    TimeCard(hour, minute) { pickedHour, pickedMinute ->
+                        hour = pickedHour
+                        minute = pickedMinute
+                    }
+                    Spacer(Modifier.height(18.dp))
                 }
 
-                Spacer(Modifier.height(18.dp))
-
-                OutlinedTextField(
-                    value = label,
-                    onValueChange = { label = it.take(40) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("Label") },
-                    placeholder = { Text("Morning routine, Gym, Work...") },
-                    shape = RoundedCornerShape(18.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedContainerColor = Panel,
-                        unfocusedContainerColor = Panel,
-                        focusedIndicatorColor = Dawn,
-                        unfocusedIndicatorColor = Color(0x22FFFFFF),
-                        focusedLabelColor = Dawn,
-                        unfocusedLabelColor = TextMuted,
-                        cursorColor = Dawn,
-                    ),
-                )
-                Text(
-                    "${label.length}/40",
-                    modifier = Modifier.align(Alignment.End).padding(top = 4.dp),
-                    color = TextMuted.copy(alpha = if (label.isBlank()) 0f else 1f),
-                    fontSize = 12.sp,
-                )
-
-                Section("Alarm sound", trailing = soundLabel) {
-                    SoundPicker(
-                        selectedSound = sound,
-                        onSelected = { option ->
-                            sound = option.id
-                            soundLabel = option.label
-                        },
+                item {
+                    OutlinedTextField(
+                        value = label,
+                        onValueChange = { label = it.take(40) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Label") },
+                        placeholder = { Text("Morning routine, Gym, Work...") },
+                        shape = RoundedCornerShape(18.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            focusedContainerColor = Panel,
+                            unfocusedContainerColor = Panel,
+                            focusedIndicatorColor = Dawn,
+                            unfocusedIndicatorColor = Color(0x22FFFFFF),
+                            focusedLabelColor = Dawn,
+                            unfocusedLabelColor = TextMuted,
+                            cursorColor = Dawn,
+                        ),
                     )
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "${label.length}/40",
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        color = TextMuted.copy(alpha = if (label.isBlank()) 0f else 1f),
+                        fontSize = 12.sp,
+                    )
+                }
+
+                item {
+                    Section("Alarm sound", trailing = soundLabel) {
                         OutlinedButton(
-                            onClick = {
-                                ringtoneLauncher.launch(
-                                    Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                                        putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                                        putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                                        putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
-                                    },
-                                )
-                            },
-                            modifier = Modifier.weight(1f),
+                            onClick = { showSoundPicker = true },
+                            modifier = Modifier.fillMaxWidth(),
                             border = BorderStroke(1.dp, Sunrise.copy(alpha = 0.35f)),
                         ) {
-                            Text("Choose from device", color = TextPrimary, fontWeight = FontWeight.Bold)
-                        }
-                        OutlinedButton(
-                            onClick = { previewSound(context, sound) },
-                            border = BorderStroke(1.dp, Dawn.copy(alpha = 0.45f)),
-                        ) {
-                            Text("Preview", color = Dawn, fontWeight = FontWeight.Bold)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("Alarm Sounds", color = TextPrimary, fontWeight = FontWeight.Black)
+                                Text(soundLabel, color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
 
-                Section("Repeat", trailing = repeatSummary(repeat, days)) {
-                    ChipRow(
-                        options = repeatModes,
-                        selected = repeat,
-                        onSelected = { selected ->
-                            repeat = selected
-                            days = daysForRepeat(selected, emptySet()).toSet()
-                        },
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    DayPicker(
-                        enabled = repeat == "custom",
-                        selectedDays = days,
-                        onToggle = { day ->
-                            days = if (days.contains(day)) days - day else days + day
-                        },
-                    )
-                    if (repeat == "custom" && days.isEmpty()) {
-                        Text(
-                            "Pick at least one day for a custom repeat.",
-                            modifier = Modifier.padding(top = 8.dp),
-                            color = Sunrise,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-                    }
-                }
-
-                Section("Wake-up intensity") {
-                    intensities.forEach { option ->
-                        IntensityCard(
-                            option = option,
-                            selected = intensity == option.id,
-                            onClick = {
-                                if (option.id == "hardcore") {
-                                    showHardcoreWarning = true
-                                } else {
-                                    intensity = option.id
-                                    selectedGames = emptySet()
-                                }
+                item {
+                    Section("Repeat", trailing = repeatSummary(repeat, days)) {
+                        ChipRow(
+                            options = repeatModes,
+                            selected = repeat,
+                            onSelected = { selected ->
+                                repeat = selected
+                                days = daysForRepeat(selected, emptySet()).toSet()
                             },
                         )
-                        Spacer(Modifier.height(8.dp))
-                    }
-                }
-
-                if (intensity != "hardcore") {
-                    Section(
-                        "Wake-up games",
-                        trailing = "${
-                            selectedGames.size
-                        }/$requiredGameCount selected",
-                    ) {
-                        Text(
-                            "Choose $requiredGameCount game${if (requiredGameCount > 1) "s" else ""}. All selected games must be completed to dismiss.",
-                            color = TextMuted,
-                            fontSize = 13.sp,
+                        Spacer(Modifier.height(12.dp))
+                        DayPicker(
+                            enabled = repeat == "custom",
+                            selectedDays = days,
+                            onToggle = { day ->
+                                days = if (days.contains(day)) days - day else days + day
+                            },
                         )
-                        Spacer(Modifier.height(10.dp))
-                        games.forEach { game ->
-                            GameCard(
-                                option = game,
-                                selected = selectedGames.contains(game.id),
-                                onClick = {
-                                    if (selectedGames.contains(game.id)) {
-                                        selectedGames = selectedGames - game.id
-                                    } else if (selectedGames.size < requiredGameCount) {
-                                        selectedGames = selectedGames + game.id
-                                    }
-                                },
-                            )
-                            Spacer(Modifier.height(8.dp))
-                        }
-                        if (!gamesComplete) {
+                        if (repeat == "custom" && days.isEmpty()) {
                             Text(
-                                "Choose $requiredGameCount game${if (requiredGameCount > 1) "s" else ""} to finish setup.",
+                                "Pick at least one day for a custom repeat.",
+                                modifier = Modifier.padding(top = 8.dp),
                                 color = Sunrise,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                             )
                         }
                     }
-                } else {
-                    Section("Wake-up games", trailing = "3/3 selected") {
-                        Text(
-                            "Hardcore uses all games and locks the app until every challenge is completed.",
-                            color = TextMuted,
-                            fontSize = 13.sp,
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        games.forEach { game ->
-                            GameCard(option = game, selected = true, onClick = {})
+                }
+
+                item {
+                    Section("Wake-up intensity") {
+                        intensities.forEach { option ->
+                            IntensityCard(
+                                option = option,
+                                selected = intensity == option.id,
+                                onClick = {
+                                    if (option.id == "hardcore") {
+                                        showHardcoreWarning = true
+                                    } else {
+                                        intensity = option.id
+                                        selectedGames = emptySet()
+                                    }
+                                },
+                            )
                             Spacer(Modifier.height(8.dp))
                         }
                     }
                 }
 
-                Spacer(Modifier.height(28.dp))
+                item {
+                    if (intensity != "hardcore") {
+                        Section(
+                            "Wake-up games",
+                            trailing = "${selectedGames.size}/$requiredGameCount selected",
+                        ) {
+                            Text(
+                                "Choose $requiredGameCount game${if (requiredGameCount > 1) "s" else ""}. All selected games must be completed to dismiss.",
+                                color = TextMuted,
+                                fontSize = 13.sp,
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            games.forEach { game ->
+                                GameCard(
+                                    option = game,
+                                    selected = selectedGames.contains(game.id),
+                                    onClick = {
+                                        if (selectedGames.contains(game.id)) {
+                                            selectedGames = selectedGames - game.id
+                                        } else if (selectedGames.size < requiredGameCount) {
+                                            selectedGames = selectedGames + game.id
+                                        }
+                                    },
+                                )
+                                Spacer(Modifier.height(8.dp))
+                            }
+                            if (!gamesComplete) {
+                                Text(
+                                    "Choose $requiredGameCount game${if (requiredGameCount > 1) "s" else ""} to finish setup.",
+                                    color = Sunrise,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    } else {
+                        Section("Wake-up games", trailing = "3/3 selected") {
+                            Text(
+                                "Hardcore uses all games and locks the app until every challenge is completed.",
+                                color = TextMuted,
+                                fontSize = 13.sp,
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            games.forEach { game ->
+                                GameCard(option = game, selected = true, onClick = {})
+                                Spacer(Modifier.height(8.dp))
+                            }
+                        }
+                    }
+                }
+
+                item { Spacer(Modifier.height(28.dp)) }
             }
         }
     }
@@ -587,6 +674,47 @@ private fun SoundCard(
             }
             Spacer(Modifier.height(4.dp))
             Text(option.desc, color = TextMuted, fontSize = 11.sp, lineHeight = 14.sp)
+        }
+    }
+}
+
+@Composable
+private fun SoundRow(option: SoundOption, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = if (selected) option.color.copy(alpha = 0.13f) else Color.White.copy(alpha = 0.045f),
+        border = BorderStroke(1.dp, if (selected) option.color.copy(alpha = 0.75f) else Color.White.copy(alpha = 0.08f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(option.color.copy(alpha = 0.18f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(option.label.first().toString(), color = option.color, fontWeight = FontWeight.Black)
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(option.label, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                Text(option.desc, color = TextMuted, fontSize = 12.sp)
+            }
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .background(option.color, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("✓", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                }
+            }
         }
     }
 }
@@ -746,7 +874,7 @@ private fun ChipRow(
 }
 
 @Composable
-private fun SaveBar(canSave: Boolean, missing: List<String>, onSave: () -> Unit) {
+private fun SaveBar(canSave: Boolean, missing: List<String>, saveLabel: String, onSave: () -> Unit) {
     Surface(
         color = Night.copy(alpha = 0.96f),
         tonalElevation = 8.dp,
@@ -784,12 +912,21 @@ private fun SaveBar(canSave: Boolean, missing: List<String>, onSave: () -> Unit)
                 colors = ButtonDefaults.buttonColors(containerColor = Dawn, disabledContainerColor = PanelSoft),
             ) {
                 Text(
-                    if (canSave) "Set alarm" else "Choose all required settings",
+                    if (canSave) saveLabel else "Choose all required settings",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Black,
                 )
             }
         }
+    }
+}
+
+private fun parseInitialAlarm(alarmJson: String?): JSONObject? {
+    if (alarmJson.isNullOrBlank()) return null
+    return try {
+        JSONObject(alarmJson)
+    } catch (_: Exception) {
+        null
     }
 }
 
@@ -808,6 +945,53 @@ private fun calendarFromDefaultTime(defaultTime: String?): Calendar {
         }
     }
     return calendar.apply { add(Calendar.MINUTE, 5) }
+}
+
+private fun initialSound(alarm: JSONObject?): String {
+    val pulseSound = alarm?.optJSONObject("pulse")?.optString("sound").orEmpty()
+    return alarm?.optString("sound")?.takeIf { it.isNotBlank() }
+        ?: pulseSound.takeIf { it.isNotBlank() }
+        ?: "gentle_chime"
+}
+
+private fun soundLabelFor(sound: String): String {
+    return sounds.firstOrNull { it.id == sound }?.label ?: "Device sound"
+}
+
+private fun initialDays(alarm: JSONObject?): List<Int> {
+    val result = mutableListOf<Int>()
+    val array = alarm?.optJSONArray("days") ?: return result
+    for (i in 0 until array.length()) {
+        val day = array.optInt(i, -1)
+        if (day in 0..6) result.add(day)
+    }
+    return result.distinct()
+}
+
+private fun initialGames(alarm: JSONObject?, intensity: String): Set<String> {
+    if (intensity == "hardcore") return games.map { it.id }.toSet()
+    val validGames = games.map { it.id }.toSet()
+    val parsed = mutableSetOf<String>()
+    val array = alarm?.optJSONObject("pulse")?.optJSONArray("games")
+    if (array != null) {
+        for (i in 0 until array.length()) {
+            val game = array.optString(i)
+            if (validGames.contains(game)) parsed.add(game)
+        }
+    }
+    val required = requiredGamesByIntensity[intensity] ?: 1
+    return parsed.takeIf { it.size == required } ?: games.take(required).map { it.id }.toSet()
+}
+
+private fun repeatFromDays(days: List<Int>): String {
+    val sorted = days.sorted()
+    return when (sorted) {
+        emptyList<Int>() -> "once"
+        listOf(1, 2, 3, 4, 5) -> "weekdays"
+        listOf(0, 6) -> "weekend"
+        listOf(0, 1, 2, 3, 4, 5, 6) -> "every"
+        else -> "custom"
+    }
 }
 
 private fun daysForRepeat(repeat: String, customDays: Set<Int>): List<Int> {

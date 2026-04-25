@@ -54,6 +54,40 @@ public class AlarmPlugin extends Plugin {
         call.resolve();
     }
 
+    @PluginMethod
+    public void showNativeStats(PluginCall call) {
+        NativeStatsScreenKt.showNativeStats(new StatsData(
+            call.getInt("level", 1),
+            call.getInt("xp", 0),
+            call.getInt("xpPerLevel", 100),
+            call.getInt("streak", 0),
+            call.getInt("demerits", 0),
+            call.getInt("alarmsCount", 0),
+            call.getInt("activeAlarmsCount", 0),
+            call.getInt("successCount", 0),
+            call.getInt("failedCount", 0)
+        ));
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void hideNativeStats(PluginCall call) {
+        NativeStatsScreenKt.hideNativeStats();
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void showNativeAlarms(PluginCall call) {
+        NativeAlarmsScreenKt.showNativeAlarms(NativeAlarmsScreenKt.nativeAlarmsDataFromJson(call.getData()));
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void hideNativeAlarms(PluginCall call) {
+        NativeAlarmsScreenKt.hideNativeAlarms();
+        call.resolve();
+    }
+
     private void cancelNagAlarm(String alarmId) {
         if (alarmId == null) {
             return;
@@ -293,6 +327,10 @@ public class AlarmPlugin extends Plugin {
         if (defaultTime != null) {
             intent.putExtra("defaultTime", defaultTime);
         }
+        String alarm = call.getString("alarm");
+        if (alarm != null && !alarm.isEmpty()) {
+            intent.putExtra("alarm", alarm);
+        }
         startActivityForResult(call, intent, "handleNativeCreateAlarmResult");
     }
 
@@ -372,45 +410,70 @@ public class AlarmPlugin extends Plugin {
 
     @PluginMethod
     public void requestAlarmPermissions(PluginCall call) {
+        // Each intent is wrapped individually — ActivityNotFoundException on custom ROMs
+        // (MIUI, OneUI, etc.) must not abort the whole call.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !getAlarmManager().canScheduleExactAlarms()) {
-            Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
-            intent.setData(Uri.parse("package:" + getContext().getPackageName()));
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(intent);
+            try {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+                intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(intent);
+            } catch (Exception e) {
+                openAppSettings();
+            }
         }
 
         // POST_NOTIFICATIONS — runtime request (API 33+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // API 33
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (!NotificationManagerCompat.from(getContext()).areNotificationsEnabled()) {
-                ActivityCompat.requestPermissions(
-                    getActivity(),
-                    new String[]{ android.Manifest.permission.POST_NOTIFICATIONS },
-                    1001);
+                try {
+                    ActivityCompat.requestPermissions(
+                        getActivity(),
+                        new String[]{ android.Manifest.permission.POST_NOTIFICATIONS },
+                        1001);
+                } catch (Exception ignored) {}
             }
         }
 
         // USE_FULL_SCREEN_INTENT — must be granted in Settings (API 34+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // API 34
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             NotificationManager nm =
                 (NotificationManager) getContext().getSystemService(Context.NOTIFICATION_SERVICE);
             if (!nm.canUseFullScreenIntent()) {
-                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT);
-                intent.setData(Uri.parse("package:" + getContext().getPackageName()));
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                getContext().startActivity(intent);
+                try {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT);
+                    intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    getContext().startActivity(intent);
+                } catch (Exception e) {
+                    openAppSettings();
+                }
             }
         }
 
         // Battery optimization exemption
         PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
         if (!pm.isIgnoringBatteryOptimizations(getContext().getPackageName())) {
-            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-            intent.setData(Uri.parse("package:" + getContext().getPackageName()));
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(intent);
+            try {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(intent);
+            } catch (Exception e) {
+                openAppSettings();
+            }
         }
 
         call.resolve();
+    }
+
+    private void openAppSettings() {
+        try {
+            Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(Uri.parse("package:" + getContext().getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+        } catch (Exception ignored) {}
     }
 
     @PluginMethod

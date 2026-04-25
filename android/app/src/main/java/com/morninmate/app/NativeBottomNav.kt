@@ -108,7 +108,10 @@ fun setupNativeBottomNav(activity: ComponentActivity, listener: NavTabListener) 
 
 fun setNativeBottomNavVisible(visible: Boolean) {
     nativeBottomNavView?.post {
-        nativeBottomNavView?.visibility = if (visible) View.VISIBLE else View.GONE
+        val nextVisibility = if (visible) View.VISIBLE else View.GONE
+        if (nativeBottomNavView?.visibility != nextVisibility) {
+            nativeBottomNavView?.visibility = nextVisibility
+        }
     }
 }
 
