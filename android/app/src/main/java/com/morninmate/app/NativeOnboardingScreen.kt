@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,7 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -93,6 +93,7 @@ private val ObBlue = Color(0xFF60A5FA)
 private val ObPurple = Color(0xFFA78BFA)
 private val ObWheelRowHeight = 46.dp
 private const val ObWheelVisibleRows = 5
+private const val ObWheelCycles = 200
 
 private val stepIds = listOf("welcome", "wakeTime", "morningType", "game", "goal", "name", "age", "country", "avatar", "summary")
 
@@ -459,25 +460,31 @@ private fun <T> OnboardingWheelColumn(
     onSelected: (T) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val valueCount = values.size.coerceAtLeast(1)
     val selectedIndex = values.indexOf(selectedValue).coerceAtLeast(0)
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
+    val initialIndex = remember(valueCount) { (valueCount * ObWheelCycles / 2) + selectedIndex }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     val rowHeightPx = with(LocalDensity.current) { ObWheelRowHeight.toPx() }
+    val virtualCount = valueCount * ObWheelCycles
     val centeredIndex by remember {
         androidx.compose.runtime.derivedStateOf {
             (listState.firstVisibleItemIndex +
                 if (listState.firstVisibleItemScrollOffset > rowHeightPx / 2f) 1 else 0)
-                .coerceIn(0, values.lastIndex)
+                .coerceIn(0, virtualCount - 1)
         }
+    }
+    val centeredValueIndex by remember {
+        androidx.compose.runtime.derivedStateOf { onboardingWheelIndex(centeredIndex, valueCount) }
     }
 
     LaunchedEffect(selectedIndex) {
-        if (!listState.isScrollInProgress && selectedIndex != centeredIndex) {
-            listState.scrollToItem(selectedIndex)
+        if (!listState.isScrollInProgress && selectedIndex != centeredValueIndex) {
+            listState.scrollToItem(nearestOnboardingWheelIndex(centeredIndex, selectedIndex, valueCount))
         }
     }
 
     LaunchedEffect(listState, values) {
-        snapshotFlow { centeredIndex }
+        snapshotFlow { centeredValueIndex }
             .distinctUntilChanged()
             .collect { index -> onSelected(values[index]) }
     }
@@ -516,10 +523,12 @@ private fun <T> OnboardingWheelColumn(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = ObWheelRowHeight * 2),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                items(2) { OnboardingWheelSpacerRow() }
-                itemsIndexed(values) { index, value ->
+                items(virtualCount) { index ->
+                    val valueIndex = onboardingWheelIndex(index, valueCount)
+                    val value = values[valueIndex]
                     val selected = index == centeredIndex
                     Box(
                         modifier = Modifier
@@ -537,7 +546,6 @@ private fun <T> OnboardingWheelColumn(
                         )
                     }
                 }
-                items(2) { OnboardingWheelSpacerRow() }
             }
             Box(
                 modifier = Modifier
@@ -557,11 +565,6 @@ private fun <T> OnboardingWheelColumn(
     }
 }
 
-@Composable
-private fun OnboardingWheelSpacerRow() {
-    Spacer(Modifier.height(ObWheelRowHeight))
-}
-
 private fun toOnboarding24Hour(hour12: Int, period: String): Int =
     when {
         period == "AM" && hour12 == 12 -> 0
@@ -569,6 +572,18 @@ private fun toOnboarding24Hour(hour12: Int, period: String): Int =
         hour12 == 12 -> 12
         else -> hour12 + 12
     }
+
+private fun onboardingWheelIndex(index: Int, valueCount: Int): Int =
+    ((index % valueCount) + valueCount) % valueCount
+
+private fun nearestOnboardingWheelIndex(currentIndex: Int, selectedIndex: Int, valueCount: Int): Int {
+    val currentValueIndex = onboardingWheelIndex(currentIndex, valueCount)
+    val forward = (selectedIndex - currentValueIndex + valueCount) % valueCount
+    val backward = forward - valueCount
+    val delta = if (kotlin.math.abs(backward) < forward) backward else forward
+    return currentIndex + delta
+}
+
 
 @Composable
 private fun MorningTypeStep(selected: Int, onSelect: (Int) -> Unit) {
@@ -620,25 +635,31 @@ private fun BirthYearStep(value: String, onChange: (String) -> Unit) {
     val currentYear = Calendar.getInstance().get(Calendar.YEAR)
     val years = remember(currentYear) { (currentYear downTo currentYear - 100).toList() }
     val selectedYear = value.toIntOrNull()?.coerceIn(currentYear - 100, currentYear) ?: currentYear - 25
+    val valueCount = years.size
     val selectedIndex = years.indexOf(selectedYear).coerceAtLeast(0)
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
+    val initialIndex = remember(valueCount) { (valueCount * ObWheelCycles / 2) + selectedIndex }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     val rowHeightPx = with(LocalDensity.current) { ObWheelRowHeight.toPx() }
+    val virtualCount = valueCount * ObWheelCycles
     val centeredIndex by remember {
         androidx.compose.runtime.derivedStateOf {
             (listState.firstVisibleItemIndex +
                 if (listState.firstVisibleItemScrollOffset > rowHeightPx / 2f) 1 else 0)
-                .coerceIn(0, years.lastIndex)
+                .coerceIn(0, virtualCount - 1)
         }
+    }
+    val centeredValueIndex by remember {
+        androidx.compose.runtime.derivedStateOf { onboardingWheelIndex(centeredIndex, valueCount) }
     }
 
     LaunchedEffect(selectedIndex) {
-        if (!listState.isScrollInProgress && selectedIndex != centeredIndex) {
-            listState.scrollToItem(selectedIndex)
+        if (!listState.isScrollInProgress && selectedIndex != centeredValueIndex) {
+            listState.scrollToItem(nearestOnboardingWheelIndex(centeredIndex, selectedIndex, valueCount))
         }
     }
 
     LaunchedEffect(listState, years) {
-        snapshotFlow { centeredIndex }
+        snapshotFlow { centeredValueIndex }
             .distinctUntilChanged()
             .collect { index -> onChange(years[index].toString()) }
     }
@@ -681,10 +702,12 @@ private fun BirthYearStep(value: String, onChange: (String) -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(ObWheelRowHeight * ObWheelVisibleRows),
+                contentPadding = PaddingValues(vertical = ObWheelRowHeight * 2),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                items(2) { OnboardingWheelSpacerRow() }
-                itemsIndexed(years) { index, year ->
+                items(virtualCount) { index ->
+                    val valueIndex = onboardingWheelIndex(index, valueCount)
+                    val year = years[valueIndex]
                     val selected = index == centeredIndex
                     Box(
                         modifier = Modifier
@@ -701,7 +724,6 @@ private fun BirthYearStep(value: String, onChange: (String) -> Unit) {
                         )
                     }
                 }
-                items(2) { OnboardingWheelSpacerRow() }
             }
             Box(
                 modifier = Modifier

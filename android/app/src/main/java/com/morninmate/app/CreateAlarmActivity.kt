@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -89,6 +88,7 @@ private val TextPrimary = Color(0xFFFFF5DF)
 private val TextMuted = Color(0xFFA7ADC0)
 private val WheelRowHeight = 46.dp
 private const val WheelVisibleRows = 5
+private const val WheelCycles = 200
 
 @Immutable
 private data class SoundOption(val id: String, val label: String, val desc: String, val color: Color)
@@ -689,25 +689,31 @@ private fun <T> WheelColumn(
     onSelected: (T) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val valueCount = values.size.coerceAtLeast(1)
     val selectedIndex = values.indexOf(selectedValue).coerceAtLeast(0)
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
+    val initialIndex = remember(valueCount) { (valueCount * WheelCycles / 2) + selectedIndex }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     val rowHeightPx = with(LocalDensity.current) { WheelRowHeight.toPx() }
+    val virtualCount = valueCount * WheelCycles
     val centeredIndex by remember {
         derivedStateOf {
             (listState.firstVisibleItemIndex +
                 if (listState.firstVisibleItemScrollOffset > rowHeightPx / 2f) 1 else 0)
-                .coerceIn(0, values.lastIndex)
+                .coerceIn(0, virtualCount - 1)
         }
+    }
+    val centeredValueIndex by remember {
+        derivedStateOf { wheelIndex(centeredIndex, valueCount) }
     }
 
     LaunchedEffect(selectedIndex) {
-        if (!listState.isScrollInProgress && selectedIndex != centeredIndex) {
-            listState.scrollToItem(selectedIndex)
+        if (!listState.isScrollInProgress && selectedIndex != centeredValueIndex) {
+            listState.scrollToItem(nearestWheelIndex(centeredIndex, selectedIndex, valueCount))
         }
     }
 
     LaunchedEffect(listState, values) {
-        snapshotFlow { centeredIndex }
+        snapshotFlow { centeredValueIndex }
             .distinctUntilChanged()
             .collect { index -> onSelected(values[index]) }
     }
@@ -746,10 +752,12 @@ private fun <T> WheelColumn(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = WheelRowHeight * 2),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                items(2) { WheelSpacerRow() }
-                itemsIndexed(values) { index, value ->
+                items(virtualCount) { index ->
+                    val valueIndex = wheelIndex(index, valueCount)
+                    val value = values[valueIndex]
                     val selected = index == centeredIndex
                     Box(
                         modifier = Modifier
@@ -767,7 +775,6 @@ private fun <T> WheelColumn(
                         )
                     }
                 }
-                items(2) { WheelSpacerRow() }
             }
             Box(
                 modifier = Modifier
@@ -787,11 +794,6 @@ private fun <T> WheelColumn(
     }
 }
 
-@Composable
-private fun WheelSpacerRow() {
-    Spacer(Modifier.height(WheelRowHeight))
-}
-
 private fun to24Hour(hour12: Int, period: String): Int =
     when {
         period == "AM" && hour12 == 12 -> 0
@@ -799,6 +801,17 @@ private fun to24Hour(hour12: Int, period: String): Int =
         hour12 == 12 -> 12
         else -> hour12 + 12
     }
+
+private fun wheelIndex(index: Int, valueCount: Int): Int =
+    ((index % valueCount) + valueCount) % valueCount
+
+private fun nearestWheelIndex(currentIndex: Int, selectedIndex: Int, valueCount: Int): Int {
+    val currentValueIndex = wheelIndex(currentIndex, valueCount)
+    val forward = (selectedIndex - currentValueIndex + valueCount) % valueCount
+    val backward = forward - valueCount
+    val delta = if (kotlin.math.abs(backward) < forward) backward else forward
+    return currentIndex + delta
+}
 
 @Composable
 private fun Section(
