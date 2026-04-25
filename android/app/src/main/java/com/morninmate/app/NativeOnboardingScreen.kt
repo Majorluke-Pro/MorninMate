@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -54,10 +57,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -71,6 +76,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.flow.distinctUntilChanged
+import java.util.Calendar
 
 private val ObBg = Color(0xFF111827)
 private val ObCard = Color(0xFF1E2533)
@@ -182,9 +189,10 @@ private data class OnboardingData(
 
 @Composable
 private fun NativeOnboardingScreen(onComplete: (OnboardingData) -> Unit) {
+    val initialBirthYear = remember { (Calendar.getInstance().get(Calendar.YEAR) - 25).toString() }
     var step by remember { mutableStateOf(0) }
     var name by remember { mutableStateOf("") }
-    var age by remember { mutableStateOf("") }
+    var age by remember { mutableStateOf(initialBirthYear) }
     var country by remember { mutableStateOf("") }
     var wakeTime by remember { mutableStateOf("07:00") }
     var morningRating by remember { mutableStateOf(3) }
@@ -193,9 +201,10 @@ private fun NativeOnboardingScreen(onComplete: (OnboardingData) -> Unit) {
     var profileIcon by remember { mutableStateOf("bolt") }
 
     val current = stepIds[step]
+    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
     val canContinue = when (current) {
         "name" -> name.trim().length >= 2
-        "age" -> age.toIntOrNull()?.let { it in 1..120 } == true
+        "age" -> age.toIntOrNull()?.let { it in (currentYear - 100)..currentYear } == true
         "country" -> country.trim().length >= 2
         "goal" -> wakeGoal.trim().isNotBlank()
         else -> true
@@ -233,8 +242,8 @@ private fun NativeOnboardingScreen(onComplete: (OnboardingData) -> Unit) {
                         "morningType" -> MorningTypeStep(morningRating) { morningRating = it }
                         "game" -> GameStep(favoriteGame) { favoriteGame = it }
                         "goal" -> GoalStep(wakeGoal) { wakeGoal = it }
-                        "name" -> TextInputStep(Icons.Default.Person, "Step 5", "What's your name?", "Now let's make the app feel like yours", "Enter your name...", name, false) { name = it.take(30) }
-                        "age" -> TextInputStep(Icons.Default.Cake, "Step 6", "How old are you?", "A quick detail so we know who we're building mornings for", "Enter your age...", age, true) { age = it.filter(Char::isDigit).take(3) }
+                        "name" -> TextInputStep(Icons.Default.Person, "Step 5", "Choose your display name", "This is how MorninMate will greet you", "Enter display name...", name, false) { name = it.take(30) }
+                        "age" -> BirthYearStep(age) { age = it }
                         "country" -> CountryStep(country) { country = it }
                         "avatar" -> AvatarStep(profileIcon) { profileIcon = it }
                         "summary" -> SummaryStep(
@@ -440,6 +449,77 @@ private fun TextInputStep(icon: ImageVector, eyebrow: String, title: String, sub
 }
 
 @Composable
+private fun BirthYearStep(value: String, onChange: (String) -> Unit) {
+    val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+    val years = remember(currentYear) { (currentYear downTo currentYear - 100).toList() }
+    val selectedYear = value.toIntOrNull()?.coerceIn(currentYear - 100, currentYear) ?: currentYear - 25
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = (years.indexOf(selectedYear) - 2).coerceAtLeast(0))
+
+    LaunchedEffect(listState, years) {
+        snapshotFlow {
+            val centeredIndex = listState.firstVisibleItemIndex +
+                if (listState.firstVisibleItemScrollOffset > 27) 3 else 2
+            centeredIndex.coerceIn(0, years.lastIndex)
+        }
+            .distinctUntilChanged()
+            .collect { index -> onChange(years[index].toString()) }
+    }
+
+    StepHeader(Icons.Default.Cake, "Step 6", "What year were you born?", "Pick your birth year only")
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = ObInput,
+        border = BorderStroke(1.dp, ObDawn.copy(alpha = 0.45f)),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(230.dp)
+                .padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .padding(horizontal = 18.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = ObDawn.copy(alpha = 0.12f),
+                border = BorderStroke(1.dp, ObDawn.copy(alpha = 0.42f)),
+            ) {}
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(210.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                items(years) { year ->
+                    val selected = year == selectedYear
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .clickable { onChange(year.toString()) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = year.toString(),
+                            color = if (selected) ObText else ObMuted,
+                            fontSize = if (selected) 28.sp else 18.sp,
+                            fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+        }
+    }
+    Spacer(Modifier.height(10.dp))
+    Text("Selected birth year: $selectedYear", color = ObMuted, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+}
+
+@Composable
 private fun CountryStep(selected: String, onSelect: (String) -> Unit) {
     StepHeader(Icons.Default.Public, "Step 7", "Which country are you in?", "We'll tailor the experience around where you are")
     ChoiceList {
@@ -486,8 +566,8 @@ private fun SummaryStep(data: OnboardingData) {
     SummaryRow("Morning type", morningTypes.firstOrNull { it.value == data.morningRating }?.label ?: "-")
     SummaryRow("Wake-up game", gameOptions.firstOrNull { it.id == data.favoriteGame }?.label ?: "-")
     SummaryRow("Morning goal", data.wakeGoal.ifBlank { "-" })
-    SummaryRow("Name", data.name.ifBlank { "-" })
-    SummaryRow("Age", data.age.ifBlank { "-" })
+    SummaryRow("Display name", data.name.ifBlank { "-" })
+    SummaryRow("Birth year", data.age.ifBlank { "-" })
     SummaryRow("Country", data.country.ifBlank { "-" })
     SummaryRow("Icon", avatarOptions.firstOrNull { it.id == data.profileIcon }?.label ?: "-")
 }
