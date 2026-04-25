@@ -175,7 +175,7 @@ private fun NativeProfileScreen(data: ProfileData) {
             onDismissRequest = { showDeleteConfirm = false },
             containerColor = Color(0xFF210808),
             title = { Text("Delete all data?", color = ProfileText, fontWeight = FontWeight.Black) },
-            text = { Text("This removes alarms, stats, and pending alarm state from this phone. Your account stays signed in.", color = ProfileMuted) },
+            text = { Text("This removes alarms, stats, and profile setup from this phone. Your account stays signed in.", color = ProfileMuted) },
             confirmButton = {
                 Button(
                     onClick = {

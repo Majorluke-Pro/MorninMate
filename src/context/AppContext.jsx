@@ -524,14 +524,14 @@ export function AppProvider({ children }) {
     return canUseOffline;
   }
 
-  function clearLocalState({ preservePendingOps = false } = {}) {
+  function clearLocalState({ preservePendingOps = false, preserveAuthUser = false } = {}) {
     setCachedAlarms([]);
     if (!preservePendingOps) clearPendingOps();
     clearPendingProfileSync();
     clearPendingWakeSessions();
     clearCachedUser();
     clearCachedWakeStats();
-    clearCachedAuthUser();
+    if (!preserveAuthUser) clearCachedAuthUser();
     sessionStorage.removeItem('mm_pending_onboarding');
     setPendingOnboardingState(null);
     setShowAuthDirectly(false);
@@ -1563,10 +1563,9 @@ export function AppProvider({ children }) {
       localStorage.removeItem('mm_profile_icon');
     } catch {}
 
-    clearLocalState();
+    clearLocalState({ preserveAuthUser: true });
 
     if (!userId || !navigator.onLine) {
-      setSession(null);
       return;
     }
 
@@ -1595,7 +1594,7 @@ export function AppProvider({ children }) {
         await supabase.from('wake_sessions').delete().eq('user_id', userId);
       } catch {}
 
-      await supabase.auth.signOut();
+      setCloudReachable(true);
     } catch {
       setCloudReachable(false);
     }

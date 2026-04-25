@@ -184,26 +184,12 @@ object NativeAlarmStore {
     }
 
     fun deleteData(context: Context) {
-        val saved = prefs(context)
-        val keepOnboarded = saved.getBoolean("onboarding_complete", false) || saved.contains("userName")
-        val accountName = saved.getString("userName", null)
-        val profileIcon = saved.getString("profileIcon", null)
-
         alarms(context).forEach { alarm ->
             val id = alarm.optString("id")
             if (id.isNotBlank()) cancelScheduled(context, id)
         }
         context.stopService(Intent(context, AlarmService::class.java))
-        saved.edit().clear().apply()
-        if (keepOnboarded) {
-            saved.edit()
-                .putBoolean("onboarding_complete", true)
-                .apply {
-                    accountName?.let { putString("userName", it) }
-                    profileIcon?.let { putString("profileIcon", it) }
-                }
-                .apply()
-        }
+        prefs(context).edit().clear().apply()
         disableHardcoreLock(context)
     }
 
