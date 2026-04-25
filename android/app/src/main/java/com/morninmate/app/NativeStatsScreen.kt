@@ -44,6 +44,7 @@ fun setupNativeStatsScreen(activity: ComponentActivity) {
     nativeStatsView?.let { root.removeView(it) }
 
     val composeView = ComposeView(activity).apply {
+        isClickable = true
         visibility = View.GONE
         elevation = 40f
         translationZ = 40f
