@@ -16,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +32,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -38,23 +40,18 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -84,8 +82,11 @@ private val PanelSoft = Color(0xFF20283A)
 private val TextPrimary = Color(0xFFFFF5DF)
 private val TextMuted = Color(0xFFA7ADC0)
 
+@Immutable
 private data class SoundOption(val id: String, val label: String, val desc: String, val color: Color)
+@Immutable
 private data class IntensityOption(val id: String, val label: String, val desc: String, val xp: Int, val color: Color)
+@Immutable
 private data class GameOption(val id: String, val label: String, val desc: String, val color: Color)
 
 private val sounds = listOf(
@@ -183,16 +184,28 @@ private fun NativeCreateAlarmScreen(
         soundLabel = ringtone?.getTitle(context) ?: "Device sound"
     }
 
-    val requiredGameCount = requiredGamesByIntensity[intensity] ?: 0
-    val repeatComplete = repeat != "custom" || days.isNotEmpty()
-    val gamesComplete = intensity == "hardcore" || selectedGames.size == requiredGameCount
-    val canSave = sound.isNotBlank() && intensity.isNotBlank() && repeatComplete && gamesComplete
-    val missing = listOfNotNull(
-        if (!repeatComplete) "repeat" else null,
-        if (sound.isBlank()) "sound" else null,
-        if (intensity.isBlank()) "intensity" else null,
-        if (!gamesComplete) "games" else null,
-    )
+    val requiredGameCount by remember(intensity) {
+        derivedStateOf { requiredGamesByIntensity[intensity] ?: 0 }
+    }
+    val repeatComplete by remember(repeat, days) {
+        derivedStateOf { repeat != "custom" || days.isNotEmpty() }
+    }
+    val gamesComplete by remember(intensity, selectedGames, requiredGameCount) {
+        derivedStateOf { intensity == "hardcore" || selectedGames.size == requiredGameCount }
+    }
+    val canSave by remember(sound, intensity, repeatComplete, gamesComplete) {
+        derivedStateOf { sound.isNotBlank() && intensity.isNotBlank() && repeatComplete && gamesComplete }
+    }
+    val missing by remember(repeatComplete, sound, intensity, gamesComplete) {
+        derivedStateOf {
+            listOfNotNull(
+                if (!repeatComplete) "repeat" else null,
+                if (sound.isBlank()) "sound" else null,
+                if (intensity.isBlank()) "intensity" else null,
+                if (!gamesComplete) "games" else null,
+            )
+        }
+    }
 
     if (showHardcoreWarning) {
         AlertDialog(
@@ -316,57 +329,19 @@ private fun NativeCreateAlarmScreen(
     }
 
     MaterialTheme {
-        Scaffold(
-            containerColor = Night,
-            topBar = {
-                TopAppBar(
-                    modifier = Modifier.statusBarsPadding(),
-                    title = {
-                        Text(if (isEditing) "Edit alarm" else "New alarm", color = TextPrimary, fontWeight = FontWeight.Black)
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onClose) {
-                            Text("X", color = TextPrimary, fontWeight = FontWeight.Black)
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                )
-            },
-            bottomBar = {
-                SaveBar(
-                    canSave = canSave,
-                    missing = missing,
-                    saveLabel = if (isEditing) "Save changes" else "Set alarm",
-                    onSave = {
-                        if (!canSave) return@SaveBar
-                        onSave(
-                            JSONObject()
-                                .put("label", label.ifBlank { "Alarm" })
-                                .put("time", "%02d:%02d".format(hour, minute))
-                                .put("sound", sound)
-                                .put("days", JSONArray(daysForRepeat(repeat, days)))
-                                .put(
-                                    "pulse",
-                                    JSONObject()
-                                        .put("intensity", intensity)
-                                        .put("games", JSONArray(selectedGames.toList()))
-                                        .put("sound", sound),
-                                ),
-                        )
-                    },
-                )
-            },
-        ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Night),
+        ) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color(0xFF10182A), Night, Color(0xFF140C16)),
-                        ),
-                    )
-                    .padding(innerPadding)
-                    .padding(horizontal = 20.dp),
+                    .background(Night)
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(top = 84.dp, bottom = 112.dp),
+                contentPadding = PaddingValues(horizontal = 20.dp),
             ) {
                 item {
                     TimeCard(hour, minute) { pickedHour, pickedMinute ->
@@ -377,25 +352,9 @@ private fun NativeCreateAlarmScreen(
                 }
 
                 item {
-                    OutlinedTextField(
+                    LabelField(
                         value = label,
                         onValueChange = { label = it.take(40) },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text("Label") },
-                        placeholder = { Text("Morning routine, Gym, Work...") },
-                        shape = RoundedCornerShape(18.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary,
-                            focusedContainerColor = Panel,
-                            unfocusedContainerColor = Panel,
-                            focusedIndicatorColor = Dawn,
-                            unfocusedIndicatorColor = Color(0x22FFFFFF),
-                            focusedLabelColor = Dawn,
-                            unfocusedLabelColor = TextMuted,
-                            cursorColor = Dawn,
-                        ),
                     )
                     Text(
                         "${label.length}/40",
@@ -527,7 +486,90 @@ private fun NativeCreateAlarmScreen(
 
                 item { Spacer(Modifier.height(28.dp)) }
             }
+            HeaderBar(
+                title = if (isEditing) "Edit alarm" else "New alarm",
+                onClose = onClose,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
+            SaveBar(
+                canSave = canSave,
+                missing = missing,
+                saveLabel = if (isEditing) "Save changes" else "Set alarm",
+                onSave = {
+                    if (!canSave) return@SaveBar
+                    onSave(
+                        JSONObject()
+                            .put("label", label.ifBlank { "Alarm" })
+                            .put("time", "%02d:%02d".format(hour, minute))
+                            .put("sound", sound)
+                            .put("days", JSONArray(daysForRepeat(repeat, days)))
+                            .put(
+                                "pulse",
+                                JSONObject()
+                                    .put("intensity", intensity)
+                                    .put("games", JSONArray(selectedGames.toList()))
+                                    .put("sound", sound),
+                            ),
+                    )
+                },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
+    }
+}
+
+@Composable
+private fun HeaderBar(title: String, onClose: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .statusBarsPadding(),
+        color = Night.copy(alpha = 0.98f),
+        border = BorderStroke(1.dp, Color(0x0FFFFFFF)),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(72.dp)
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onClose) {
+                Text("X", color = TextPrimary, fontWeight = FontWeight.Black)
+            }
+            Text(title, color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Black)
+        }
+    }
+}
+
+@Composable
+private fun LabelField(value: String, onValueChange: (String) -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = Panel,
+        border = BorderStroke(1.dp, Color(0x22FFFFFF)),
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = TextStyle(
+                color = TextPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+            ),
+            cursorBrush = Brush.verticalGradient(listOf(Dawn, Dawn)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            decorationBox = { innerTextField ->
+                if (value.isBlank()) {
+                    Text("Label", color = TextMuted, fontSize = 16.sp)
+                }
+                innerTextField()
+            },
+        )
     }
 }
 
@@ -551,12 +593,7 @@ private fun TimeCard(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(Color(0x33FF6B35), Color.Transparent),
-                        radius = 800f,
-                    ),
-                )
+                .background(Panel)
                 .padding(24.dp),
         ) {
             Column {
@@ -835,35 +872,37 @@ private fun ChipRow(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { (value, label) ->
                     val isSelected = selected == value
-                    FilterChip(
+                    Surface(
                         modifier = Modifier.weight(1f),
-                        selected = isSelected,
-                        onClick = { onSelected(value) },
-                        label = { Text(label, fontWeight = FontWeight.Bold, fontSize = 12.sp) },
-                        leadingIcon = if (isSelected) {
-                            {
+                        shape = RoundedCornerShape(18.dp),
+                        color = if (isSelected) Dawn.copy(alpha = 0.22f) else PanelSoft,
+                        border = BorderStroke(1.dp, if (isSelected) Dawn else Color(0x33FFFFFF)),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelected(value) }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            if (isSelected) {
                                 Box(
                                     modifier = Modifier
                                         .size(8.dp)
                                         .background(Sunrise, CircleShape),
                                 )
+                                Spacer(Modifier.width(7.dp))
                             }
-                        } else {
-                            null
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            containerColor = PanelSoft,
-                            selectedContainerColor = Dawn.copy(alpha = 0.22f),
-                            labelColor = TextMuted,
-                            selectedLabelColor = TextPrimary,
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = isSelected,
-                            borderColor = Color(0x33FFFFFF),
-                            selectedBorderColor = Dawn,
-                        ),
-                    )
+                            Text(
+                                label,
+                                color = if (isSelected) TextPrimary else TextMuted,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                            )
+                        }
+                    }
                 }
                 repeat(3 - row.size) {
                     Spacer(Modifier.weight(1f))
@@ -874,8 +913,15 @@ private fun ChipRow(
 }
 
 @Composable
-private fun SaveBar(canSave: Boolean, missing: List<String>, saveLabel: String, onSave: () -> Unit) {
+private fun SaveBar(
+    canSave: Boolean,
+    missing: List<String>,
+    saveLabel: String,
+    onSave: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Surface(
+        modifier = modifier.fillMaxWidth(),
         color = Night.copy(alpha = 0.96f),
         tonalElevation = 8.dp,
         border = BorderStroke(1.dp, Color(0x12FFFFFF)),
