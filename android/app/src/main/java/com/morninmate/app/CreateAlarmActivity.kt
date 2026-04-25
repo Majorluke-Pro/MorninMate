@@ -712,18 +712,16 @@ private fun <T> WheelColumn(
         }
     }
 
-    LaunchedEffect(listState, values) {
-        snapshotFlow { centeredValueIndex }
-            .distinctUntilChanged()
-            .collect { index -> onSelected(values[index]) }
-    }
-
+    // Snap to nearest item and commit the value only when the user lifts their finger.
+    // Previously onSelected fired on every scroll frame, causing the parent to recompose
+    // at 60 fps and making all three columns visibly laggy.
     LaunchedEffect(listState, values) {
         snapshotFlow { listState.isScrollInProgress }
             .distinctUntilChanged()
             .collect { scrolling ->
                 if (!scrolling) {
                     listState.animateScrollToItem(centeredIndex)
+                    onSelected(values[centeredValueIndex])
                 }
             }
     }

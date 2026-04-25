@@ -484,17 +484,12 @@ private fun <T> OnboardingWheelColumn(
     }
 
     LaunchedEffect(listState, values) {
-        snapshotFlow { centeredValueIndex }
-            .distinctUntilChanged()
-            .collect { index -> onSelected(values[index]) }
-    }
-
-    LaunchedEffect(listState, values) {
         snapshotFlow { listState.isScrollInProgress }
             .distinctUntilChanged()
             .collect { scrolling ->
                 if (!scrolling) {
                     listState.animateScrollToItem(centeredIndex)
+                    onSelected(values[centeredValueIndex])
                 }
             }
     }

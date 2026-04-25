@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useRef, useState, useLayoutEffect, useEffect } from 'react';
 
 export const HOURS   = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
 export const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
@@ -7,62 +7,56 @@ export const PERIODS = ['AM', 'PM'];
 const ITEM_H  = 56;
 const VISIBLE = 5;
 
+// CSS scroll-snap based wheel drum. All scroll physics run natively in the
+// browser's compositor thread — no JS during scrolling, zero reflow on move.
 export default function ScrollDrum({ items, value, onChange, width = 80 }) {
-  const idxOf  = v => items.indexOf(v);
-  const [scrollY,  setScrollY]  = useState(() => idxOf(value) * ITEM_H);
-  const [snapping, setSnapping] = useState(false);
-  const drag = useRef({ active: false, startY: 0, startScroll: 0, lastY: 0, lastT: 0, vel: 0 });
+  const containerRef  = useRef(null);
+  const commitRef     = useRef(null);
+  const programmatic  = useRef(false);
+  const containerH    = ITEM_H * VISIBLE;
+  const padding       = ITEM_H * Math.floor(VISIBLE / 2); // lets first/last item center
 
+  const [liveIdx, setLiveIdx] = useState(() => {
+    const i = items.indexOf(value);
+    return i >= 0 ? i : 0;
+  });
+
+  // Set initial scroll position before browser paint to avoid flash.
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const i = items.indexOf(value);
+    if (i >= 0) el.scrollTop = i * ITEM_H;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // mount only
+
+  // Sync when parent changes value (e.g. AM/PM toggle).
   useEffect(() => {
-    if (drag.current.active) return;
-    const idx = idxOf(value);
-    if (idx >= 0) setScrollY(idx * ITEM_H);
-  }, [value]);
+    const el = containerRef.current;
+    if (!el) return;
+    const i = items.indexOf(value);
+    if (i < 0) return;
+    const target = i * ITEM_H;
+    if (Math.abs(el.scrollTop - target) < 2) return;
+    programmatic.current = true;
+    el.scrollTop = target;
+    setLiveIdx(i);
+    setTimeout(() => { programmatic.current = false; }, 200);
+  }, [value, items]);
 
-  const containerH = ITEM_H * VISIBLE;
-  const clampScroll = s => Math.max(0, Math.min(s, (items.length - 1) * ITEM_H));
-
-  function onPointerDown(e) {
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { active: true, startY: e.clientY, startScroll: scrollY, lastY: e.clientY, lastT: Date.now(), vel: 0 };
-    setSnapping(false);
+  function onScroll() {
+    const el = containerRef.current;
+    if (!el) return;
+    const i = Math.max(0, Math.min(Math.round(el.scrollTop / ITEM_H), items.length - 1));
+    setLiveIdx(i);
+    if (programmatic.current) return;
+    clearTimeout(commitRef.current);
+    commitRef.current = setTimeout(() => { onChange(items[i]); }, 120);
   }
-
-  function onPointerMove(e) {
-    if (!drag.current.active) return;
-    const dy = e.clientY - drag.current.startY;
-    const now = Date.now();
-    drag.current.vel = (e.clientY - drag.current.lastY) / Math.max(1, now - drag.current.lastT);
-    drag.current.lastY = e.clientY;
-    drag.current.lastT = now;
-    setScrollY(clampScroll(drag.current.startScroll - dy));
-  }
-
-  function onPointerUp() {
-    if (!drag.current.active) return;
-    drag.current.active = false;
-    setSnapping(true);
-    const vel = drag.current.vel;
-    let projected = scrollY - vel * 80;
-    projected = clampScroll(projected);
-    const snapped = Math.round(projected / ITEM_H) * ITEM_H;
-    setScrollY(snapped);
-    const idx = Math.round(snapped / ITEM_H);
-    onChange(items[Math.min(idx, items.length - 1)]);
-  }
-
-  const offset = scrollY - (VISIBLE - 1) / 2 * ITEM_H;
 
   return (
-    <div
-      style={{ width, height: containerH, overflow: 'hidden', position: 'relative', cursor: 'grab', userSelect: 'none' }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-    >
-      {/* Highlight band */}
+    <div style={{ width, height: containerH, position: 'relative', flexShrink: 0 }}>
+      {/* Selected-item highlight band */}
       <div style={{
         position: 'absolute',
         top: (containerH - ITEM_H) / 2,
@@ -71,50 +65,76 @@ export default function ScrollDrum({ items, value, onChange, width = 80 }) {
         background: 'rgba(255,107,53,0.12)',
         borderRadius: 8,
         pointerEvents: 'none',
+        zIndex: 1,
       }} />
 
-      {/* Items */}
-      <div style={{
-        transform: `translateY(${-offset}px)`,
-        transition: snapping ? 'transform 0.2s cubic-bezier(0.25,0.46,0.45,0.94)' : 'none',
-      }}>
+      <div
+        ref={containerRef}
+        className="scroll-drum"
+        onScroll={onScroll}
+        style={{
+          width: '100%',
+          height: '100%',
+          overflowY: 'scroll',
+          scrollSnapType: 'y mandatory',
+          scrollbarWidth: 'none',      // Firefox
+          msOverflowStyle: 'none',     // IE/Edge legacy
+          touchAction: 'pan-y',        // immediate panning, no tap-delay
+          overscrollBehavior: 'contain',
+          position: 'relative',
+        }}
+      >
+        <div style={{ height: padding, flexShrink: 0 }} />
+
         {items.map((item, i) => {
-          const itemScrollCenter = i * ITEM_H + ITEM_H / 2;
-          const viewCenter = scrollY + containerH / 2;
-          const dist = Math.abs(itemScrollCenter - viewCenter) / containerH;
-          const opacity = Math.max(0.2, 1 - dist * 2.5);
-          const isSelected = idxOf(value) === i;
+          const dist     = Math.abs(i - liveIdx);
+          const opacity  = Math.max(0.2, 1 - dist * 0.35);
+          const selected = i === liveIdx;
           return (
             <div
               key={item}
-              style={{ height: ITEM_H, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity }}
+              style={{
+                height: ITEM_H,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                scrollSnapAlign: 'center',
+                flexShrink: 0,
+              }}
             >
               <span style={{
-                fontSize: isSelected ? '1.25rem' : '1rem',
-                fontWeight: isSelected ? 700 : 400,
-                color: isSelected ? '#FF6B35' : '#F0F0FA',
-                transition: 'all 0.15s',
+                fontSize: selected ? '1.25rem' : '1rem',
+                fontWeight: selected ? 700 : 400,
+                color: selected ? '#FF6B35' : '#F0F0FA',
+                opacity,
                 fontVariantNumeric: 'tabular-nums',
+                userSelect: 'none',
+                pointerEvents: 'none',
+                transition: 'font-size 0.1s, opacity 0.08s',
               }}>
                 {item}
               </span>
             </div>
           );
         })}
+
+        <div style={{ height: padding, flexShrink: 0 }} />
       </div>
 
-      {/* Top/bottom fade masks */}
+      {/* Fade masks */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0,
         height: ITEM_H * 1.5,
         background: 'linear-gradient(to bottom, #0D0D1A, transparent)',
         pointerEvents: 'none',
+        zIndex: 2,
       }} />
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
         height: ITEM_H * 1.5,
         background: 'linear-gradient(to top, #0D0D1A, transparent)',
         pointerEvents: 'none',
+        zIndex: 2,
       }} />
     </div>
   );
