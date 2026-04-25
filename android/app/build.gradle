@@ -35,6 +35,7 @@ android {
     }
 
     compileOptions {
+        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
     }
@@ -75,6 +76,9 @@ dependencies {
     implementation 'androidx.compose.material:material-icons-core'
     implementation 'androidx.compose.material:material-icons-extended'
     implementation 'androidx.compose.ui:ui'
+    implementation 'io.github.darkokoa:datetime-wheel-picker:1.0.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-datetime:0.6.0'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
     debugImplementation 'androidx.compose.ui:ui-tooling-preview'
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"

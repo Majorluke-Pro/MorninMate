@@ -1,7 +1,6 @@
 package com.morninmate.app
 
 import android.app.Activity
-import android.app.TimePickerDialog
 import android.content.Intent
 import android.media.RingtoneManager
 import android.os.Build
@@ -63,10 +62,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.view.WindowCompat
+import dev.darkokoa.datetimewheelpicker.core.WheelPickerDefaults
+import kotlinx.datetime.LocalTime
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Calendar
@@ -575,18 +577,14 @@ private fun LabelField(value: String, onValueChange: (String) -> Unit) {
 
 @Composable
 private fun TimeCard(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
-    val context = LocalContext.current
     val period = if (hour >= 12) "PM" else "AM"
     val hour12 = hour % 12
     val displayHour = if (hour12 == 0) 12 else hour12
     val contextLabel = timeContextLabel(hour)
+    val selectedTime = LocalTime(hour.coerceIn(0, 23), minute.coerceIn(0, 59))
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                TimePickerDialog(context, { _, h, m -> onPicked(h, m) }, hour, minute, false).show()
-            },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(30.dp),
         colors = CardDefaults.cardColors(containerColor = Panel),
     ) {
@@ -611,7 +609,22 @@ private fun TimeCard(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(contextLabel, color = Dawn, fontWeight = FontWeight.Bold)
-                Text("Tap to change time", color = Dawn)
+                Spacer(Modifier.height(18.dp))
+                WheelTimePicker(
+                    startTime = selectedTime,
+                    timeFormatter = timeFormatter(timeFormat = TimeFormat.AM_PM),
+                    size = DpSize(220.dp, 136.dp),
+                    rowCount = 3,
+                    textStyle = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Black),
+                    textColor = TextPrimary,
+                    selectorProperties = WheelPickerDefaults.selectorProperties(
+                        color = Dawn.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, Dawn.copy(alpha = 0.42f)),
+                        shape = RoundedCornerShape(14.dp),
+                    ),
+                ) { snappedTime ->
+                    onPicked(snappedTime.hour, snappedTime.minute)
+                }
             }
             Box(
                 modifier = Modifier
@@ -622,7 +635,7 @@ private fun TimeCard(hour: Int, minute: Int, onPicked: (Int, Int) -> Unit) {
             ) {
                 Icon(
                     imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit time",
+                    contentDescription = "Time picker",
                     tint = Dawn,
                     modifier = Modifier.size(16.dp),
                 )

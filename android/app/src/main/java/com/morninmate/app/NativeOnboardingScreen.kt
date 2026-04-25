@@ -1,6 +1,5 @@
 package com.morninmate.app
 
-import android.app.TimePickerDialog
 import android.view.View
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
@@ -69,13 +68,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.sp
+import dev.darkokoa.datetimewheelpicker.core.WheelPickerDefaults
+import kotlinx.datetime.LocalTime
 import kotlinx.coroutines.flow.distinctUntilChanged
 import java.util.Calendar
 
@@ -378,27 +379,46 @@ private fun StepHeader(icon: ImageVector, eyebrow: String, title: String, subtit
 
 @Composable
 private fun WakeTimeStep(value: String, onChange: (String) -> Unit) {
-    val context = LocalContext.current
+    val parts = value.split(":")
+    val selectedTime = LocalTime(
+        parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 7,
+        parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 0,
+    )
+
     StepHeader(Icons.Default.Alarm, "Step 1", "When do you wake up?", "Let's start with your target alarm time")
     Surface(
-        modifier = Modifier.fillMaxWidth().clickable {
-            val parts = value.split(":")
-            TimePickerDialog(
-                context,
-                { _, hour, minute -> onChange("%02d:%02d".format(hour, minute)) },
-                parts.getOrNull(0)?.toIntOrNull() ?: 7,
-                parts.getOrNull(1)?.toIntOrNull() ?: 0,
-                true,
-            ).show()
-        },
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
         color = ObInput,
         border = BorderStroke(1.dp, ObDawn.copy(alpha = 0.45f)),
     ) {
-        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Alarm, contentDescription = null, tint = ObDawn, modifier = Modifier.size(28.dp))
-            Spacer(Modifier.size(14.dp))
-            Text(formatTime(value), color = ObText, fontSize = 32.sp, fontWeight = FontWeight.Black)
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Alarm, contentDescription = null, tint = ObDawn, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.size(14.dp))
+                Text(formatTime(value), color = ObText, fontSize = 32.sp, fontWeight = FontWeight.Black)
+            }
+            Spacer(Modifier.height(14.dp))
+            WheelTimePicker(
+                startTime = selectedTime,
+                timeFormatter = timeFormatter(timeFormat = TimeFormat.AM_PM),
+                size = DpSize(210.dp, 132.dp),
+                rowCount = 3,
+                textStyle = TextStyle(fontSize = 21.sp, fontWeight = FontWeight.Black),
+                textColor = ObText,
+                selectorProperties = WheelPickerDefaults.selectorProperties(
+                    color = ObDawn.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, ObDawn.copy(alpha = 0.42f)),
+                    shape = RoundedCornerShape(14.dp),
+                ),
+            ) { snappedTime ->
+                onChange("%02d:%02d".format(snappedTime.hour, snappedTime.minute))
+            }
         }
     }
 }
