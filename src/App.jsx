@@ -42,6 +42,10 @@ function AppRoutes() {
 
   if (activeAlarm) return <WakeUpFlow />;
 
+  if (showAuthDirectly) {
+    return <AuthScreen />;
+  }
+
   const canUseApp = Boolean(session || offlineAccess || user.onboardingComplete);
 
   if (canUseApp && !user.onboardingComplete) {
@@ -61,7 +65,7 @@ function AppRoutes() {
   }
 
   if (!session) {
-    if (pendingOnboarding || showAuthDirectly) return <AuthScreen />;
+    if (pendingOnboarding) return <AuthScreen />;
     return <OnboardingFlow />;
   }
 }

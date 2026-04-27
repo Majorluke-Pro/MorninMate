@@ -89,6 +89,7 @@ data class NativeAlarmItem(
     val games: Int,
     val gameIds: List<String>,
     val rawJson: String,
+    val isTest: Boolean = false,
 )
 
 data class NativeAlarmsData(
@@ -182,6 +183,7 @@ fun nativeAlarmsDataFromJson(payload: JSONObject): NativeAlarmsData {
                         .ifEmpty { listOf("math") }
                 } ?: listOf("math"),
                 rawJson = item.toString(),
+                isTest = item.optBoolean("isTest", false),
             ),
         )
     }

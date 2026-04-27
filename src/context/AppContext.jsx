@@ -94,6 +94,7 @@ const PROFILE_SYNC_COMPAT_COLUMNS = [
   'updated_at',
 ];
 const UNSUPPORTED_PROFILE_COLUMNS_KEY = 'mm_unsupported_profile_columns';
+const SHOW_AUTH_DIRECTLY_KEY = 'mm_show_auth_directly';
 
 function getStoredUnsupportedProfileColumns() {
   try {
@@ -105,6 +106,14 @@ function getStoredUnsupportedProfileColumns() {
       : [];
   } catch {
     return [];
+  }
+}
+
+function getStoredShowAuthDirectly() {
+  try {
+    return localStorage.getItem(SHOW_AUTH_DIRECTLY_KEY) === '1';
+  } catch {
+    return false;
   }
 }
 
@@ -376,7 +385,16 @@ export function AppProvider({ children }) {
     return saved ? JSON.parse(saved) : null;
   });
 
-  const [showAuthDirectly, setShowAuthDirectly] = useState(false);
+  const [showAuthDirectly, setShowAuthDirectlyState] = useState(() => getStoredShowAuthDirectly());
+
+  const setShowAuthDirectly = useCallback((value) => {
+    const nextValue = Boolean(value);
+    try {
+      if (nextValue) localStorage.setItem(SHOW_AUTH_DIRECTLY_KEY, '1');
+      else localStorage.removeItem(SHOW_AUTH_DIRECTLY_KEY);
+    } catch {}
+    setShowAuthDirectlyState(nextValue);
+  }, []);
 
   const loadingData = useRef(false);
   const appUrlListenerRef = useRef(null);
@@ -542,6 +560,23 @@ export function AppProvider({ children }) {
     applyWakeStatsSnapshot(INITIAL_WAKE_STATS);
     wakeSessionRef.current = null;
   }
+
+  useEffect(() => {
+    function handleNativeShowAuth() {
+      setShowAuthDirectly(true);
+    }
+
+    function handleNativeLogOff() {
+      void signOutToAuth();
+    }
+
+    window.addEventListener('mmShowAuthDirectly', handleNativeShowAuth);
+    window.addEventListener('mmNativeLogOff', handleNativeLogOff);
+    return () => {
+      window.removeEventListener('mmShowAuthDirectly', handleNativeShowAuth);
+      window.removeEventListener('mmNativeLogOff', handleNativeLogOff);
+    };
+  }, [setShowAuthDirectly]);
 
   function applyAlarmSnapshot(nextAlarms) {
     const nextIds = new Set(nextAlarms.map((alarm) => String(alarm.id)));
@@ -1024,6 +1059,7 @@ export function AppProvider({ children }) {
         setSession(initialSession);
 
         if (initialSession?.user) {
+          setShowAuthDirectly(false);
           setCachedAuthUser({
             id: initialSession.user.id,
             email: initialSession.user.email ?? '',
@@ -1054,6 +1090,7 @@ export function AppProvider({ children }) {
         if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
           setSession(nextSession);
           if (nextSession?.user) {
+            setShowAuthDirectly(false);
             setCachedAuthUser({
               id: nextSession.user.id,
               email: nextSession.user.email ?? '',
@@ -1067,15 +1104,33 @@ export function AppProvider({ children }) {
         setSession(nextSession);
 
         if (nextSession?.user) {
+          setShowAuthDirectly(false);
+
+          const prevAuthUser = getCachedAuthUser();
+          const isUserSwitch = prevAuthUser?.id && prevAuthUser.id !== nextSession.user.id;
+          if (isUserSwitch) {
+            setCachedAlarms([]);
+            clearCachedUser();
+            clearCachedWakeStats();
+            clearPendingOps();
+            clearPendingProfileSync();
+            clearPendingWakeSessions();
+            setUser(INITIAL_USER);
+            setAlarms([]);
+            setActiveAlarm(null);
+            applyWakeStatsSnapshot(INITIAL_WAKE_STATS);
+            wakeSessionRef.current = null;
+          }
+
           setCachedAuthUser({
             id: nextSession.user.id,
             email: nextSession.user.email ?? '',
           });
           setOfflineAccess(true);
           setCloudReachable(true);
-          const _cu = getCachedUser();
-          const _ca = getCachedAlarms();
-          const _cs = getCachedWakeStats();
+          const _cu = isUserSwitch ? null : getCachedUser();
+          const _ca = isUserSwitch ? [] : getCachedAlarms();
+          const _cs = isUserSwitch ? INITIAL_WAKE_STATS : getCachedWakeStats();
           const _hasCache = hasLocalAccess(_cu, _ca) || (_cs.success ?? 0) > 0 || (_cs.failed ?? 0) > 0;
           if (!_hasCache) setLoading(true);
 
@@ -1333,6 +1388,9 @@ export function AppProvider({ children }) {
     applyUserSnapshot(offlineUser);
     queueProfileSync(offlineUser);
     setOfflineAccess(true);
+    try {
+      localStorage.setItem('mm_native_web_onboarding_complete', JSON.stringify(data));
+    } catch {}
 
     if (!sessionRef.current?.user?.id) {
       sessionStorage.removeItem('mm_pending_onboarding');
@@ -1769,6 +1827,16 @@ export function AppProvider({ children }) {
     wakeSessionRef.current = null;
   }
 
+  async function startFreshOnboarding() {
+    const userId = sessionRef.current?.user?.id;
+    clearLocalState();
+    setSession(null);
+    try { localStorage.setItem('mm_native_reset_needed', '1'); } catch {}
+    if (userId) {
+      try { await supabase.auth.signOut(); } catch {}
+    }
+  }
+
   async function signOut() {
     const userId = sessionRef.current?.user?.id;
     let alarmOpsFlushed = true;
@@ -1784,13 +1852,38 @@ export function AppProvider({ children }) {
     }
 
     clearLocalState({ preservePendingOps: !alarmOpsFlushed });
+    setShowAuthDirectly(true);
+    setSession(null);
 
     if (userId) {
       try {
         await supabase.auth.signOut();
       } catch {}
-    } else {
-      setSession(null);
+    }
+  }
+
+  async function signOutToAuth() {
+    const userId = sessionRef.current?.user?.id;
+    let alarmOpsFlushed = true;
+
+    if (userId && navigator.onLine) {
+      try {
+        alarmOpsFlushed = await flushPendingAlarmOps(userId);
+        await flushPendingProfile(userId);
+        await flushPendingWakeSessions(userId);
+      } catch {
+        alarmOpsFlushed = false;
+      }
+    }
+
+    clearLocalState({ preservePendingOps: !alarmOpsFlushed });
+    setShowAuthDirectly(true);
+    setSession(null);
+
+    if (userId) {
+      try {
+        await supabase.auth.signOut();
+      } catch {}
     }
   }
 
@@ -1834,6 +1927,7 @@ export function AppProvider({ children }) {
         triggerAlarm,
         clearActiveAlarm,
         signOut,
+        startFreshOnboarding,
         startWakeSession,
         recordWakeGameFail,
         finalizeWakeSession,

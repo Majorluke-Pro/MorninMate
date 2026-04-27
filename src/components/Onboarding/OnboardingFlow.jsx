@@ -29,6 +29,7 @@ import FaceIcon from '@mui/icons-material/Face';
 import { useApp } from '../../context/AppContext';
 import { AVATAR_OPTIONS } from '../../lib/avatars';
 import TimePicker from '../common/TimePicker';
+import ScrollDrum from '../common/ScrollDrum';
 
 const MORNING_TYPES = [
   { value: 1, Icon: NightsStayIcon, label: 'Night Owl', desc: 'Mornings are your nemesis' },
@@ -235,7 +236,7 @@ function NameStep({ value, onChange, onSubmit }) {
 
   return (
     <Box>
-      <StepHeader Icon={PersonIcon} eyebrow="Step 5" title="What&apos;s your name?" subtitle="Now let&apos;s make the app feel like yours" />
+      <StepHeader Icon={PersonIcon} eyebrow="Step 5" title="Create your display name" subtitle="This is how MorninMate will greet you" />
       <Box
         sx={{
           background: '#111827',
@@ -254,7 +255,7 @@ function NameStep({ value, onChange, onSubmit }) {
           component="input"
           autoFocus
           autoComplete="off"
-          placeholder="Enter your name..."
+          placeholder="Enter display name..."
           value={value}
           maxLength={30}
           onChange={(e) => onChange(e.target.value)}
@@ -284,45 +285,39 @@ function NameStep({ value, onChange, onSubmit }) {
   );
 }
 
-function AgeStep({ value, onChange, onSubmit }) {
+function AgeStep({ value, onChange }) {
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 101 }, (_, i) => String(currentYear - i));
+  const selectedYear = years.includes(value) ? value : String(currentYear - 25);
+
+  useEffect(() => {
+    if (!years.includes(value)) onChange(selectedYear);
+  }, [onChange, selectedYear, value, years]);
+
   return (
     <Box>
-      <StepHeader Icon={CakeIcon} eyebrow="Step 6" title="How old are you?" subtitle="A quick detail so we know who we&apos;re building mornings for" />
-      <TextField
-        fullWidth
-        autoFocus
-        placeholder="Enter your age..."
-        value={value}
-        onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 3))}
-        onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
-        inputProps={{
-          inputMode: 'numeric',
-          pattern: '[0-9]*',
-          maxLength: 3,
-        }}
-        size="small"
-        InputProps={{
-          startAdornment: (
-            <CakeIcon sx={{ color: '#6b7280', fontSize: '1.2rem', mr: 1 }} />
-          ),
-        }}
-        sx={{
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 2,
-            fontFamily: '"Outfit", sans-serif',
+      <StepHeader Icon={CakeIcon} eyebrow="Step 6" title="What year were you born?" subtitle="Pick your birth year with the wheel" />
+      <Box sx={{ py: 2, px: 1.5 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 1.5,
+            p: '8px 12px',
+            borderRadius: '18px',
             background: '#111827',
-            color: '#f9fafb',
-            '& fieldset': { borderColor: '#2d3748' },
-            '&:hover fieldset': { borderColor: '#4b5563' },
-            '&.Mui-focused fieldset': { borderColor: '#FF6B35' },
-          },
-          '& .MuiOutlinedInput-input': {
-            fontSize: '1.1rem',
-            fontWeight: 600,
-            fontFamily: '"Fraunces", serif',
-          },
-        }}
-      />
+            border: '1px solid #2d3748',
+          }}
+        >
+          <ScrollDrum
+            items={years}
+            value={selectedYear}
+            onChange={onChange}
+            width={132}
+          />
+        </Box>
+      </Box>
     </Box>
   );
 }
@@ -753,8 +748,8 @@ function SummaryStep({ data }) {
     { label: 'Morning type', value: morningType?.label ?? '-' },
     { label: 'Wake-up game', value: game?.label ?? '-' },
     { label: 'Morning goal', value: data.wakeGoal || '-' },
-    { label: 'Name', value: data.name || '-' },
-    { label: 'Age', value: data.age || '-' },
+    { label: 'Display name', value: data.name || '-' },
+    { label: 'Birth year', value: data.age || '-' },
     { label: 'Country', value: data.country || '-' },
     { label: 'Icon', value: avatar?.label ?? '-' },
   ];
@@ -855,8 +850,9 @@ export default function OnboardingFlow() {
   function canProceed() {
     if (currentId === 'name') return data.name.trim().length >= 2;
     if (currentId === 'age') {
-      const age = Number(data.age);
-      return Number.isInteger(age) && age >= 1 && age <= 120;
+      const year = Number(data.age);
+      const currentYear = new Date().getFullYear();
+      return Number.isInteger(year) && year >= currentYear - 100 && year <= currentYear;
     }
     if (currentId === 'country') return data.country.trim().length >= 2;
     if (currentId === 'goal') return data.wakeGoal.trim().length > 0;

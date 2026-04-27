@@ -38,6 +38,7 @@ export default function TimePicker({ value, onChange }) {
           value={hour}
           onChange={h => commit(h, minute, period)}
           width={84}
+          infinite
         />
 
         <span style={{
@@ -50,6 +51,7 @@ export default function TimePicker({ value, onChange }) {
           value={minute}
           onChange={m => commit(hour, m, period)}
           width={84}
+          infinite
         />
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginLeft: 8 }}>

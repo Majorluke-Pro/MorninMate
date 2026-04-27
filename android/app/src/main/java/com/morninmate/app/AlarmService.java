@@ -43,6 +43,7 @@ public class AlarmService extends Service {
         String label = intent != null ? intent.getStringExtra("label") : "Alarm";
         String sound = intent != null ? intent.getStringExtra("sound") : FALLBACK_SOUND;
         int previewMs = intent != null ? intent.getIntExtra("previewMs", -1) : -1;
+        boolean testMode = intent != null && intent.getBooleanExtra("testMode", false);
         boolean previewOnly = previewMs > 0;
 
         Log.d(TAG, "onStartCommand alarmId=" + alarmId + " sound=" + sound + " preview=" + previewOnly);
@@ -59,6 +60,7 @@ public class AlarmService extends Service {
 
         Intent mainIntent = new Intent(this, MainActivity.class);
         mainIntent.putExtra("alarmId", alarmId);
+        mainIntent.putExtra("testMode", testMode);
         mainIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
             | Intent.FLAG_ACTIVITY_CLEAR_TOP
             | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -108,7 +110,9 @@ public class AlarmService extends Service {
         }
 
         startActivity(mainIntent);
-        scheduleNagAlarm(alarmId, label, sound);
+        if (!testMode) {
+            scheduleNagAlarm(alarmId, label, sound);
+        }
         return START_NOT_STICKY;
     }
 

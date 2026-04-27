@@ -100,7 +100,7 @@ fun showNativeRingingAlarm(alarm: NativeAlarmItem) {
     ringingView?.post {
         ringingView?.visibility = View.VISIBLE
     }
-    if (alarm.intensity == "hardcore") {
+    if (!alarm.isTest && alarm.intensity == "hardcore") {
         ringingActivity?.let { NativeAlarmStore.enableHardcoreLock(it) }
     }
 }
@@ -163,6 +163,12 @@ private fun NativeRingingAlarmScreen(alarm: NativeAlarmItem) {
                 Text(formatRingingTime(alarm.time), color = RingText, fontSize = 46.sp, fontWeight = FontWeight.Black, lineHeight = 48.sp)
                 Text(alarm.label.ifBlank { "Alarm" }, color = RingMuted, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
+                if (alarm.isTest) {
+                    TestAlarmStopButton {
+                        (ringingActivity as? MainActivity)?.dismissNativeAlarm(alarm.id)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
                 when {
                     phase == "intro" -> WakeIntro(
                         alarm = alarm,
@@ -197,6 +203,45 @@ private fun NativeRingingAlarmScreen(alarm: NativeAlarmItem) {
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TestAlarmStopButton(onStop: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = RingDanger.copy(alpha = 0.12f),
+        border = BorderStroke(1.dp, RingDanger.copy(alpha = 0.36f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                "Test alarm",
+                color = RingDanger,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Black,
+            )
+            Text(
+                "You can stop a test without completing wake-up games.",
+                color = RingMuted,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+            )
+            Button(
+                onClick = onStop,
+                colors = ButtonDefaults.buttonColors(containerColor = RingDanger),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.size(8.dp))
+                Text("End test alarm", fontWeight = FontWeight.Black)
             }
         }
     }
@@ -460,8 +505,9 @@ private fun MemoryChallenge(difficulty: WakeDifficulty, restartKey: Int, onCompl
             val second = picked[1]
             if (cards[first] == cards[second]) {
                 delay(250)
-                matched = matched + first + second
-                if (matched.size + 2 >= cards.size) onComplete()
+                val nextMatched = matched + first + second
+                matched = nextMatched
+                if (nextMatched.size >= cards.size) onComplete()
             } else {
                 delay(700)
             }

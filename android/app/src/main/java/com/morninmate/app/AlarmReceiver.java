@@ -32,7 +32,10 @@ public class AlarmReceiver extends BroadcastReceiver {
 
         // Persist alarm ID so the native launch screen can react on cold start.
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit().putString("pending_alarm", alarmId).apply();
+            .edit()
+            .putString("pending_alarm", alarmId)
+            .putBoolean("pending_alarm_test", testMode)
+            .apply();
 
         // Delegate to AlarmService — it handles WakeLock, ringtone, and notification
         Intent serviceIntent = new Intent(context, AlarmService.class);
@@ -40,6 +43,7 @@ public class AlarmReceiver extends BroadcastReceiver {
         serviceIntent.putExtra("label",   label);
         serviceIntent.putExtra("sound",   sound);
         serviceIntent.putExtra("previewMs", -1);
+        serviceIntent.putExtra("testMode", testMode);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             context.startForegroundService(serviceIntent);
         } else {

@@ -9,24 +9,33 @@ const VISIBLE = 5;
 
 // CSS scroll-snap based wheel drum. All scroll physics run natively in the
 // browser's compositor thread — no JS during scrolling, zero reflow on move.
-export default function ScrollDrum({ items, value, onChange, width = 80 }) {
+export default function ScrollDrum({ items, value, onChange, width = 80, infinite = false }) {
   const containerRef  = useRef(null);
   const commitRef     = useRef(null);
   const programmatic  = useRef(false);
   const containerH    = ITEM_H * VISIBLE;
   const padding       = ITEM_H * Math.floor(VISIBLE / 2); // lets first/last item center
+  const loops         = infinite ? 80 : 1;
+  const middleLoop    = Math.floor(loops / 2);
+  const wheelItems    = infinite
+    ? Array.from({ length: items.length * loops }, (_, i) => items[i % items.length])
+    : items;
+
+  function valueIndex(nextValue) {
+    const i = items.indexOf(nextValue);
+    if (i < 0) return 0;
+    return infinite ? middleLoop * items.length + i : i;
+  }
 
   const [liveIdx, setLiveIdx] = useState(() => {
-    const i = items.indexOf(value);
-    return i >= 0 ? i : 0;
+    return valueIndex(value);
   });
 
   // Set initial scroll position before browser paint to avoid flash.
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const i = items.indexOf(value);
-    if (i >= 0) el.scrollTop = i * ITEM_H;
+    el.scrollTop = valueIndex(value) * ITEM_H;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // mount only
 
@@ -34,8 +43,7 @@ export default function ScrollDrum({ items, value, onChange, width = 80 }) {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const i = items.indexOf(value);
-    if (i < 0) return;
+    const i = valueIndex(value);
     const target = i * ITEM_H;
     if (Math.abs(el.scrollTop - target) < 2) return;
     programmatic.current = true;
@@ -47,11 +55,21 @@ export default function ScrollDrum({ items, value, onChange, width = 80 }) {
   function onScroll() {
     const el = containerRef.current;
     if (!el) return;
-    const i = Math.max(0, Math.min(Math.round(el.scrollTop / ITEM_H), items.length - 1));
+    const i = Math.max(0, Math.min(Math.round(el.scrollTop / ITEM_H), wheelItems.length - 1));
     setLiveIdx(i);
     if (programmatic.current) return;
     clearTimeout(commitRef.current);
-    commitRef.current = setTimeout(() => { onChange(items[i]); }, 120);
+    commitRef.current = setTimeout(() => {
+      onChange(wheelItems[i]);
+      if (!infinite || items.length === 0) return;
+      const canonical = middleLoop * items.length + (i % items.length);
+      if (Math.abs(i - canonical) > items.length) {
+        programmatic.current = true;
+        el.scrollTop = canonical * ITEM_H;
+        setLiveIdx(canonical);
+        setTimeout(() => { programmatic.current = false; }, 80);
+      }
+    }, 120);
   }
 
   return (
@@ -86,13 +104,13 @@ export default function ScrollDrum({ items, value, onChange, width = 80 }) {
       >
         <div style={{ height: padding, flexShrink: 0 }} />
 
-        {items.map((item, i) => {
+        {wheelItems.map((item, i) => {
           const dist     = Math.abs(i - liveIdx);
           const opacity  = Math.max(0.2, 1 - dist * 0.35);
           const selected = i === liveIdx;
           return (
             <div
-              key={item}
+              key={`${item}-${i}`}
               style={{
                 height: ITEM_H,
                 display: 'flex',

@@ -65,15 +65,19 @@ function AuthField({
 export default function AuthScreenModern() {
   const {
     pendingOnboarding,
+    showAuthDirectly,
     setShowAuthDirectly,
     canContinueOffline,
     enterOfflineMode,
+    startFreshOnboarding,
   } = useApp();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [mode, setMode] = useState(pendingOnboarding ? 'signup' : 'signin');
+  // Only pre-select sign-up when user arrived here directly from completing onboarding
+  // (pendingOnboarding set, NOT from a logoff redirect which sets showAuthDirectly)
+  const [mode, setMode] = useState(pendingOnboarding && !showAuthDirectly ? 'signup' : 'signin');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -119,6 +123,11 @@ export default function AuthScreenModern() {
           return;
         }
 
+        try {
+          localStorage.setItem('mm_native_signup_requires_onboarding', '1');
+          localStorage.setItem('mm_native_reset_needed', '1');
+        } catch {}
+
         if (!data.session) {
           setMessage('Account created. If email confirmation is enabled, confirm your email, then sign in with your password.');
           setMode('signin');
@@ -145,7 +154,12 @@ export default function AuthScreenModern() {
   }
 
   function toggleMode() {
-    setMode(isSignUp ? 'signin' : 'signup');
+    if (!isSignUp) {
+      // Always go through fresh onboarding when signing up
+      startFreshOnboarding();
+      return;
+    }
+    setMode('signin');
     setPassword('');
     setConfirmPassword('');
     setShowPassword(false);

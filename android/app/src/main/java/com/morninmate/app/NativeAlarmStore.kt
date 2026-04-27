@@ -20,13 +20,47 @@ import java.util.Calendar
 object NativeAlarmStore {
     private const val PREFS_NAME = "MorninMateAlarms"
     private const val DEFAULT_SOUND = "gentle_chime"
+    private const val KEY_SHOW_AUTH_DIRECTLY = "show_auth_directly"
     private var savedAlarmVolume = -1
 
     fun isOnboardingComplete(context: Context): Boolean {
         val saved = prefs(context)
-        return saved.getBoolean("onboarding_complete", false) ||
-            saved.all.keys.any { it.startsWith("alarm_") } ||
-            saved.contains("userName")
+        return saved.getBoolean("onboarding_complete", false) || saved.contains("userName")
+    }
+
+    fun shouldShowAuth(context: Context): Boolean = prefs(context).getBoolean(KEY_SHOW_AUTH_DIRECTLY, false)
+
+    fun setShowAuth(context: Context, visible: Boolean) {
+        prefs(context).edit().putBoolean(KEY_SHOW_AUTH_DIRECTLY, visible).apply()
+    }
+
+    fun setEmail(context: Context, email: String) {
+        prefs(context).edit().putString("email", email).apply()
+    }
+
+    fun resetOnboarding(context: Context) {
+        val saved = prefs(context)
+        alarms(context).forEach { alarm ->
+            val id = alarm.optString("id")
+            if (id.isNotBlank()) cancelScheduled(context, id)
+        }
+        context.stopService(Intent(context, AlarmService::class.java))
+
+        val editor = prefs(context).edit()
+        listOf(
+            "userName", "defaultWakeTime", "favoriteGame",
+            "morningRating", "wakeGoal", "age", "country", "profileIcon", "email",
+            "xp", "streak", "demerits", "successCount", "failedCount",
+            "pending_alarm",
+        ).forEach { editor.remove(it) }
+
+        saved.all.keys
+            .filter { it.startsWith("alarm_") }
+            .forEach { editor.remove(it) }
+
+        editor.putBoolean("onboarding_complete", false)
+        editor.apply()
+        disableHardcoreLock(context)
     }
 
     fun completeOnboarding(
@@ -91,13 +125,45 @@ object NativeAlarmStore {
         val xp = prefs(context).getInt("xp", 0)
         return ProfileData(
             userName = prefs(context).getString("userName", "Mate") ?: "Mate",
+            age = prefs(context).getString("age", "") ?: "",
+            country = prefs(context).getString("country", "") ?: "",
+            defaultWakeTime = prefs(context).getString("defaultWakeTime", "07:00") ?: "07:00",
+            morningRating = prefs(context).getInt("morningRating", 3),
+            favoriteGame = prefs(context).getString("favoriteGame", "math") ?: "math",
+            wakeGoal = prefs(context).getString("wakeGoal", "") ?: "",
+            profileIcon = prefs(context).getString("profileIcon", "bolt") ?: "bolt",
             level = (xp / 100) + 1,
             xp = xp,
             xpPerLevel = 100,
             streak = prefs(context).getInt("streak", 0),
             alarmsCount = alarms.size,
             exactAlarmReady = canScheduleExactAlarms(context),
+            email = prefs(context).getString("email", "") ?: "",
         )
+    }
+
+    fun updateProfile(
+        context: Context,
+        userName: String,
+        defaultWakeTime: String,
+        favoriteGame: String,
+        morningRating: Int,
+        wakeGoal: String,
+        age: String,
+        country: String,
+        profileIcon: String,
+    ) {
+        prefs(context).edit()
+            .putBoolean("onboarding_complete", true)
+            .putString("userName", userName.ifBlank { "Mate" })
+            .putString("defaultWakeTime", defaultWakeTime.ifBlank { "07:00" })
+            .putString("favoriteGame", favoriteGame.ifBlank { "math" })
+            .putInt("morningRating", morningRating.coerceIn(1, 5))
+            .putString("wakeGoal", wakeGoal)
+            .putString("age", age)
+            .putString("country", country)
+            .putString("profileIcon", profileIcon.ifBlank { "bolt" })
+            .apply()
     }
 
     fun save(context: Context, alarm: JSONObject, existingId: String? = null): JSONObject {
@@ -163,22 +229,24 @@ object NativeAlarmStore {
         context.sendBroadcast(intent)
     }
 
-    fun ringingAlarm(context: Context, alarmId: String?): NativeAlarmItem? {
+    fun ringingAlarm(context: Context, alarmId: String?, isTest: Boolean = false): NativeAlarmItem? {
         if (alarmId.isNullOrBlank()) return null
-        return alarm(context, alarmId)?.toNativeAlarmItem()
+        return alarm(context, alarmId)?.toNativeAlarmItem(isTest)
     }
 
     fun dismissAlarm(context: Context, alarmId: String?) {
         cancelNagAlarm(context, alarmId)
         context.stopService(Intent(context, AlarmService::class.java))
-        prefs(context).edit().remove("pending_alarm").apply()
+        prefs(context).edit()
+            .remove("pending_alarm")
+            .remove("pending_alarm_test")
+            .apply()
         disableHardcoreLock(context)
     }
 
     fun logOff(context: Context) {
         prefs(context).edit()
-            .remove("pending_alarm")
-            .remove("userName")
+            .putBoolean(KEY_SHOW_AUTH_DIRECTLY, true)
             .apply()
         disableHardcoreLock(context)
     }
@@ -399,7 +467,7 @@ object NativeAlarmStore {
         return soonest
     }
 
-    private fun JSONObject.toNativeAlarmItem(): NativeAlarmItem {
+    private fun JSONObject.toNativeAlarmItem(isTest: Boolean = false): NativeAlarmItem {
         val pulse = optJSONObject("pulse") ?: JSONObject()
         val daysJson = optJSONArray("days") ?: JSONArray()
         val gamesJson = pulse.optJSONArray("games")
@@ -419,6 +487,7 @@ object NativeAlarmStore {
             games = gameIds.size,
             gameIds = gameIds,
             rawJson = toString(),
+            isTest = isTest,
         )
     }
 

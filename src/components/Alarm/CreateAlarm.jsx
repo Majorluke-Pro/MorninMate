@@ -80,6 +80,13 @@ const REQUIRED_GAMES_BY_INTENSITY = {
   hardcore: 3,
 };
 
+const DIFFICULTY_LEVEL_BY_INTENSITY = {
+  gentle: 1,
+  moderate: 2,
+  intense: 3,
+  hardcore: 4,
+};
+
 const REPEAT_MODES = [
   { value: 'once',     label: 'Once' },
   { value: 'custom',   label: 'Custom' },
@@ -87,6 +94,28 @@ const REPEAT_MODES = [
   { value: 'weekend',  label: 'Weekend' },
   { value: 'every',    label: 'Every day' },
 ];
+
+function DifficultyDots({ level }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+      {Array.from({ length: 4 }).map((_, index) => {
+        const filled = index < level;
+        return (
+          <span
+            key={index}
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: filled ? '#FF6B35' : 'rgba(255,255,255,0.16)',
+              boxShadow: filled ? '0 0 8px rgba(255,107,53,0.35)' : 'none',
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
@@ -535,6 +564,7 @@ export default function CreateAlarm() {
                     >
                       +{opt.xp} XP
                     </div>
+                    <DifficultyDots level={DIFFICULTY_LEVEL_BY_INTENSITY[opt.value] ?? 0} />
                   </button>
                 </div>
               );

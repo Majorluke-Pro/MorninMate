@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,7 +45,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -460,8 +460,14 @@ private fun NativeCreateAlarmScreen(
                                     else { intensity = option.id; selectedGames = emptySet() }
                                 },
                                 trailing = {
-                                    if (isSelected) Icon(Icons.Default.Check, null, tint = option.color, modifier = Modifier.size(17.dp))
-                                    else Spacer(Modifier.size(18.dp))
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    ) {
+                                        DifficultyDots(level = difficultyLevel(option.id))
+                                        if (isSelected) Icon(Icons.Default.Check, null, tint = option.color, modifier = Modifier.size(17.dp))
+                                        else Spacer(Modifier.size(18.dp))
+                                    }
                                 },
                             )
                         }
@@ -529,30 +535,62 @@ private fun NativeCreateAlarmScreen(
 private fun TopBar(title: String, onClose: () -> Unit, onSave: () -> Unit, canSave: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color    = Night.copy(alpha = 0.98f),
-        border   = BorderStroke(1.dp, Divider),
+        color    = Night.copy(alpha = 0.96f),
+        border   = BorderStroke(1.dp, Color.White.copy(alpha = 0.06f)),
     ) {
         Row(
-            modifier            = Modifier.fillMaxWidth().statusBarsPadding().height(56.dp).padding(horizontal = 6.dp),
+            modifier            = Modifier.fillMaxWidth().statusBarsPadding().height(64.dp).padding(horizontal = 14.dp),
             verticalAlignment   = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            IconButton(onClick = onClose) {
+            Surface(
+                modifier = Modifier.size(42.dp).clickable(onClick = onClose),
+                shape = CircleShape,
+                color = PanelSoft.copy(alpha = 0.92f),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
+                shadowElevation = 8.dp,
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                 Text("✕", color = TextMuted, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
             }
             Text(
                 title,
-                modifier   = Modifier.weight(1f).padding(horizontal = 4.dp),
+                modifier   = Modifier.weight(1f),
                 color      = TextPrimary,
-                fontSize   = 17.sp,
+                fontSize   = 18.sp,
                 fontWeight = FontWeight.Black,
             )
-            IconButton(onClick = onSave, enabled = canSave) {
+            Surface(
+                modifier = Modifier
+                    .height(42.dp)
+                    .widthIn(min = 82.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .clickable(enabled = canSave, onClick = onSave),
+                shape = RoundedCornerShape(22.dp),
+                color = if (canSave) Dawn else PanelSoft.copy(alpha = 0.72f),
+                border = BorderStroke(1.dp, if (canSave) Sunrise.copy(alpha = 0.32f) else Color.White.copy(alpha = 0.08f)),
+                shadowElevation = if (canSave) 10.dp else 0.dp,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
                 Icon(
                     Icons.Default.Check,
                     contentDescription = "Save",
-                    tint   = if (canSave) Dawn else TextMuted.copy(alpha = 0.4f),
-                    modifier = Modifier.size(22.dp),
+                    tint = if (canSave) Color.White else TextMuted.copy(alpha = 0.42f),
+                    modifier = Modifier.size(18.dp),
                 )
+                    Spacer(Modifier.size(6.dp))
+                    Text(
+                        "Save",
+                        color = if (canSave) Color.White else TextMuted.copy(alpha = 0.42f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
             }
         }
     }
@@ -772,6 +810,28 @@ private fun initialDays(alarm: JSONObject?): List<Int> {
     val array  = alarm?.optJSONArray("days") ?: return result
     for (i in 0 until array.length()) { val d = array.optInt(i, -1); if (d in 0..6) result.add(d) }
     return result.distinct()
+}
+
+@Composable
+private fun DifficultyDots(level: Int) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        repeat(4) { index ->
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .clip(CircleShape)
+                    .background(if (index < level) Dawn else TextMuted.copy(alpha = 0.22f)),
+            )
+        }
+    }
+}
+
+private fun difficultyLevel(intensity: String): Int = when (intensity) {
+    "gentle" -> 1
+    "moderate" -> 2
+    "intense" -> 3
+    "hardcore" -> 4
+    else -> 0
 }
 
 private fun initialGames(alarm: JSONObject?, intensity: String): Set<String> {

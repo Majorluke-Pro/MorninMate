@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,13 +21,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bolt
@@ -52,17 +51,21 @@ import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.WbTwilight
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -71,15 +74,14 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.flow.distinctUntilChanged
 import java.util.Calendar
+import java.util.Locale
 
 private val ObBg = Color(0xFF111827)
 private val ObCard = Color(0xFF1E2533)
@@ -92,9 +94,6 @@ private val ObMint = Color(0xFF06D6A0)
 private val ObGold = Color(0xFFFFD166)
 private val ObBlue = Color(0xFF60A5FA)
 private val ObPurple = Color(0xFFA78BFA)
-private val ObWheelRowHeight = 46.dp
-private const val ObWheelVisibleRows = 5
-private const val ObWheelCycles = 200
 
 private val stepIds = listOf("welcome", "wakeTime", "morningType", "game", "goal", "name", "age", "country", "avatar", "summary")
 
@@ -126,7 +125,23 @@ private val goalPresets = listOf(
     PresetOption("Journaling", Icons.Default.TrackChanges),
 )
 
-private val countries = listOf("South Africa", "United States", "United Kingdom", "Canada", "Australia", "India")
+private fun getCountries(): ArrayList<String> {
+    val isoCountryCodes = Locale.getISOCountries()
+    val countriesWithEmojis: ArrayList<String> = arrayListOf()
+    for (countryCode in isoCountryCodes) {
+        val locale = Locale("", countryCode)
+        val countryName = locale.displayCountry
+        if (countryName.isBlank()) continue
+        val flagOffset = 0x1F1E6
+        val asciiOffset = 0x41
+        val firstChar = countryCode[0].code - asciiOffset + flagOffset
+        val secondChar = countryCode[1].code - asciiOffset + flagOffset
+        val flag = String(Character.toChars(firstChar)) + String(Character.toChars(secondChar))
+        countriesWithEmojis.add("$countryName $flag")
+    }
+    countriesWithEmojis.sort()
+    return countriesWithEmojis
+}
 
 private val avatarOptions = listOf(
     AvatarOption("bolt", "Bolt", Icons.Default.Bolt, ObDawn),
@@ -139,6 +154,7 @@ private val avatarOptions = listOf(
 
 private var nativeOnboardingView: ComposeView? = null
 private var nativeOnboardingActivity: ComponentActivity? = null
+private val onboardingResetToken = mutableStateOf(0)
 
 fun setupNativeOnboardingScreen(activity: ComponentActivity) {
     nativeOnboardingActivity = activity
@@ -151,17 +167,19 @@ fun setupNativeOnboardingScreen(activity: ComponentActivity) {
         translationZ = 90f
         setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         setContent {
-            NativeOnboardingScreen { data ->
-                (nativeOnboardingActivity as? MainActivity)?.completeNativeOnboarding(
-                    data.name,
-                    data.wakeTime,
-                    data.favoriteGame,
-                    data.morningRating,
-                    data.wakeGoal,
-                    data.age,
-                    data.country,
-                    data.profileIcon,
-                )
+            key(onboardingResetToken.value) {
+                NativeOnboardingScreen { data ->
+                    (nativeOnboardingActivity as? MainActivity)?.completeNativeOnboarding(
+                        data.name,
+                        data.wakeTime,
+                        data.favoriteGame,
+                        data.morningRating,
+                        data.wakeGoal,
+                        data.age,
+                        data.country,
+                        data.profileIcon,
+                    )
+                }
             }
         }
     }
@@ -179,6 +197,10 @@ fun setNativeOnboardingVisible(visible: Boolean) {
     nativeOnboardingView?.post {
         nativeOnboardingView?.visibility = if (visible) View.VISIBLE else View.GONE
     }
+}
+
+fun resetNativeOnboardingScreen() {
+    onboardingResetToken.value += 1
 }
 
 private data class OnboardingData(
@@ -418,18 +440,6 @@ private fun WakeTimeStep(value: String, onChange: (String) -> Unit) {
     }
 }
 
-private fun onboardingWheelIndex(index: Int, valueCount: Int): Int =
-    ((index % valueCount) + valueCount) % valueCount
-
-private fun nearestOnboardingWheelIndex(currentIndex: Int, selectedIndex: Int, valueCount: Int): Int {
-    val currentValueIndex = onboardingWheelIndex(currentIndex, valueCount)
-    val forward = (selectedIndex - currentValueIndex + valueCount) % valueCount
-    val backward = forward - valueCount
-    val delta = if (kotlin.math.abs(backward) < forward) backward else forward
-    return currentIndex + delta
-}
-
-
 @Composable
 private fun MorningTypeStep(selected: Int, onSelect: (Int) -> Unit) {
     StepHeader(Icons.Default.Person, "Step 2", "What kind of morning person are you?", "Be honest and we'll shape the wake-up experience around it")
@@ -476,48 +486,10 @@ private fun TextInputStep(icon: ImageVector, eyebrow: String, title: String, sub
 }
 
 @Composable
-private fun BirthYearStep(value: String, onChange: (String) -> Unit) {
+private fun BirthYearStep(birthYear: String, onChange: (String) -> Unit) {
     val currentYear = Calendar.getInstance().get(Calendar.YEAR)
-    val years = remember(currentYear) { (currentYear downTo currentYear - 100).toList() }
-    val selectedYear = value.toIntOrNull()?.coerceIn(currentYear - 100, currentYear) ?: currentYear - 25
-    val valueCount = years.size
-    val selectedIndex = years.indexOf(selectedYear).coerceAtLeast(0)
-    val initialIndex = remember(valueCount) { (valueCount * ObWheelCycles / 2) + selectedIndex }
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
-    val rowHeightPx = with(LocalDensity.current) { ObWheelRowHeight.toPx() }
-    val virtualCount = valueCount * ObWheelCycles
-    val centeredIndex by remember {
-        androidx.compose.runtime.derivedStateOf {
-            (listState.firstVisibleItemIndex +
-                if (listState.firstVisibleItemScrollOffset > rowHeightPx / 2f) 1 else 0)
-                .coerceIn(0, virtualCount - 1)
-        }
-    }
-    val centeredValueIndex by remember {
-        androidx.compose.runtime.derivedStateOf { onboardingWheelIndex(centeredIndex, valueCount) }
-    }
-
-    LaunchedEffect(selectedIndex) {
-        if (!listState.isScrollInProgress && selectedIndex != centeredValueIndex) {
-            listState.scrollToItem(nearestOnboardingWheelIndex(centeredIndex, selectedIndex, valueCount))
-        }
-    }
-
-    LaunchedEffect(listState, years) {
-        snapshotFlow { centeredValueIndex }
-            .distinctUntilChanged()
-            .collect { index -> onChange(years[index].toString()) }
-    }
-
-    LaunchedEffect(listState, years) {
-        snapshotFlow { listState.isScrollInProgress }
-            .distinctUntilChanged()
-            .collect { scrolling ->
-                if (!scrolling) {
-                    listState.animateScrollToItem(centeredIndex)
-                }
-            }
-    }
+    val minYear = currentYear - 100
+    val selectedYear = birthYear.toIntOrNull()?.coerceIn(minYear, currentYear) ?: currentYear - 25
 
     StepHeader(Icons.Default.Cake, "Step 6", "What year were you born?", "Pick your birth year only")
     Surface(
@@ -526,76 +498,131 @@ private fun BirthYearStep(value: String, onChange: (String) -> Unit) {
         color = ObInput,
         border = BorderStroke(1.dp, ObDawn.copy(alpha = 0.45f)),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(230.dp)
-                .padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(ObWheelRowHeight)
-                    .padding(horizontal = 18.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = ObDawn.copy(alpha = 0.12f),
-                border = BorderStroke(1.dp, ObDawn.copy(alpha = 0.42f)),
-            ) {}
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(ObWheelRowHeight * ObWheelVisibleRows),
-                contentPadding = PaddingValues(vertical = ObWheelRowHeight * 2),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                items(virtualCount) { index ->
-                    val valueIndex = onboardingWheelIndex(index, valueCount)
-                    val year = years[valueIndex]
-                    val selected = index == centeredIndex
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(ObWheelRowHeight)
-                            .clickable { onChange(year.toString()) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = year.toString(),
-                            color = if (selected) ObText else ObMuted,
-                            fontSize = if (selected) 28.sp else 18.sp,
-                            fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
-                        )
-                    }
+        Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Selected year", color = ObMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(selectedYear.toString(), color = ObText, fontSize = 38.sp, fontWeight = FontWeight.Black)
                 }
+                Text("${currentYear - selectedYear} years ago", color = ObDawn, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .height(ObWheelRowHeight * 2)
-                    .background(Brush.verticalGradient(listOf(ObInput, ObInput.copy(alpha = 0f)))),
+            Spacer(Modifier.height(14.dp))
+            Slider(
+                value = selectedYear.toFloat(),
+                onValueChange = { next ->
+                    onChange(next.toInt().coerceIn(minYear, currentYear).toString())
+                },
+                valueRange = minYear.toFloat()..currentYear.toFloat(),
+                steps = (currentYear - minYear - 1).coerceAtLeast(0),
+                colors = SliderDefaults.colors(
+                    thumbColor = ObDawn,
+                    activeTrackColor = ObDawn,
+                    inactiveTrackColor = Color(0xFF2D3748),
+                ),
             )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(ObWheelRowHeight * 2)
-                    .background(Brush.verticalGradient(listOf(ObInput.copy(alpha = 0f), ObInput))),
-            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(minYear.toString(), color = ObMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(currentYear.toString(), color = ObMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
     Spacer(Modifier.height(10.dp))
-    Text("Selected birth year: $selectedYear", color = ObMuted, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+    Text("Drag the slider to set your birth year.", color = ObMuted, fontSize = 12.sp, lineHeight = 16.sp)
 }
 
 @Composable
 private fun CountryStep(selected: String, onSelect: (String) -> Unit) {
+    var searchText by remember { mutableStateOf("") }
+    val countries = remember { getCountries() }
+    val filteredCountries = remember(searchText, countries) {
+        if (searchText.isBlank()) {
+            countries
+        } else {
+            val query = searchText.lowercase(Locale.ROOT)
+            countries.filter { country ->
+                country.lowercase(Locale.ROOT).contains(query)
+            }
+        }
+    }
+
     StepHeader(Icons.Default.Public, "Step 7", "Which country are you in?", "We'll tailor the experience around where you are")
-    ChoiceList {
-        countries.forEach { country ->
-            SelectRow(country, "", Icons.Default.Public, ObDawn, selected == country) { onSelect(country) }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = { searchText = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text("Search country") },
+            trailingIcon = {
+                if (searchText.isNotBlank()) {
+                    IconButton(onClick = { searchText = "" }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                    }
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ObDawn,
+                unfocusedBorderColor = ObBorder,
+                focusedContainerColor = ObInput,
+                unfocusedContainerColor = ObInput,
+                focusedTextColor = ObText,
+                unfocusedTextColor = ObText,
+                cursorColor = ObDawn,
+                focusedPlaceholderColor = ObMuted,
+                unfocusedPlaceholderColor = ObMuted,
+            ),
+        )
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            color = ObInput,
+            border = BorderStroke(1.dp, ObBorder),
+        ) {
+            if (filteredCountries.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .padding(18.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("No countries match your search.", color = ObMuted, fontSize = 13.sp, textAlign = TextAlign.Center)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp),
+                ) {
+                    items(filteredCountries, key = { it }) { country ->
+                        val isSelected = selected == country
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(country) },
+                            color = if (isSelected) ObDawn.copy(alpha = 0.08f) else ObInput,
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                Text(
+                                    text = country,
+                                    color = if (isSelected) ObText else Color(0xFFD1D5DB),
+                                    fontSize = 14.sp,
+                                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (isSelected) {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = ObDawn, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                        Divider(color = ObBorder.copy(alpha = 0.55f))
+                    }
+                }
+            }
         }
     }
 }

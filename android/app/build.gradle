@@ -1,5 +1,6 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
+apply from: 'capacitor.build.gradle'
 
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('keystore.properties')
@@ -67,6 +68,7 @@ android {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation project(':capacitor-android')
     implementation platform('androidx.compose:compose-bom:2024.10.01')
     implementation 'androidx.activity:activity-compose:1.9.2'
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"

@@ -46,6 +46,19 @@ export default function AuthScreen() {
           return;
         }
 
+        const existingUser = data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0;
+        if (existingUser) {
+          setMode('signin');
+          setMessage('This email already has an account. Sign in with your password instead.');
+          setConfirmPassword('');
+          return;
+        }
+
+        try {
+          localStorage.setItem('mm_native_signup_requires_onboarding', '1');
+          localStorage.setItem('mm_native_reset_needed', '1');
+        } catch {}
+
         if (!data.session) {
           setMessage('Account created. If email confirmation is enabled, confirm your email, then sign in with your password.');
           setMode('signin');
