@@ -500,7 +500,7 @@ private fun AlarmCardNative(
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Chip(labelForIntensity(alarm.intensity), colorForIntensity(alarm.intensity))
-                        Chip("${alarm.games} game${if (alarm.games == 1) "" else "s"}", AlarmMuted)
+                        Chip(if (alarm.intensity == "hardcore") "Barcode scan" else "${alarm.games} game${if (alarm.games == 1) "" else "s"}", AlarmMuted)
                     }
                 }
             }

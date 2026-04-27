@@ -1,8 +1,18 @@
 package com.morninmate.app
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.view.View
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,6 +49,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,12 +62,22 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.delay
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.Executors
 import kotlin.random.Random
 
 private val RingBg = Color(0xFF090912)
@@ -118,7 +139,9 @@ private fun NativeRingingAlarmScreen(alarm: NativeAlarmItem) {
     var phase by remember(alarm.id) { mutableStateOf("intro") }
     var restarts by remember(alarm.id) { mutableStateOf(0) }
     var results by remember(alarm.id) { mutableStateOf(emptyList<String>()) }
-    val games = remember(alarm.id, alarm.gameIds) { alarm.gameIds.ifEmpty { listOf("math") } }
+    val games = remember(alarm.id, alarm.intensity, alarm.gameIds) {
+        if (alarm.intensity == "hardcore") listOf("barcode") else alarm.gameIds.ifEmpty { listOf("math") }
+    }
     val completed = gameIndex >= games.size
     val difficulty = difficultyForIntensity(alarm.intensity)
 
@@ -201,6 +224,12 @@ private fun NativeRingingAlarmScreen(alarm: NativeAlarmItem) {
                                 restarts += 1
                             },
                         )
+                        if (alarm.isTest) {
+                            Spacer(Modifier.height(14.dp))
+                            TestAlarmExitButton {
+                                (ringingActivity as? MainActivity)?.dismissNativeAlarm(alarm.id)
+                            }
+                        }
                     }
                 }
             }
@@ -241,17 +270,32 @@ private fun TestAlarmStopButton(onStop: () -> Unit) {
             ) {
                 Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.size(8.dp))
-                Text("End test alarm", fontWeight = FontWeight.Black)
+                Text("Exit test alarm", fontWeight = FontWeight.Black)
             }
         }
     }
 }
 
 @Composable
+private fun TestAlarmExitButton(onStop: () -> Unit) {
+    Button(
+        onClick = onStop,
+        colors = ButtonDefaults.buttonColors(containerColor = RingDanger.copy(alpha = 0.92f)),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.size(8.dp))
+        Text("Exit test alarm", fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
 private fun WakeIntro(alarm: NativeAlarmItem, games: List<String>, onStart: () -> Unit) {
+    val isBarcodeWake = games.size == 1 && games.first() == "barcode"
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            "Complete these to dismiss",
+            if (isBarcodeWake) "Scan to dismiss" else "Complete these to dismiss",
             color = RingMuted,
             fontSize = 12.sp,
             fontWeight = FontWeight.Black,
@@ -275,7 +319,11 @@ private fun WakeIntro(alarm: NativeAlarmItem, games: List<String>, onStart: () -
             }
         }
         Text(
-            "${alarm.intensity.replaceFirstChar { it.uppercase() }} pulse - ${games.size} game${if (games.size == 1) "" else "s"}",
+            if (isBarcodeWake) {
+                "Hardcore pulse - any barcode unlocks the alarm"
+            } else {
+                "${alarm.intensity.replaceFirstChar { it.uppercase() }} pulse - ${games.size} game${if (games.size == 1) "" else "s"}"
+            },
             color = RingMuted.copy(alpha = 0.75f),
             fontSize = 12.sp,
             textAlign = TextAlign.Center,
@@ -286,7 +334,7 @@ private fun WakeIntro(alarm: NativeAlarmItem, games: List<String>, onStart: () -
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(if (alarm.intensity == "hardcore") "Begin - No escape" else "Start wake-up routine", fontWeight = FontWeight.Black)
+            Text(if (isBarcodeWake) "Open scanner" else "Start wake-up routine", fontWeight = FontWeight.Black)
         }
     }
 }
@@ -294,10 +342,11 @@ private fun WakeIntro(alarm: NativeAlarmItem, games: List<String>, onStart: () -
 @Composable
 private fun WakeProgressHeader(gameIndex: Int, games: List<String>, restarts: Int) {
     val progress = gameIndex / games.size.toFloat()
+    val isBarcodeWake = games[gameIndex] == "barcode"
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Game ${gameIndex + 1} of ${games.size}",
+                if (isBarcodeWake) "Barcode scan required" else "Game ${gameIndex + 1} of ${games.size}",
                 color = RingMuted,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Black,
@@ -335,9 +384,10 @@ private fun WakeProgressHeader(gameIndex: Int, games: List<String>, restarts: In
 
 @Composable
 private fun WakeComplete(results: List<String>, restarts: Int, onDismiss: () -> Unit) {
+    val barcodeOnly = results.size == 1 && results.first() == "barcode"
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = RingMint, modifier = Modifier.size(52.dp))
-        Text("Games complete", color = RingText, fontSize = 24.sp, fontWeight = FontWeight.Black)
+        Text(if (barcodeOnly) "Barcode scanned" else "Games complete", color = RingText, fontSize = 24.sp, fontWeight = FontWeight.Black)
         results.forEach { game ->
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 GameIcon(game, gameColor(game))
@@ -365,9 +415,190 @@ private fun WakeComplete(results: List<String>, restarts: Int, onDismiss: () -> 
 @Composable
 private fun WakeChallenge(game: String, difficulty: WakeDifficulty, restartKey: Int, onComplete: () -> Unit, onFail: () -> Unit) {
     when (game) {
+        "barcode" -> BarcodeScannerChallenge(onComplete)
         "memory" -> MemoryChallenge(difficulty, restartKey, onComplete, onFail)
         "reaction" -> ReactionChallenge(difficulty, restartKey, onComplete, onFail)
         else -> MathChallenge(difficulty, restartKey, onComplete, onFail)
+    }
+}
+
+@androidx.annotation.OptIn(ExperimentalGetImage::class)
+@Composable
+private fun BarcodeScannerChallenge(onComplete: () -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val mainExecutor = remember(context) { ContextCompat.getMainExecutor(context) }
+    val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
+    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    var hasCameraPermission by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+    }
+    var scanState by remember { mutableStateOf("Point the camera at any barcode") }
+    var completed by remember { mutableStateOf(false) }
+    var holdSecondsLeft by remember { mutableStateOf(5) }
+    val stableBarcode = remember { AtomicReference<String?>(null) }
+    val stableSinceMs = remember { AtomicLong(0L) }
+    val completedAtomic = remember { AtomicBoolean(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        hasCameraPermission = granted || ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        scanState = if (hasCameraPermission) "Point the camera at any barcode" else "Camera permission is required"
+    }
+
+    LaunchedEffect(hasCameraPermission) {
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+            while (!hasCameraPermission) {
+                delay(350)
+                val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                if (granted) {
+                    hasCameraPermission = true
+                    scanState = "Point the camera at any barcode"
+                }
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            cameraProvider?.unbindAll()
+            cameraExecutor.shutdown()
+        }
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        TimedHeader(
+            title = "Barcode Scan",
+            left = "Hold any barcode in place for 5 seconds",
+            right = "",
+            progress = if (completed) 1f else ((5 - holdSecondsLeft) / 5f).coerceIn(0f, 1f),
+            color = RingDawn,
+        )
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            color = Color.Black.copy(alpha = 0.34f),
+            border = BorderStroke(1.dp, RingDawn.copy(alpha = 0.34f)),
+        ) {
+            Box(modifier = Modifier.fillMaxWidth().height(330.dp), contentAlignment = Alignment.Center) {
+                if (!hasCameraPermission) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(22.dp)) {
+                        Text(
+                            "Camera permission is required",
+                            color = RingText,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Center,
+                        )
+                        Button(
+                            onClick = {
+                                val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+                                if (granted) {
+                                    hasCameraPermission = true
+                                    scanState = "Point the camera at any barcode"
+                                } else {
+                                    permissionLauncher.launch(Manifest.permission.CAMERA)
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = RingDawn),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Text("Allow camera", fontWeight = FontWeight.Black)
+                        }
+                    }
+                } else {
+                    AndroidView(
+                        modifier = Modifier.fillMaxSize(),
+                        factory = { viewContext ->
+                            PreviewView(viewContext).apply {
+                                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                                scaleType = PreviewView.ScaleType.FILL_CENTER
+                                val providerFuture = ProcessCameraProvider.getInstance(viewContext)
+                                providerFuture.addListener({
+                                    val provider = providerFuture.get()
+                                    cameraProvider = provider
+                                    val preview = Preview.Builder().build().also {
+                                        it.setSurfaceProvider(surfaceProvider)
+                                    }
+                                    val scanner = BarcodeScanning.getClient()
+                                    val analysis = ImageAnalysis.Builder()
+                                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                        .build()
+                                    analysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                                        val mediaImage = imageProxy.image
+                                        if (mediaImage == null || completedAtomic.get()) {
+                                            imageProxy.close()
+                                            return@setAnalyzer
+                                        }
+                                        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                                        scanner.process(image)
+                                            .addOnSuccessListener { barcodes ->
+                                                val value = barcodes.firstOrNull { !it.rawValue.isNullOrBlank() }?.rawValue
+                                                val now = System.currentTimeMillis()
+                                                if (value.isNullOrBlank()) {
+                                                    stableBarcode.set(null)
+                                                    stableSinceMs.set(0L)
+                                                    holdSecondsLeft = 5
+                                                    scanState = "Point the camera at any barcode"
+                                                    return@addOnSuccessListener
+                                                }
+
+                                                if (stableBarcode.get() != value) {
+                                                    stableBarcode.set(value)
+                                                    stableSinceMs.set(now)
+                                                    holdSecondsLeft = 5
+                                                    scanState = "Hold it steady for 5 seconds"
+                                                    return@addOnSuccessListener
+                                                }
+
+                                                val elapsedMs = now - stableSinceMs.get()
+                                                val secondsLeft = (5 - (elapsedMs / 1000L).toInt()).coerceIn(0, 5)
+                                                holdSecondsLeft = secondsLeft
+                                                scanState = if (secondsLeft > 0) {
+                                                    "Keep holding: ${secondsLeft}s"
+                                                } else {
+                                                    "Barcode held"
+                                                }
+                                                if (elapsedMs >= 5000L && completedAtomic.compareAndSet(false, true)) {
+                                                    completed = true
+                                                    provider.unbindAll()
+                                                    onComplete()
+                                                }
+                                            }
+                                            .addOnFailureListener {
+                                                scanState = "Keep barcode steady in frame"
+                                            }
+                                            .addOnCompleteListener {
+                                                imageProxy.close()
+                                            }
+                                    }
+                                    try {
+                                        provider.unbindAll()
+                                        provider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis)
+                                    } catch (error: Exception) {
+                                        scanState = "Camera could not start: ${error.message ?: "unknown error"}"
+                                    }
+                                }, mainExecutor)
+                            }
+                        },
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(330.dp)
+                            .padding(34.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().height(150.dp),
+                            shape = RoundedCornerShape(18.dp),
+                            color = Color.Transparent,
+                            border = BorderStroke(3.dp, RingDawn.copy(alpha = 0.76f)),
+                        ) {}
+                    }
+                }
+            }
+        }
+        Text(scanState, color = if (completed) RingMint else RingMuted, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
     }
 }
 
@@ -751,7 +982,7 @@ private fun TimedHeader(title: String, left: String, right: String, progress: Fl
 private fun GameIcon(game: String, color: Color) {
     Surface(shape = RoundedCornerShape(12.dp), color = color.copy(alpha = 0.14f), border = BorderStroke(1.dp, color.copy(alpha = 0.30f))) {
         Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
-            Text(when (game) { "memory" -> "M"; "reaction" -> "R"; else -> "123" }, color = color, fontWeight = FontWeight.Black, fontSize = 13.sp)
+            Text(when (game) { "barcode" -> "|||"; "memory" -> "M"; "reaction" -> "R"; else -> "123" }, color = color, fontWeight = FontWeight.Black, fontSize = 13.sp)
         }
     }
 }
@@ -810,12 +1041,14 @@ private fun ratingColor(ms: Int): Color = when {
 }
 
 private fun gameColor(game: String): Color = when (game) {
+    "barcode" -> RingDanger
     "memory" -> RingSunrise
     "reaction" -> RingMint
     else -> RingDawn
 }
 
 private fun gameLabel(game: String): String = when (game) {
+    "barcode" -> "Barcode Scan"
     "memory" -> "Memory Match"
     "reaction" -> "Reaction Rush"
     else -> "Math Blitz"

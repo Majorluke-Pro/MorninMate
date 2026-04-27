@@ -26,10 +26,10 @@ import {
   stopAlarmPlayback,
 } from '../../lib/nativeAlarms';
 
-const GAME_MAP    = { math: MathGame, memory: MemoryGame, reaction: ReactionGame };
-const GAME_LABELS = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush' };
-const GAME_ICONS  = { math: CalculateIcon, memory: StyleIcon, reaction: BoltIcon };
-const GAME_COLORS = { math: '#FF6B35', memory: '#FFD166', reaction: '#06D6A0' };
+const GAME_MAP    = { math: MathGame, memory: MemoryGame, reaction: ReactionGame, barcode: BarcodeScanChallenge };
+const GAME_LABELS = { math: 'Math Blitz', memory: 'Memory Match', reaction: 'Reaction Rush', barcode: 'Barcode Scan' };
+const GAME_ICONS  = { math: CalculateIcon, memory: StyleIcon, reaction: BoltIcon, barcode: LocalFireDepartmentIcon };
+const GAME_COLORS = { math: '#FF6B35', memory: '#FFD166', reaction: '#06D6A0', barcode: '#EF1C1C' };
 const DIFFICULTY_MAP = { gentle: 'easy', moderate: 'normal', intense: 'hard', hardcore: 'hard' };
 const XP_REWARD      = { gentle: 20, moderate: 35, intense: 60, hardcore: 100 };
 const INACTIVITY_BY_INTENSITY = { gentle: 30, moderate: 30, intense: 30, hardcore: 10 };
@@ -44,8 +44,8 @@ export default function WakeUpFlow() {
     resetWakeSessionTracking,
   } = useApp();
 
-  const games            = activeAlarm?.pulse?.games || ['math'];
   const intensity        = activeAlarm?.pulse?.intensity || 'moderate';
+  const games            = intensity === 'hardcore' ? ['barcode'] : activeAlarm?.pulse?.games || ['math'];
   const difficulty       = DIFFICULTY_MAP[intensity];
   const xpReward         = XP_REWARD[intensity];
   const isHardcore       = intensity === 'hardcore';
@@ -207,7 +207,7 @@ export default function WakeUpFlow() {
       <div style={{ marginBottom: '32px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', gap: '12px', alignItems: 'center' }}>
           <span className="text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
-            Game {gameIndex + 1} of {games.length}
+            {currentGame === 'barcode' ? 'Barcode scan required' : `Game ${gameIndex + 1} of ${games.length}`}
           </span>
           {!isHardcore && (
             <button
@@ -285,6 +285,132 @@ export default function WakeUpFlow() {
   );
 }
 
+function BarcodeScanChallenge({ onComplete, onActivity }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const stableRef = useRef({ value: null, since: 0 });
+  const [status, setStatus] = useState('Point the camera at any barcode');
+  const [supported, setSupported] = useState(true);
+  const [holdLeft, setHoldLeft] = useState(5);
+
+  useEffect(() => {
+    let cancelled = false;
+    let frameId = null;
+    let detector = null;
+
+    async function startScanner() {
+      if (!('BarcodeDetector' in window) || !navigator.mediaDevices?.getUserMedia) {
+        setSupported(false);
+        setStatus('Barcode scanning is not available in this browser');
+        return;
+      }
+
+      try {
+        detector = new window.BarcodeDetector();
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false,
+        });
+        if (cancelled) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+
+        async function scan() {
+          if (cancelled || !videoRef.current) return;
+          onActivity?.();
+          try {
+            const codes = await detector.detect(videoRef.current);
+            const value = codes.find(code => code.rawValue)?.rawValue;
+            const now = Date.now();
+            if (!value) {
+              stableRef.current = { value: null, since: 0 };
+              setHoldLeft(5);
+              setStatus('Point the camera at any barcode');
+            } else if (stableRef.current.value !== value) {
+              stableRef.current = { value, since: now };
+              setHoldLeft(5);
+              setStatus('Hold it steady for 5 seconds');
+            } else {
+              const elapsed = now - stableRef.current.since;
+              const left = Math.max(0, Math.min(5, 5 - Math.floor(elapsed / 1000)));
+              setHoldLeft(left);
+              setStatus(left > 0 ? `Keep holding: ${left}s` : 'Barcode held');
+              if (elapsed >= 5000) {
+              onComplete();
+              return;
+              }
+            }
+          } catch {
+            setStatus('Keep the barcode steady in frame');
+          }
+          frameId = requestAnimationFrame(scan);
+        }
+
+        frameId = requestAnimationFrame(scan);
+      } catch {
+        setStatus('Camera permission is required for hardcore mode');
+      }
+    }
+
+    startScanner();
+
+    return () => {
+      cancelled = true;
+      if (frameId) cancelAnimationFrame(frameId);
+      streamRef.current?.getTracks().forEach(track => track.stop());
+    };
+  }, [onActivity, onComplete]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
+      <div style={{
+        width: '100%',
+        maxWidth: 380,
+        aspectRatio: '3 / 4',
+        borderRadius: 18,
+        overflow: 'hidden',
+        border: '2px solid rgba(239,28,28,0.45)',
+        background: 'rgba(0,0,0,0.38)',
+        position: 'relative',
+      }}>
+        {supported && (
+          <video
+            ref={videoRef}
+            playsInline
+            muted
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        )}
+        <div style={{
+          position: 'absolute',
+          left: '12%',
+          right: '12%',
+          top: '40%',
+          height: 110,
+          borderRadius: 16,
+          border: '3px solid rgba(255,255,255,0.86)',
+          boxShadow: '0 0 0 999px rgba(0,0,0,0.18)',
+          pointerEvents: 'none',
+        }} />
+      </div>
+      <p className="text-sm" style={{ color: supported ? 'rgba(255,255,255,0.68)' : '#FFD166', fontWeight: 800, margin: 0, textAlign: 'center' }}>
+        {status}
+      </p>
+      {supported && (
+        <div style={{ width: '100%', maxWidth: 380, height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${((5 - holdLeft) / 5) * 100}%`, background: 'linear-gradient(90deg, #EF1C1C, #FFD166)', transition: 'width 160ms ease' }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IntroScreen({ alarm, games, intensity, xpReward, isHardcore, onStart }) {
   const INTENSITY_ICON  = { gentle: SpaIcon, moderate: WhatshotIcon, intense: FlashOnIcon, hardcore: LocalFireDepartmentIcon };
   const INTENSITY_COLOR = { gentle: '#06D6A0', moderate: '#FFD166', intense: '#EF476F', hardcore: '#EF1C1C' };
@@ -354,7 +480,7 @@ function IntroScreen({ alarm, games, intensity, xpReward, isHardcore, onStart })
         </div>
       )}
       <span className="text-xs" style={{ color: 'rgba(255,255,255,0.3)', marginBottom: '32px', display: 'block' }}>
-        No dodging it, mate — finish all games to dismiss.
+        {isHardcore ? 'No dodging it, mate — scan any barcode to dismiss.' : 'No dodging it, mate — finish all games to dismiss.'}
       </span>
 
       {/* Games card */}

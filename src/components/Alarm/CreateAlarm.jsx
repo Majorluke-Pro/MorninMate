@@ -45,7 +45,7 @@ const INTENSITY = [
   { value: 'gentle',   Icon: SpaIcon,                   label: 'Gentle',   desc: '1 game · Easy mode',         xp: 20,  color: '#06D6A0' },
   { value: 'moderate', Icon: WhatshotIcon,               label: 'Moderate', desc: '2 games · Normal mode',       xp: 35,  color: '#FFD166' },
   { value: 'intense',  Icon: FlashOnIcon,                label: 'Intense',  desc: '3 games · Hard mode',         xp: 60,  color: '#EF476F' },
-  { value: 'hardcore', Icon: LocalFireDepartmentIcon,    label: 'Hardcore', desc: '3 games · Hard · No escape',  xp: 100, color: '#EF1C1C' },
+  { value: 'hardcore', Icon: LocalFireDepartmentIcon,    label: 'Hardcore', desc: 'Barcode scan · No escape',    xp: 100, color: '#EF1C1C' },
 ];
 
 const GAMES = [
@@ -77,7 +77,7 @@ const REQUIRED_GAMES_BY_INTENSITY = {
   gentle: 1,
   moderate: 2,
   intense: 3,
-  hardcore: 3,
+  hardcore: 1,
 };
 
 const DIFFICULTY_LEVEL_BY_INTENSITY = {
@@ -177,7 +177,7 @@ export default function CreateAlarm() {
       ...f,
       pulse: {
         intensity,
-        games: intensity === 'hardcore' ? ['math', 'memory', 'reaction'] : [],
+        games: intensity === 'hardcore' ? ['barcode'] : [],
       },
     }));
   }
@@ -699,7 +699,7 @@ export default function CreateAlarm() {
             <p style={{ color: 'rgba(255,255,255,0.55)', lineHeight: 1.75, textAlign: 'center', fontSize: '0.875rem', margin: '0 0 1.5rem' }}>
               <strong style={{ color: '#EF4444' }}>Hardcore Mode</strong> forces{' '}
               <strong style={{ color: '#fff' }}>maximum volume</strong> and locks your phone
-              to this app until all 3 games are completed. There is{' '}
+              to this app until any barcode is scanned with the phone camera. There is{' '}
               <strong style={{ color: '#EF4444' }}>no way out</strong>.
             </p>
 

@@ -119,7 +119,7 @@ private val intensities = listOf(
     IntensityOption("gentle",   "Gentle",   "1 game · Easy",          20,  Mint),
     IntensityOption("moderate", "Moderate", "2 games · Normal",       35,  Sunrise),
     IntensityOption("intense",  "Intense",  "3 games · Hard",         60,  Danger),
-    IntensityOption("hardcore", "Hardcore", "3 games · No escape",   100,  Hardcore),
+    IntensityOption("hardcore", "Hardcore", "Barcode scan · No escape", 100,  Hardcore),
 )
 
 private val games = listOf(
@@ -129,7 +129,7 @@ private val games = listOf(
 )
 
 private val requiredGamesByIntensity = mapOf(
-    "gentle" to 1, "moderate" to 2, "intense" to 3, "hardcore" to 3,
+    "gentle" to 1, "moderate" to 2, "intense" to 3, "hardcore" to 1,
 )
 
 // ── Activity ──────────────────────────────────────────────────────────────────
@@ -219,13 +219,13 @@ private fun NativeCreateAlarmScreen(
             title   = { Text("Are you sure?", color = TextPrimary, fontWeight = FontWeight.Black) },
             text    = {
                 Text(
-                    "Hardcore Mode forces maximum volume and locks your phone to this app until all 3 games are completed. There is no way out.",
+                    "Hardcore Mode forces maximum volume and locks your phone to this app until you scan any barcode with the phone camera. There is no way out.",
                     color = TextMuted, lineHeight = 20.sp,
                 )
             },
             confirmButton = {
                 Button(
-                    onClick = { intensity = "hardcore"; selectedGames = games.map { it.id }.toSet(); showHardcoreWarning = false },
+                    onClick = { intensity = "hardcore"; selectedGames = setOf("barcode"); showHardcoreWarning = false },
                     colors  = ButtonDefaults.buttonColors(containerColor = Hardcore),
                 ) { Text("Lock it in", fontWeight = FontWeight.Black) }
             },
@@ -480,7 +480,7 @@ private fun NativeCreateAlarmScreen(
                 GroupCard {
                     ExpandableHeader(
                         label = "Games",
-                        badge = if (intensity != "hardcore") "${selectedGames.size}/$requiredGameCount selected" else "3/3 locked",
+                        badge = if (intensity != "hardcore") "${selectedGames.size}/$requiredGameCount selected" else "Barcode scan",
                         expanded = gamesExpanded,
                         isLast = !gamesExpanded,
                         onToggle = { gamesExpanded = !gamesExpanded },
@@ -505,17 +505,15 @@ private fun NativeCreateAlarmScreen(
                                 )
                             }
                         } else {
-                            games.forEachIndexed { i, game ->
-                                SettingsRow(
-                                    label    = game.label,
-                                    sublabel = game.desc,
-                                    isLast   = i == games.lastIndex,
-                                    onClick  = {},
-                                    trailing = {
-                                        Icon(Icons.Default.Check, null, tint = Hardcore, modifier = Modifier.size(17.dp))
-                                    },
-                                )
-                            }
+                            SettingsRow(
+                                label    = "Barcode Scan",
+                                sublabel = "Scan any barcode with the phone camera to dismiss",
+                                isLast   = true,
+                                onClick  = {},
+                                trailing = {
+                                    Icon(Icons.Default.Check, null, tint = Hardcore, modifier = Modifier.size(17.dp))
+                                },
+                            )
                         }
                     }
                     if (!gamesComplete && intensity != "hardcore") {
@@ -835,7 +833,7 @@ private fun difficultyLevel(intensity: String): Int = when (intensity) {
 }
 
 private fun initialGames(alarm: JSONObject?, intensity: String): Set<String> {
-    if (intensity == "hardcore") return games.map { it.id }.toSet()
+    if (intensity == "hardcore") return setOf("barcode")
     val valid  = games.map { it.id }.toSet()
     val parsed = mutableSetOf<String>()
     val array  = alarm?.optJSONObject("pulse")?.optJSONArray("games")

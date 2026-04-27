@@ -474,7 +474,7 @@ object NativeAlarmStore {
         val days = List(daysJson.length()) { daysJson.optInt(it) }
         val gameIds = gamesJson?.let {
             List(it.length()) { index -> it.optString(index) }
-                .filter { game -> game in setOf("math", "memory", "reaction") }
+                .filter { game -> game in setOf("math", "memory", "reaction", "barcode") }
                 .ifEmpty { listOf("math") }
         } ?: listOf("math")
         return NativeAlarmItem(
